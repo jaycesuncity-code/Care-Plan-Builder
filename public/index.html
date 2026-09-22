@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Plan Submissions Dashboard — Sun City Plumbing &amp; Heating</title>
+<style>
+  :root{
+    --maroon:#6B1A2C;
+    --maroon-dark:#4c1220;
+    --maroon-tint:#f6e9ec;
+    --gold:#C9A84C;
+    --gold-dark:#a8863a;
+    --gray-1:#f5f5f6;
+    --gray-2:#e4e4e6;
+    --gray-3:#c7c8cb;
+    --gray-4:#8a8c90;
+    --gray-5:#4a4c50;
+    --gray-6:#242527;
+    --success:#2f7a4f;
+    --success-tint:#e7f3ec;
+    --other:#8a5a63;
+    --other-tint:#f1e6e8;
+    --radius:8px;
+    --shadow:0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg:0 12px 32px rgba(0,0,0,0.22);
+    font-size:16px;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:var(--gray-1);
+    color:var(--gray-6);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Header ---------- */
+  header.topbar{
+    background:linear-gradient(135deg, var(--maroon) 0%, var(--maroon-dark) 100%);
+    color:#fff;
+    padding:20px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    box-shadow:var(--shadow);
+  }
+  header.topbar .brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  header.topbar .brand-mark{
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    background:var(--gold);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    color:var(--maroon-dark);
+    font-size:18px;
+    flex-shrink:0;
+  }
+  header.topbar h1{
+    font-size:19px;
+    margin:0;
+    font-weight:600;
+    letter-spacing:0.2px;
+  }
+  header.topbar p{
+    margin:2px 0 0;
+    font-size:13px;
+    color:rgba(255,255,255,0.75);
+  }
+  header.topbar .env-tag{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    color:#fff;
+    font-size:12px;
+    padding:5px 10px;
+    border-radius:999px;
+    font-weight:500;
+    letter-spacing:0.3px;
+  }
+
+  /* ---------- Layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns:260px 1fr;
+    gap:20px;
+    padding:20px;
+    max-width:1400px;
+    margin:0 auto;
+    align-items:start;
+  }
+
+  @media (max-width:900px){
+    .layout{
+      grid-template-columns:1fr;
+    }
+    .sidebar{
+      order:2;
+    }
+    main{
+      order:1;
+    }
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    position:sticky;
+    top:20px;
+  }
+  @media (max-width:900px){
+    .sidebar{ position:static; }
+  }
+
+  .panel{
+    background:#fff;
+    border:1px solid var(--gray-2);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .panel h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--gray-5);
+    margin:0;
+    padding:14px 16px 10px;
+    border-bottom:1px solid var(--gray-2);
+  }
+
+  /* ---------- Views nav ---------- */
+  .nav-list{
+    list-style:none;
+    margin:0;
+    padding:8px;
+  }
+  .nav-list li{ margin:0; }
+  .nav-list button{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 8px;
+    border-radius:6px;
+    color:var(--gray-6);
+    background:none;
+    border:none;
+    text-align:left;
+    font-size:14px;
+    font-family:inherit;
+    cursor:pointer;
+    transition:background 0.12s ease;
+  }
+  .nav-list button:hover{ background:var(--gray-1); }
+  .nav-list button.active{
+    background:var(--maroon-tint);
+    color:var(--maroon-dark);
+    font-weight:600;
+  }
+  .nav-list .ico{
+    width:26px;
+    height:26px;
+    border-radius:6px;
+    background:var(--gray-1);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    flex-shrink:0;
+    border:1px solid var(--gray-2);
+  }
+  .nav-list button.active .ico{ background:#fff; }
+  .nav-list .nav-count{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--gray-4);
+    background:var(--gray-1);
+    border-radius:999px;
+    padding:1px 8px;
+  }
+  .nav-list button.active .nav-count{
+    background:#fff;
+    color:var(--maroon-dark);
+  }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:var(--gray-2);
+  }
+  .stat-cell{
+    background:#fff;
+    padding:14px 16px;
+  }
+  .stat-cell .num{
+    font-size:22px;
+    font-weight:700;
+    color:var(--maroon);
+    line-height:1.1;
+  }
+  .stat-cell .label{
+    font-size:12px;
+    color:var(--gray-5);
+    margin-top:2px;
+  }
+
+  .shortcut-list{
+    list-style:none;
+    margin:0;
+    padding:8px;
+  }
+  .shortcut-list li{ margin:0; }
+  .shortcut-list a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 8px;
+    border-radius:6px;
+    color:var(--gray-6);
+    text-decoration:none;
+    font-size:14px;
+    transition:background 0.12s ease;
+  }
+  .shortcut-list a:hover{
+    background:var(--maroon-tint);
+    color:var(--maroon-dark);
+  }
+  .shortcut-list .ico{
+    width:26px;
+    height:26px;
+    border-radius:6px;
+    background:var(--gray-1);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    flex-shrink:0;
+    border:1px solid var(--gray-2);
+  }
+  .shortcut-note{
+    font-size:11px;
+    color:var(--gray-4);
+    padding:0 16px 12px;
+  }
+
+  .legend{
+    padding:12px 16px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .legend-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--gray-5);
+  }
+
+  /* ---------- Main / view header / controls ---------- */
+  main{ min-width:0; }
+
+  .view-header{
+    margin-bottom:14px;
+  }
+  .view-header h2{
+    margin:0 0 3px;
+    font-size:18px;
+    color:var(--gray-6);
+  }
+  .view-header p{
+    margin:0;
+    font-size:13px;
+    color:var(--gray-5);
+  }
+
+  .controls{
+    background:#fff;
+    border:1px solid var(--gray-2);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:14px 16px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .controls .search-wrap{
+    position:relative;
+    flex:1 1 240px;
+    min-width:200px;
+  }
+  .controls input[type="text"]{
+    width:100%;
+    padding:9px 12px 9px 32px;
+    border:1px solid var(--gray-3);
+    border-radius:6px;
+    font-size:14px;
+    color:var(--gray-6);
+    background:var(--gray-1) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="%238a8c90" stroke-width="2"><circle cx="6" cy="6" r="5"/><line x1="10" y1="10" x2="13.5" y2="13.5"/></svg>') no-repeat 10px center;
+  }
+  .controls input[type="text"]:focus{
+    outline:none;
+    border-color:var(--maroon);
+    background-color:#fff;
+  }
+  .controls select{
+    padding:9px 30px 9px 12px;
+    border:1px solid var(--gray-3);
+    border-radius:6px;
+    font-size:14px;
+    color:var(--gray-6);
+    background:#fff;
+    cursor:pointer;
+  }
+  .controls select:focus{ outline:none; border-color:var(--maroon); }
+  .controls .result-count{
+    font-size:13px;
+    color:var(--gray-5);
+    margin-left:auto;
+    white-space:nowrap;
+  }
+
+  /* ---------- Table ---------- */
+  .table-wrap{
+    background:#fff;
+    border:1px solid var(--gray-2);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+    min-width:760px;
+  }
+  thead th{
+    text-align:left;
+    padding:12px 14px;
+    background:var(--gray-1);
+    border-bottom:1px solid var(--gray-2);
+    color:var(--gray-5);
+    font-weight:600;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    white-space:nowrap;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+  }
+  thead th:hover{ color:var(--maroon); }
+  thead th .arrow{
+    display:inline-block;
+    margin-left:4px;
+    font-size:10px;
+    opacity:0.35;
+  }
+  thead th.sorted .arrow{ opacity:1; color:var(--maroon); }
+  thead th.no-sort{ cursor:default; }
+  thead th.no-sort:hover{ color:var(--gray-5); }
+
+  tbody tr{
+    border-bottom:1px solid var(--gray-2);
+    cursor:pointer;
+    transition:background 0.1s ease;
+  }
+  tbody tr:last-child{ border-bottom:none; }
+  tbody tr:hover{ background:var(--maroon-tint); }
+  tbody td{
+    padding:12px 14px;
+    vertical-align:middle;
+  }
+  td.name-cell{ font-weight:600; color:var(--gray-6); }
+  td.sub-line{
+    display:block;
+    font-weight:400;
+    font-size:12px;
+    color:var(--gray-4);
+    margin-top:1px;
+  }
+  td.price-cell{ font-weight:600; color:var(--maroon-dark); white-space:nowrap; }
+  td.date-cell{ color:var(--gray-5); white-space:nowrap; }
+  td.status-cell{ white-space:nowrap; }
+
+  .empty-row td{
+    text-align:center;
+    padding:40px 20px;
+    color:var(--gray-4);
+    font-size:14px;
+  }
+
+  /* ---------- Status badges (read-only, used in legend + notes history) ---------- */
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.2px;
+    white-space:nowrap;
+  }
+  .badge::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+  }
+  .badge-new{ background:#eef0f2; color:var(--gray-5); }
+  .badge-contacted{ background:#fbf3e0; color:var(--gold-dark); }
+  .badge-signedup{ background:var(--success-tint); color:var(--success); }
+  .badge-other{ background:var(--other-tint); color:var(--other); }
+
+  /* ---------- Status select (editable, styled like a badge) ---------- */
+  .status-select{
+    appearance:none;
+    -webkit-appearance:none;
+    border:1px solid transparent;
+    border-radius:999px;
+    padding:5px 26px 5px 12px;
+    font-size:12px;
+    font-weight:600;
+    font-family:inherit;
+    letter-spacing:0.2px;
+    cursor:pointer;
+    background-repeat:no-repeat;
+    background-position:right 9px center;
+    background-size:9px 6px;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="6" viewBox="0 0 9 6"><path d="M0 0L4.5 6L9 0Z" fill="%234a4c50"/></svg>');
+  }
+  .status-select:focus{
+    outline:none;
+    border-color:currentColor;
+  }
+  .status-select.status-new{ background-color:#eef0f2; color:var(--gray-5); }
+  .status-select.status-contacted{ background-color:#fbf3e0; color:var(--gold-dark); }
+  .status-select.status-signedup{ background-color:var(--success-tint); color:var(--success); }
+  .status-select.status-other{ background-color:var(--other-tint); color:var(--other); }
+
+  /* ---------- Modal (shared: detail + notes-prompt) ---------- */
+  .modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(20,10,12,0.5);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:40px 16px;
+    overflow-y:auto;
+    z-index:50;
+  }
+  .modal-backdrop.hidden{ display:none; }
+
+  .modal{
+    background:#fff;
+    border-radius:12px;
+    width:100%;
+    max-width:560px;
+    box-shadow:var(--shadow-lg);
+    overflow:hidden;
+    animation:modalIn 0.14s ease;
+  }
+  @keyframes modalIn{
+    from{ opacity:0; transform:translateY(8px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .modal-header{
+    background:linear-gradient(135deg, var(--maroon) 0%, var(--maroon-dark) 100%);
+    color:#fff;
+    padding:20px 22px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+  }
+  .modal-header h3{
+    margin:0 0 4px;
+    font-size:18px;
+  }
+  .modal-header .modal-sub{
+    font-size:13px;
+    color:rgba(255,255,255,0.78);
+  }
+  .modal-close{
+    background:rgba(255,255,255,0.14);
+    border:none;
+    color:#fff;
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    font-size:16px;
+    cursor:pointer;
+    flex-shrink:0;
+    line-height:1;
+  }
+  .modal-close:hover{ background:rgba(255,255,255,0.26); }
+
+  .modal-body{ padding:20px 22px 22px; }
+
+  .detail-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px 18px;
+    margin-bottom:20px;
+  }
+  @media (max-width:480px){
+    .detail-grid{ grid-template-columns:1fr; }
+  }
+  .detail-field .dlabel{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--gray-4);
+    margin-bottom:3px;
+  }
+  .detail-field .dvalue{
+    font-size:14px;
+    color:var(--gray-6);
+    font-weight:500;
+  }
+
+  .modal-section-title{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--gray-5);
+    margin:0 0 10px;
+    padding-top:14px;
+    border-top:1px solid var(--gray-2);
+  }
+
+  .price-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+  .price-table td{
+    padding:7px 0;
+    border-bottom:1px dashed var(--gray-2);
+  }
+  .price-table td:last-child{
+    text-align:right;
+    white-space:nowrap;
+  }
+  .price-table tr.total-row td{
+    border-bottom:none;
+    border-top:2px solid var(--gray-6);
+    font-weight:700;
+    font-size:15px;
+    padding-top:10px;
+    color:var(--maroon-dark);
+  }
+  .price-table .addon-empty{
+    color:var(--gray-4);
+    font-style:italic;
+  }
+
+  /* ---------- Notes (history list + prompt textarea) ---------- */
+  .notes-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .notes-item{
+    background:var(--gray-1);
+    border-radius:6px;
+    padding:10px 12px;
+  }
+  .notes-item .notes-meta{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:5px;
+  }
+  .notes-item .notes-date{
+    font-size:11px;
+    color:var(--gray-4);
+  }
+  .notes-item .notes-text{
+    font-size:13px;
+    color:var(--gray-6);
+    line-height:1.45;
+    white-space:pre-wrap;
+  }
+  .notes-empty{
+    font-size:13px;
+    color:var(--gray-4);
+    font-style:italic;
+    padding:2px 0 0;
+  }
+
+  .field-label{
+    font-size:12px;
+    font-weight:600;
+    color:var(--gray-5);
+    margin:0 0 6px;
+  }
+  textarea{
+    width:100%;
+    min-height:92px;
+    padding:10px 12px;
+    border:1px solid var(--gray-3);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--gray-6);
+    resize:vertical;
+  }
+  textarea:focus{
+    outline:none;
+    border-color:var(--maroon);
+  }
+
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:16px;
+  }
+  .btn{
+    padding:9px 18px;
+    border-radius:6px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    border:1px solid transparent;
+    font-family:inherit;
+  }
+  .btn:disabled{
+    opacity:0.6;
+    cursor:default;
+  }
+  .btn-secondary{
+    background:#fff;
+    border-color:var(--gray-3);
+    color:var(--gray-6);
+  }
+  .btn-secondary:hover{ background:var(--gray-1); }
+  .btn-primary{
+    background:var(--maroon);
+    color:#fff;
+  }
+  .btn-primary:hover{ background:var(--maroon-dark); }
+
+  .modal-footer-note{
+    margin-top:18px;
+    font-size:12px;
+    color:var(--gray-4);
+    background:var(--gray-1);
+    border-radius:6px;
+    padding:10px 12px;
+  }
+
+  footer.page-footer{
+    text-align:center;
+    font-size:12px;
+    color:var(--gray-4);
+    padding:24px 16px 40px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SC</div>
+    <div>
+      <h1>Care Plan Submissions Dashboard</h1>
+      <p>Sun City Plumbing &amp; Heating — Office Portal</p>
+    </div>
+  </div>
+  <span class="env-tag">LIVE DATA · NO AUTH YET</span>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="panel">
+      <h2>Views</h2>
+      <ul class="nav-list" id="navList">
+        <!-- filled by JS: Main Queue / Archives, with live counts -->
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Overview</h2>
+      <div class="stat-grid" id="statGrid"><!-- filled by JS --></div>
+    </div>
+
+    <div class="panel">
+      <h2>Status Key</h2>
+      <div class="legend">
+        <div class="legend-row"><span class="badge badge-new">New</span> Not yet reviewed</div>
+        <div class="legend-row"><span class="badge badge-contacted">Contacted</span> Office reached out</div>
+        <div class="legend-row"><span class="badge badge-signedup">Signed Up</span> Became a member — archived</div>
+        <div class="legend-row"><span class="badge badge-other">Other</span> Closed out, didn't convert — archived</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Quick Links</h2>
+      <!-- PLACEHOLDER LINKS — TO BE FILLED IN LATER. Real destinations not finalized. -->
+      <ul class="shortcut-list">
+        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🗂️</span> Company CRM</a></li>
+        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🗓️</span> Scheduling System</a></li>
+        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🧾</span> Service History</a></li>
+        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">📦</span> Inventory Lookup</a></li>
+      </ul>
+      <div class="shortcut-note">Links are placeholders — destinations to be set later.</div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="view-header">
+      <h2 id="viewTitle">Active Submissions</h2>
+      <p id="viewSubtitle">New and Contacted leads awaiting follow-up.</p>
+    </div>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Search name, phone, or address…">
+      </div>
+      <select id="statusFilter"><!-- options filled by JS, depends on view --></select>
+      <select id="planFilter">
+        <option value="all">All plans</option>
+        <option value="HVAC Care Plan">HVAC Care Plan</option>
+        <option value="Plumbing Care Plan">Plumbing Care Plan</option>
+        <option value="Bundled Care Plan">Bundled Care Plan</option>
+        <option value="Premier Care Plan">Premier Care Plan</option>
+      </select>
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="submittedAt" class="sorted">Submitted <span class="arrow">▼</span></th>
+            <th data-sort="name">Customer <span class="arrow">▲</span></th>
+            <th data-sort="plan">Plan <span class="arrow">▲</span></th>
+            <th data-sort="total">Total <span class="arrow">▲</span></th>
+            <th data-sort="status">Status <span class="arrow">▲</span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"><!-- filled by JS --></tbody>
+      </table>
+    </div>
+  </main>
+
+</div>
+
+<footer class="page-footer">
+  Status changes and notes are saved live to Cloudflare D1. Auth (Cloudflare Access + Entra ID) is not wired up here yet — do not share this link outside the office.
+</footer>
+
+<!-- Detail modal -->
+<div class="modal-backdrop hidden" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3 id="modalName">—</h3>
+        <div class="modal-sub" id="modalSub">—</div>
+      </div>
+      <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid">
+        <div class="detail-field">
+          <div class="dlabel">Phone</div>
+          <div class="dvalue" id="modalPhone">—</div>
+        </div>
+        <div class="detail-field">
+          <div class="dlabel">Best Time to Call</div>
+          <div class="dvalue" id="modalBestTime">—</div>
+        </div>
+        <div class="detail-field" style="grid-column:1 / -1;">
+          <div class="dlabel">Home Address</div>
+          <div class="dvalue" id="modalAddress">—</div>
+        </div>
+        <div class="detail-field">
+          <div class="dlabel">Submitted</div>
+          <div class="dvalue" id="modalSubmitted">—</div>
+        </div>
+        <div class="detail-field">
+          <div class="dlabel">Status</div>
+          <div class="dvalue" id="modalStatusWrap">—</div>
+        </div>
+      </div>
+
+      <h4 class="modal-section-title">Price Breakdown</h4>
+      <table class="price-table" id="modalPriceTable">
+        <!-- filled by JS -->
+      </table>
+
+      <h4 class="modal-section-title">Notes History</h4>
+      <div id="modalNotesList"><!-- filled by JS --></div>
+
+      <div class="modal-footer-note">Changing status to Contacted, Signed Up, or Other prompts for an optional note. Marking a submission "Signed Up" or "Other" moves it out of the main queue and into Archives.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Notes prompt modal (shown before a status change to Contacted / Signed Up / Other is applied) -->
+<div class="modal-backdrop hidden" id="notesModalBackdrop">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="notesModalTitle">Update Status</h3>
+        <div class="modal-sub" id="notesModalSub">—</div>
+      </div>
+      <button class="modal-close" id="notesModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="field-label">Notes (optional)</p>
+      <textarea id="notesTextarea" placeholder="e.g. call outcome, reason, next steps…"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="notesCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="notesSaveBtn">Save Status</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   DATA — loaded from Cloudflare D1 via GET /api/submissions.
+   Status edits and notes go through PATCH /api/submissions/:id and
+   persist for real; a page reload re-fetches the current state instead
+   of resetting to hardcoded mock rows.
+   ====================================================================== */
+
+const ADDON_CATALOG = {
+  "Quarterly Filter Change": 120,
+  "Additional HVAC System": 125,
+  "Mini-Split Tune-Up": 80,
+  "Water Softener Salt": 68,
+  "Water Softener Service": 75,
+  "Reverse Osmosis Service": 50,
+  "Tankless Water Heater Flush": 40,
+  "Additional Water Heater": 50,
+  "Quarterly BigBlue Filter Change": 180
+};
+
+const PLAN_BASE_PRICE = {
+  "HVAC Care Plan": 260,
+  "Plumbing Care Plan": 160,
+  "Bundled Care Plan": 400,
+  "Premier Care Plan": 600
+};
+
+// The four statuses a submission can carry. "Signed Up" and "Other" are
+// considered closed-out and live in the Archives view; "New" and
+// "Contacted" are active and live in the main queue.
+const STATUS_LIST = ["New", "Contacted", "Signed Up", "Other"];
+const VIEW_STATUSES = {
+  main: ["New", "Contacted"],
+  archive: ["Signed Up", "Other"]
+};
+
+// Selecting any of these statuses prompts for an optional note before the
+// change is applied. Selecting "New" applies immediately, no prompt.
+const STATUSES_NEEDING_NOTE = ["Contacted", "Signed Up", "Other"];
+
+let SUBMISSIONS = [];
+
+
+/* ======================================================================
+   STATE + RENDER
+   ====================================================================== */
+
+let currentView = "main"; // "main" | "archive"
+let sortKey = "submittedAt";
+let sortDir = "desc"; // "asc" | "desc"
+let searchTerm = "";
+let statusFilter = "all";
+let planFilter = "all";
+
+const tableBody = document.getElementById("tableBody");
+const resultCount = document.getElementById("resultCount");
+const statGrid = document.getElementById("statGrid");
+const navList = document.getElementById("navList");
+const statusFilterEl = document.getElementById("statusFilter");
+const viewTitleEl = document.getElementById("viewTitle");
+const viewSubtitleEl = document.getElementById("viewSubtitle");
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[m]));
+}
+
+function formatDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+    " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function statusClass(status){
+  if(status === "New") return "new";
+  if(status === "Contacted") return "contacted";
+  if(status === "Signed Up") return "signedup";
+  if(status === "Other") return "other";
+  return "";
+}
+
+function badgeClass(status){
+  return "badge-" + statusClass(status);
+}
+
+function statusOptionsHtml(selected){
+  return STATUS_LIST.map(s => `<option value="${s}" ${s === selected ? "selected" : ""}>${s}</option>`).join("");
+}
+
+/* ---------- Loading / error states ---------- */
+function showLoadingState(){
+  tableBody.innerHTML = `<tr class="empty-row"><td colspan="5">Loading submissions…</td></tr>`;
+  resultCount.textContent = "";
+}
+
+function showErrorState(err){
+  console.error("Failed to load submissions:", err);
+  tableBody.innerHTML = `<tr class="empty-row"><td colspan="5">
+    Couldn't load submissions from the server.
+    <button type="button" class="btn btn-secondary" id="retryLoadBtn" style="margin-left:8px;">Retry</button>
+  </td></tr>`;
+  resultCount.textContent = "";
+  const retryBtn = document.getElementById("retryLoadBtn");
+  if(retryBtn) retryBtn.addEventListener("click", loadSubmissions);
+}
+
+async function loadSubmissions(){
+  showLoadingState();
+  try {
+    const res = await fetch("/api/submissions");
+    if(!res.ok) throw new Error(`Request failed (${res.status})`);
+    SUBMISSIONS = await res.json();
+    renderStatusFilterOptions();
+    renderNav();
+    renderStats();
+    renderTable();
+  } catch (err) {
+    showErrorState(err);
+  }
+}
+
+/* ---------- Views (Main Queue / Archives) ---------- */
+const VIEW_META = {
+  main: {
+    label: "Main Queue",
+    icon: "📥",
+    title: "Active Submissions",
+    subtitle: "New and Contacted leads awaiting follow-up."
+  },
+  archive: {
+    label: "Archives",
+    icon: "🗄️",
+    title: "Archives",
+    subtitle: "Signed Up and Other submissions that have been closed out."
+  }
+};
+
+function renderNav(){
+  navList.innerHTML = Object.keys(VIEW_META).map(view => {
+    const meta = VIEW_META[view];
+    const count = SUBMISSIONS.filter(r => VIEW_STATUSES[view].includes(r.status)).length;
+    return `
+      <li>
+        <button type="button" class="${view === currentView ? "active" : ""}" data-view="${view}">
+          <span class="ico">${meta.icon}</span>
+          ${meta.label}
+          <span class="nav-count">${count}</span>
+        </button>
+      </li>
+    `;
+  }).join("");
+
+  navList.querySelectorAll("button[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => switchView(btn.dataset.view));
+  });
+}
+
+function switchView(view){
+  if(view === currentView) return;
+  currentView = view;
+  statusFilter = "all";
+  searchTerm = "";
+  document.getElementById("searchInput").value = "";
+
+  const meta = VIEW_META[view];
+  viewTitleEl.textContent = meta.title;
+  viewSubtitleEl.textContent = meta.subtitle;
+
+  renderStatusFilterOptions();
+  renderNav();
+  renderTable();
+}
+
+function renderStatusFilterOptions(){
+  const statuses = VIEW_STATUSES[currentView];
+  statusFilterEl.innerHTML = `<option value="all">All statuses</option>` +
+    statuses.map(s => `<option value="${s}">${s}</option>`).join("");
+  statusFilterEl.value = "all";
+}
+
+function getFiltered(){
+  const term = searchTerm.trim().toLowerCase();
+  const viewStatuses = VIEW_STATUSES[currentView];
+  return SUBMISSIONS.filter(row => {
+    if(!viewStatuses.includes(row.status)) return false;
+    if(statusFilter !== "all" && row.status !== statusFilter) return false;
+    if(planFilter !== "all" && row.plan !== planFilter) return false;
+    if(term){
+      const hay = (row.name + " " + row.phone + " " + row.address).toLowerCase();
+      if(!hay.includes(term)) return false;
+    }
+    return true;
+  });
+}
+
+function getSorted(rows){
+  const sorted = [...rows].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if(sortKey === "submittedAt"){
+      av = new Date(av).getTime();
+      bv = new Date(bv).getTime();
+    } else if(typeof av === "string"){
+      av = av.toLowerCase();
+      bv = bv.toLowerCase();
+    }
+    if(av < bv) return sortDir === "asc" ? -1 : 1;
+    if(av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function renderStats(){
+  const total = SUBMISSIONS.length;
+  const counts = { New: 0, Contacted: 0, "Signed Up": 0, Other: 0 };
+  SUBMISSIONS.forEach(r => counts[r.status]++);
+  const archived = counts["Signed Up"] + counts.Other;
+  statGrid.innerHTML = `
+    <div class="stat-cell"><div class="num">${total}</div><div class="label">Total submissions</div></div>
+    <div class="stat-cell"><div class="num">${counts.New}</div><div class="label">New</div></div>
+    <div class="stat-cell"><div class="num">${counts.Contacted}</div><div class="label">Contacted</div></div>
+    <div class="stat-cell"><div class="num">${archived}</div><div class="label">Archived</div></div>
+  `;
+}
+
+function renderTable(){
+  const rows = getSorted(getFiltered());
+  const totalInView = SUBMISSIONS.filter(r => VIEW_STATUSES[currentView].includes(r.status)).length;
+  resultCount.textContent = `${rows.length} of ${totalInView} submissions`;
+
+  if(rows.length === 0){
+    tableBody.innerHTML = `<tr class="empty-row"><td colspan="5">No submissions match your filters.</td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = rows.map(row => `
+    <tr data-id="${row.id}">
+      <td class="date-cell">${formatDate(row.submittedAt)}</td>
+      <td class="name-cell">${row.name}<span class="sub-line">${row.phone}</span></td>
+      <td>${row.plan}</td>
+      <td class="price-cell">$${row.total.toLocaleString()}</td>
+      <td class="status-cell">
+        <select class="status-select status-${statusClass(row.status)}" data-id="${row.id}">
+          ${statusOptionsHtml(row.status)}
+        </select>
+      </td>
+    </tr>
+  `).join("");
+
+  // Row click opens detail — but not when the click originated on the status select itself.
+  tableBody.querySelectorAll("tr[data-id]").forEach(tr => {
+    tr.addEventListener("click", (e) => {
+      if(e.target.closest("select")) return;
+      openDetail(Number(tr.dataset.id));
+    });
+  });
+
+  // Inline status edit
+  tableBody.querySelectorAll("select.status-select").forEach(sel => {
+    sel.addEventListener("click", e => e.stopPropagation());
+    sel.addEventListener("change", e => {
+      requestStatusChange(Number(e.target.dataset.id), e.target.value, e.target);
+    });
+  });
+}
+
+/* ---------- Sorting via header click ---------- */
+document.querySelectorAll("th[data-sort]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    if(sortKey === key){
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = key === "submittedAt" ? "desc" : "asc";
+    }
+    document.querySelectorAll("th[data-sort]").forEach(h => {
+      h.classList.remove("sorted");
+      h.querySelector(".arrow").textContent = "▲";
+    });
+    th.classList.add("sorted");
+    th.querySelector(".arrow").textContent = sortDir === "asc" ? "▲" : "▼";
+    renderTable();
+  });
+});
+
+/* ---------- Filters ---------- */
+document.getElementById("searchInput").addEventListener("input", e => {
+  searchTerm = e.target.value;
+  renderTable();
+});
+statusFilterEl.addEventListener("change", e => {
+  statusFilter = e.target.value;
+  renderTable();
+});
+document.getElementById("planFilter").addEventListener("change", e => {
+  planFilter = e.target.value;
+  renderTable();
+});
+
+/* ======================================================================
+   STATUS CHANGES + NOTES PROMPT
+
+   requestStatusChange() is the entry point every status <select> calls.
+   For "New" it applies immediately. For Contacted / Signed Up / Other it
+   opens the notes-prompt modal first; the actual mutation only happens
+   from confirmNotes() (optional note) or cancelNotes() (reverts the
+   select back to its previous value, nothing is changed).
+
+   applyStatusChange() PATCHes /api/submissions/:id. On success, the
+   updated row (as returned by the API) replaces the local copy and the
+   UI re-renders from it. On failure, the <select> that triggered the
+   change is reverted to its previous value/color and an error is shown
+   — the same "don't leave the UI showing a change that didn't save"
+   behavior a Cancel already gives on the notes prompt.
+   ====================================================================== */
+
+let pendingChange = null; // { id, newStatus, selectEl, previousStatus }
+
+const notesModalBackdrop = document.getElementById("notesModalBackdrop");
+const notesModalTitle = document.getElementById("notesModalTitle");
+const notesModalSub = document.getElementById("notesModalSub");
+const notesTextarea = document.getElementById("notesTextarea");
+const notesSaveBtn = document.getElementById("notesSaveBtn");
+
+function requestStatusChange(id, newStatus, selectEl){
+  const row = SUBMISSIONS.find(r => r.id === id);
+  if(!row || newStatus === row.status) return;
+
+  if(!STATUSES_NEEDING_NOTE.includes(newStatus)){
+    applyStatusChange(id, newStatus, "", selectEl, row.status);
+    return;
+  }
+
+  pendingChange = { id, newStatus, selectEl, previousStatus: row.status };
+  notesModalTitle.textContent = `Mark as ${newStatus}`;
+  notesModalSub.textContent = `${row.name} · ${row.plan}`;
+  notesTextarea.value = "";
+  notesModalBackdrop.classList.remove("hidden");
+  notesTextarea.focus();
+}
+
+function revertPendingSelect(){
+  if(!pendingChange || !pendingChange.selectEl) return;
+  const { selectEl, previousStatus } = pendingChange;
+  selectEl.value = previousStatus;
+  selectEl.className = `status-select status-${statusClass(previousStatus)}`;
+}
+
+function cancelNotes(){
+  revertPendingSelect();
+  pendingChange = null;
+  notesModalBackdrop.classList.add("hidden");
+}
+
+function confirmNotes(){
+  if(!pendingChange) return;
+  const { id, newStatus, selectEl, previousStatus } = pendingChange;
+  notesModalBackdrop.classList.add("hidden");
+  applyStatusChange(id, newStatus, notesTextarea.value, selectEl, previousStatus);
+  pendingChange = null;
+}
+
+document.getElementById("notesCancelBtn").addEventListener("click", cancelNotes);
+document.getElementById("notesModalClose").addEventListener("click", cancelNotes);
+notesSaveBtn.addEventListener("click", confirmNotes);
+notesModalBackdrop.addEventListener("click", e => {
+  if(e.target === notesModalBackdrop) cancelNotes();
+});
+
+async function applyStatusChange(id, newStatus, noteText, selectEl, previousStatus){
+  const row = SUBMISSIONS.find(r => r.id === id);
+  if(!row) return;
+
+  const trimmedNote = (noteText || "").trim();
+  const body = { status: newStatus };
+  if(trimmedNote) body.note = trimmedNote;
+
+  let updated;
+  try {
+    const res = await fetch(`/api/submissions/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `Request failed (${res.status})`);
+    }
+    updated = await res.json();
+  } catch (err) {
+    console.error("Failed to update status:", err);
+    if(selectEl && previousStatus){
+      selectEl.value = previousStatus;
+      selectEl.className = `status-select status-${statusClass(previousStatus)}`;
+    }
+    alert("Couldn't save that status change. Please try again.");
+    return;
+  }
+
+  const wasInCurrentView = VIEW_STATUSES[currentView].includes(row.status);
+  const stillInCurrentView = VIEW_STATUSES[currentView].includes(updated.status);
+  const movingOutOfView = wasInCurrentView && !stillInCurrentView;
+
+  Object.assign(row, updated);
+
+  renderStats();
+  renderNav();
+
+  const detailOpenForThisRow = !modalBackdrop.classList.contains("hidden") && modalOpenId === id;
+  if(detailOpenForThisRow && movingOutOfView){
+    // The record just moved to the other view — close the modal so the
+    // underlying list (which no longer contains this row) is visible.
+    closeDetail();
+  } else if(detailOpenForThisRow){
+    // Still open and still in view — refresh the modal's status pill and notes list.
+    openDetail(id);
+  }
+
+  renderTable();
+}
+
+/* ======================================================================
+   DETAIL MODAL
+   ====================================================================== */
+
+const modalBackdrop = document.getElementById("modalBackdrop");
+let modalOpenId = null;
+
+function openDetail(id){
+  const row = SUBMISSIONS.find(r => r.id === id);
+  if(!row) return;
+  modalOpenId = id;
+
+  document.getElementById("modalName").textContent = row.name;
+  document.getElementById("modalSub").textContent = `${row.plan} · Submission #${String(row.id).padStart(4, "0")}`;
+  document.getElementById("modalPhone").textContent = row.phone;
+  document.getElementById("modalBestTime").textContent = row.bestTime;
+  document.getElementById("modalAddress").textContent = row.address;
+  document.getElementById("modalSubmitted").textContent = formatDate(row.submittedAt);
+  document.getElementById("modalStatusWrap").innerHTML =
+    `<select class="status-select status-${statusClass(row.status)}" id="modalStatusSelect">${statusOptionsHtml(row.status)}</select>`;
+  document.getElementById("modalStatusSelect").addEventListener("change", e => {
+    requestStatusChange(row.id, e.target.value, e.target);
+  });
+
+  const priceRows = [`
+    <tr><td>${row.plan} (base)</td><td>$${PLAN_BASE_PRICE[row.plan].toLocaleString()}</td></tr>
+  `];
+
+  if(row.addons.length === 0){
+    priceRows.push(`<tr><td class="addon-empty" colspan="2">No add-ons selected</td></tr>`);
+  } else {
+    row.addons.forEach(addon => {
+      priceRows.push(`<tr><td>${addon}</td><td>$${ADDON_CATALOG[addon].toLocaleString()}</td></tr>`);
+    });
+  }
+
+  priceRows.push(`<tr class="total-row"><td>Total</td><td>$${row.total.toLocaleString()}/yr</td></tr>`);
+
+  document.getElementById("modalPriceTable").innerHTML = priceRows.join("");
+
+  const notesListEl = document.getElementById("modalNotesList");
+  if(row.notes.length){
+    const sortedNotes = [...row.notes].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    notesListEl.innerHTML = `<ul class="notes-list">${sortedNotes.map(n => `
+      <li class="notes-item">
+        <div class="notes-meta">
+          <span class="badge ${badgeClass(n.status)}">${n.status}</span>
+          <span class="notes-date">${formatDate(n.timestamp)}</span>
+        </div>
+        <div class="notes-text">${escapeHtml(n.text)}</div>
+      </li>
+    `).join("")}</ul>`;
+  } else {
+    notesListEl.innerHTML = `<div class="notes-empty">No notes yet.</div>`;
+  }
+
+  modalBackdrop.classList.remove("hidden");
+}
+
+function closeDetail(){
+  modalBackdrop.classList.add("hidden");
+  modalOpenId = null;
+}
+
+document.getElementById("modalClose").addEventListener("click", closeDetail);
+modalBackdrop.addEventListener("click", e => {
+  if(e.target === modalBackdrop) closeDetail();
+});
+document.addEventListener("keydown", e => {
+  if(e.key !== "Escape") return;
+  if(!notesModalBackdrop.classList.contains("hidden")){
+    cancelNotes();
+  } else {
+    closeDetail();
+  }
+});
+
+/* ---------- Init ---------- */
+renderStatusFilterOptions();
+renderNav();
+loadSubmissions();
+</script>
+
+</body>
+</html>

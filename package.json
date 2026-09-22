@@ -1,0 +1,16 @@
+{
+  "name": "sun-city-care-plan-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Care Plan Submissions Dashboard — Cloudflare Pages + D1, Sun City Plumbing & Heating",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public",
+    "db:migrate:local": "wrangler d1 migrations apply care-plan-builder --local",
+    "db:migrate:remote": "wrangler d1 migrations apply care-plan-builder --remote",
+    "db:query:local": "wrangler d1 execute care-plan-builder --local --command"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
