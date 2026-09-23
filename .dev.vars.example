@@ -1,0 +1,43 @@
+# Copy to .dev.vars for `wrangler pages dev`. .dev.vars is gitignored — this
+# repo is public, so never put a real secret in a tracked file.
+#
+#   cp .dev.vars.example .dev.vars
+#
+# In production these four are SECRETS (encrypted) in the Cloudflare dashboard:
+# Pages project -> Settings -> Variables and Secrets. Because this repo has a
+# wrangler.toml, the dashboard can only add/remove *secrets* — plaintext vars
+# must live in wrangler.toml's [vars]. See SETUP.md.
+
+# --- Turnstile -------------------------------------------------------------
+# Sandbox testing secret that ALWAYS PASSES (pairs with sitekey 1x00000000000000000000AA).
+TURNSTILE_SECRET="1x0000000000000000000000000000000AA"
+# Other Cloudflare sandbox secrets, handy for testing:
+#   always fails:  2x0000000000000000000000000000000AA
+#   token already spent: 3x0000000000000000000000000000000AA
+
+# --- n8n -------------------------------------------------------------------
+# Local mock for testing: npm run mock:n8n  (listens on 8799)
+N8N_WEBHOOK_URL="http://127.0.0.1:8799/webhook/care-plan-request"
+# Production is the n8n Cloud production URL:
+#   https://suncityautomation.app.n8n.cloud/webhook/care-plan-request
+# Test URL (only live while the n8n editor is listening):
+#   https://suncityautomation.app.n8n.cloud/webhook-test/care-plan-request
+N8N_WEBHOOK_SECRET="local-dev-webhook-secret"
+
+# --- Rate limit IP hashing -------------------------------------------------
+# Any long random string. Rotating it just resets the counters.
+IP_HASH_SALT="local-dev-salt-change-me"
+
+# --- Non-secret config ----------------------------------------------------
+# These two live in wrangler.toml [vars] in production; they are repeated here
+# only so `wrangler pages dev` behaves the same locally.
+DASHBOARD_URL="http://localhost:8788"
+ALLOWED_ORIGINS="http://localhost:8788,http://127.0.0.1:8788"
+
+# Optional overrides (defaults: 5 submissions per 600 seconds per IP)
+# RATE_LIMIT_MAX="5"
+# RATE_LIMIT_WINDOW_SECONDS="600"
+
+# TEST ONLY — points Turnstile siteverify at a local mock. Leave unset in
+# production so the real https://challenges.cloudflare.com endpoint is used.
+# TURNSTILE_VERIFY_URL="http://127.0.0.1:8799/turnstile/siteverify"

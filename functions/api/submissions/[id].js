@@ -57,7 +57,7 @@ export async function onRequestPatch({ request, env, params }) {
 
     const [addonsResult, notesResult] = await Promise.all([
       env.DB.prepare(
-        `SELECT submission_id, addon_name, addon_price, quantity FROM submission_addons WHERE submission_id = ?`
+        `SELECT submission_id, addon_name, addon_price, quantity, included_free, locked FROM submission_addons WHERE submission_id = ?`
       )
         .bind(id)
         .all(),

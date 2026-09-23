@@ -1,0 +1,108 @@
+{
+  "name": "Care Plan Request — Office Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Care Plan Request → office email\n\nCalled by POST /api/care-plan-request on the Cloudflare Pages intake project, via\ncontext.waitUntil() with a ~4s timeout. The customer's submission is ALREADY saved\nin D1 before this runs, so a failure here delays the office email — it never loses\nthe lead. Check the Cloudflare Function logs for\n\"office notification failed for id=NNN\" if an email goes missing.\n\n### Auth\nHeader Auth credential: name `X-Webhook-Secret`, value = the same string stored as\nthe `N8N_WEBHOOK_SECRET` secret on the Pages project.\n\n### Payload contract (JSON body)\n```\n{\n  submissionId:     1234,                      // D1 submissions.id\n  submissionNumber: \"#1234\",                    // zero-padded, matches the dashboard\n  submittedAt:      \"2026-09-23T18:04:11.000Z\", // server-side ISO, never the client's\n  dashboardUrl:     \"https://care-plan-builder.pages.dev\",\n  customer: { name, phone, address, bestTime },  // bestTime: Morning | Midday |\n                                                 // Afternoon | Evening | Anytime |\n                                                 // \"No preference\"\n  plan:     { id, name, basePrice },             // name is server-derived from id\n  addons: [ {\n    id, name, unitPrice, quantity, lineTotal,\n    includedFree,   // true  = complimentary with the plan ($0)\n    locked,         // true  = left over from a plan the customer switched away\n                    //         from; kept so the office isn't blind to it, $0\n    billable        // true  = counted in totals.addonTotal\n  } ],\n  totals:   { basePrice, addonTotal, total, monthlyEquivalent }\n}\n```\nEvery price is recomputed server-side from lib/intake/catalog.js. Nothing in this\npayload is taken from the browser.",
+        "height": 720,
+        "width": 560
+      },
+      "id": "a1111111-1111-4111-8111-111111111111",
+      "name": "Contract & notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-320, -120]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "care-plan-request",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222222",
+      "name": "Care Plan Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [300, 0],
+      "webhookId": "care-plan-request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_HEADER_AUTH_CREDENTIAL_ID",
+          "name": "Care Plan Intake Webhook Secret (PLACEHOLDER — select your own)"
+        }
+      },
+      "notes": "Responds immediately (onReceived) so the Cloudflare Function is never held open."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Builds the office email from the intake payload. Pure formatting: no pricing\n// decisions happen here — every number arrives already computed server-side.\n\nconst p = $json.body || $json;\n\nconst money = (n) => '$' + Number(n || 0).toLocaleString('en-US');\nconst esc = (s) => String(s == null ? '' : s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;');\n\nconst customer = p.customer || {};\nconst plan = p.plan || {};\nconst totals = p.totals || {};\nconst addons = Array.isArray(p.addons) ? p.addons : [];\n\n// Local (Mountain) time for the office, with a clear fallback.\nlet submittedLocal = p.submittedAt || '';\ntry {\n  submittedLocal = new Date(p.submittedAt).toLocaleString('en-US', {\n    timeZone: 'America/Denver',\n    dateStyle: 'medium',\n    timeStyle: 'short'\n  }) + ' MT';\n} catch (e) { /* keep the raw ISO string */ }\n\nconst addonRows = addons.map((a) => {\n  const qty = Number(a.quantity) || 1;\n  const qtyLabel = qty > 1 ? ' &times; ' + qty : '';\n  let amount;\n  if (a.includedFree) amount = 'Included with plan';\n  else if (a.locked) amount = 'Not charged &mdash; not covered by the selected plan';\n  else amount = money(a.lineTotal);\n  const unit = (!a.includedFree && !a.locked && qty > 1) ? ' <span style=\"color:#6b6b73\">(' + money(a.unitPrice) + ' each)</span>' : '';\n  return '<tr>'\n    + '<td style=\"padding:6px 12px 6px 0;border-bottom:1px solid #e8e8ec\">' + esc(a.name) + qtyLabel + unit + '</td>'\n    + '<td style=\"padding:6px 0;border-bottom:1px solid #e8e8ec;text-align:right;white-space:nowrap\">' + amount + '</td>'\n    + '</tr>';\n}).join('');\n\nconst addonSection = addons.length\n  ? addonRows\n  : '<tr><td colspan=\"2\" style=\"padding:6px 0;color:#6b6b73;border-bottom:1px solid #e8e8ec\">No add-ons selected</td></tr>';\n\nconst dashboardLink = p.dashboardUrl\n  ? '<p style=\"margin:20px 0 0\"><a href=\"' + esc(p.dashboardUrl) + '\" style=\"background:#7b1f2b;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block\">Open the Submissions Dashboard</a></p>'\n  : '';\n\nconst subject = 'New Care Plan request: ' + (plan.name || 'Care Plan') + ' - ' + (customer.name || 'Unknown customer');\n\nconst html = '<div style=\"font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#26262a;line-height:1.5\">'\n  + '<h2 style=\"margin:0 0 4px;font-size:18px\">New Care Plan request</h2>'\n  + '<p style=\"margin:0 0 18px;color:#6b6b73\">Submission ' + esc(p.submissionNumber) + ' &middot; ' + esc(submittedLocal) + '</p>'\n  + '<table style=\"border-collapse:collapse;margin:0 0 18px\">'\n  + '<tr><td style=\"padding:4px 16px 4px 0;color:#6b6b73\">Customer</td><td style=\"padding:4px 0\"><strong>' + esc(customer.name) + '</strong></td></tr>'\n  + '<tr><td style=\"padding:4px 16px 4px 0;color:#6b6b73\">Phone</td><td style=\"padding:4px 0\"><a href=\"tel:' + esc(String(customer.phone || '').replace(/[^\\d+]/g, '')) + '\">' + esc(customer.phone) + '</a></td></tr>'\n  + '<tr><td style=\"padding:4px 16px 4px 0;color:#6b6b73\">Address</td><td style=\"padding:4px 0\">' + esc(customer.address) + '</td></tr>'\n  + '<tr><td style=\"padding:4px 16px 4px 0;color:#6b6b73\">Best time to call</td><td style=\"padding:4px 0\">' + esc(customer.bestTime) + '</td></tr>'\n  + '</table>'\n  + '<table style=\"border-collapse:collapse;min-width:420px\">'\n  + '<tr><td style=\"padding:6px 12px 6px 0;border-bottom:2px solid #26262a\"><strong>' + esc(plan.name) + '</strong> (base)</td>'\n  + '<td style=\"padding:6px 0;border-bottom:2px solid #26262a;text-align:right\">' + money(plan.basePrice) + '</td></tr>'\n  + addonSection\n  + '<tr><td style=\"padding:8px 12px 8px 0\"><strong>Annual total</strong></td>'\n  + '<td style=\"padding:8px 0;text-align:right\"><strong>' + money(totals.total) + '/yr</strong></td></tr>'\n  + '</table>'\n  + '<p style=\"margin:14px 0 0;color:#6b6b73;font-size:13px\">Add-ons subtotal ' + money(totals.addonTotal) + ' &middot; about ' + money(totals.monthlyEquivalent) + '/mo equivalent. Billed annually; monthly payments are not offered.</p>'\n  + '<p style=\"margin:14px 0 0;color:#6b6b73;font-size:13px\">This is a request, not an enrolment: no payment was taken and the plan is not active. Call the customer during office hours to confirm plan, price and terms.</p>'\n  + dashboardLink\n  + '</div>';\n\nreturn { json: { subject, html, to: 'service@suncitylc.com', submissionNumber: p.submissionNumber, submissionId: p.submissionId } };"
+      },
+      "id": "c3333333-3333-4333-8333-333333333333",
+      "name": "Build Office Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 0]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.html }}",
+        "toRecipients": "service@suncitylc.com",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "id": "d4444444-4444-4444-8444-444444444444",
+      "name": "Send Office Email (Outlook)",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [820, 0],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_WITH_OUTLOOK_CREDENTIAL_ID",
+          "name": "Sun City Microsoft 365 (PLACEHOLDER — select your own)"
+        }
+      },
+      "notes": "Sends as the mailbox the OAuth credential is connected to. Verify the parameter names after import — the Microsoft Outlook node's field names have moved between versions."
+    }
+  ],
+  "connections": {
+    "Care Plan Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Office Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Office Email": {
+      "main": [
+        [
+          {
+            "node": "Send Office Email (Outlook)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false,
+  "versionId": "care-plan-intake-sandbox-1"
+}

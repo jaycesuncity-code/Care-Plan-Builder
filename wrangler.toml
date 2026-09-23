@@ -6,3 +6,30 @@ compatibility_date = "2026-09-01"
 binding = "DB"
 database_name = "care-plan-builder"
 database_id = "2c79b253-9f8d-4441-b2ca-6666ac23196a"
+
+# Non-secret configuration for POST /api/care-plan-request.
+#
+# IMPORTANT (checked against the current Cloudflare docs): because this Pages
+# project is Git-connected AND has a wrangler.toml, this file is the source of
+# truth for bindings and plaintext vars — plaintext variables added in the
+# dashboard are IGNORED, and the dashboard shows "Environment variables for this
+# project's production environment are being managed through wrangler.toml. Only
+# Secrets (encrypted variables) can be added or removed through the Dashboard."
+# So: plaintext config goes HERE, secrets go in the dashboard (encrypted) or in
+# .dev.vars locally. Never put TURNSTILE_SECRET, N8N_WEBHOOK_SECRET,
+# N8N_WEBHOOK_URL or IP_HASH_SALT in this file — the repo is public.
+#
+# `vars` is a non-inheritable key: if you add an [env.preview.vars] or
+# [env.production.vars] block, you must restate EVERY variable in it, because
+# an environment block replaces this one rather than merging with it. These
+# top-level values are deliberately correct for both environments so there is
+# nothing to restate.
+[vars]
+# Where office staff read submissions. Used in the n8n notification email.
+DASHBOARD_URL = "https://care-plan-builder.pages.dev"
+# Exact-match CORS allowlist for the builder's origin(s). At launch the
+# WordPress site posts cross-origin, so both hostnames stay listed.
+ALLOWED_ORIGINS = "https://care-plan-builder.pages.dev,https://youknowsuncity.com,https://www.youknowsuncity.com"
+# Rate limit: submissions per IP per window (seconds).
+RATE_LIMIT_MAX = "5"
+RATE_LIMIT_WINDOW_SECONDS = "600"

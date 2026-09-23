@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Plan Builder | Sun City Plumbing &amp; Heating</title>
+<style>
+  /* Demo page only (not part of the block) */
+  body { margin: 0; background: #ffffff; }
+  .demo-spacer { height: 60px; }
+</style>
+</head>
+<body>
+<div class="demo-spacer"></div>
+
+<!-- ============================================================
+     BEGIN SUN CITY CARE PLAN BUILDER
+     Paste everything from here to END into a LiveCanvas HTML block.
+     All CSS is scoped to #sc-cpb; all JS is wrapped in an IIFE.
+     ============================================================ -->
+<div id="sc-cpb" data-theme="hvac">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap');
+
+/* Registered so plan-theme colors animate smoothly (falls back to an instant swap in older browsers) */
+@property --cpb-tint      { syntax: '<color>'; inherits: true; initial-value: #FBEEEF; }
+@property --cpb-accent    { syntax: '<color>'; inherits: true; initial-value: #A3102E; }
+@property --cpb-accent-ink{ syntax: '<color>'; inherits: true; initial-value: #6B1A2C; }
+@property --cpb-on-accent { syntax: '<color>'; inherits: true; initial-value: #FFFFFF; }
+@property --cpb-edge      { syntax: '<color>'; inherits: true; initial-value: #EFCFD4; }
+@property --cpb-glow      { syntax: '<color>'; inherits: true; initial-value: rgba(163,16,46,.14); }
+
+#sc-cpb {
+  --cpb-maroon: #6B1A2C;
+  --cpb-maroon-dark: #4E1220;
+  --cpb-red: #A3102E;
+  --cpb-gold: #C9A84C;
+  --cpb-gold-dark: #A88A34;
+  --cpb-ink: #26262A;
+  --cpb-body: #4A4A50;
+  --cpb-muted: #626269;
+  --cpb-line: #DCDCE0;
+  --cpb-surface: #FFFFFF;
+  --cpb-bg: #F2F2F3;
+  --cpb-off: #E7E7EA;
+
+  font-family: "Lato", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--cpb-ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: --cpb-tint .6s ease, --cpb-accent .6s ease, --cpb-accent-ink .6s ease,
+              --cpb-on-accent .6s ease, --cpb-edge .6s ease, --cpb-glow .6s ease;
+
+  /* The module shell: the whole builder lives inside this one bordered,
+     rounded card. It has no fixed height at any breakpoint — it flows to
+     its natural height and the page itself scrolls. overflow:hidden keeps
+     the module's corners rounded. */
+  max-width: 980px;
+  margin: 32px auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--cpb-surface);
+  border: 1px solid var(--cpb-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(38,38,42,.16);
+  overflow: hidden;
+}
+/* Plan themes: HVAC red, Plumbing blue, Bundled purple, Premier gold
+   --cpb-photo is the card's background photo for that plan. LOCAL PREVIEW ONLY:
+   these are plain relative filenames, so keep this HTML file sitting in the
+   same folder as the 4 JPGs to test in a browser. BEFORE GOING LIVE: upload
+   each photo to the WordPress media library and swap these url() values for
+   the real hosted URLs (e.g. https://youknowsuncity.com/wp-content/uploads/...).
+   --cpb-photo-pos nudges which part of that photo stays in frame per plan;
+   adjust per photo if a crop looks off. */
+#sc-cpb[data-theme="hvac"]     { --cpb-tint: #FBEEEF; --cpb-accent: #A3102E; --cpb-accent-ink: #6B1A2C; --cpb-on-accent: #FFFFFF; --cpb-edge: #EFCFD4; --cpb-glow: rgba(163,16,46,.14); --cpb-photo: url('/img/hvac.JPG'); --cpb-photo-pos: bottom; }
+#sc-cpb[data-theme="plumbing"] { --cpb-tint: #EBF2FB; --cpb-accent: #1F5AA6; --cpb-accent-ink: #173A66; --cpb-on-accent: #FFFFFF; --cpb-edge: #C9DAF0; --cpb-glow: rgba(31,90,166,.15); --cpb-photo: url('/img/general-plumbing.JPG'); --cpb-photo-pos: bottom; }
+#sc-cpb[data-theme="bundled"]  { --cpb-tint: #F2EDF9; --cpb-accent: #5B3A8C; --cpb-accent-ink: #3F2766; --cpb-on-accent: #FFFFFF; --cpb-edge: #DACDEB; --cpb-glow: rgba(91,58,140,.16); --cpb-photo: url('/img/bundled.JPG'); --cpb-photo-pos: bottom; }
+#sc-cpb[data-theme="premier"]  { --cpb-tint: #FBF4E1; --cpb-accent: #C9A84C; --cpb-accent-ink: #6B1A2C; --cpb-on-accent: #4E1220; --cpb-edge: #EADBAE; --cpb-glow: rgba(201,168,76,.30); --cpb-photo: url('/img/premier.JPG'); --cpb-photo-pos: top; }
+/* NOTE: --cpb-photo-pos defaults to "bottom" so the person in the photo stays in
+   frame instead of getting cropped off. Check each real photo once it's uploaded —
+   if a crop looks off, override the pos per theme (top/center/bottom). */
+#sc-cpb *, #sc-cpb *::before, #sc-cpb *::after { box-sizing: border-box; }
+#sc-cpb button { font: inherit; color: inherit; margin: 0; }
+#sc-cpb svg { display: block; }
+#sc-cpb .cpb-wrap { flex: 0 0 auto; display: flex; flex-direction: column; padding: 20px 22px 0; }
+
+/* ---------- Layout: one CSS grid, three sibling areas ----------
+   plan   = plan tabs + plan detail card   (.cpb-main)
+   totals = "Your Plan & Total" panel      (.cpb-side)
+   addons = full-width add-ons gallery     (.cpb-addons-section)
+   Desktop: plan + totals side by side, add-ons full-width beneath.
+   The 820px media query below reassigns the areas to a single column
+   (plan -> addons -> totals) — no DOM reordering or JS involved. */
+#sc-cpb .cpb-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 30%, 300px);
+  grid-template-areas:
+    "plan totals"
+    "addons addons";
+  gap: 16px;
+  padding-bottom: 22px;
+}
+#sc-cpb .cpb-main { grid-area: plan; min-width: 0; display: flex; flex-direction: column; align-self: start; }
+
+/* ---------- Masthead (branded header) ---------- */
+#sc-cpb .cpb-masthead {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  flex: 0 0 auto;
+  min-height: clamp(202px, 20vw, 212px);
+  background:
+    radial-gradient(120% 170% at 9% 0%, rgba(201,168,76,.07), transparent 45%),
+    linear-gradient(180deg, #fffefa 0%, #ffffff 72%, #fffdfa 100%);
+  border-bottom: 0;
+}
+
+/* Use the real local building art instead of generated mountain/scenery shapes. */
+#sc-cpb .cpb-masthead-building {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  width: 58%;
+  max-width: none;
+  height: auto;
+  top: -96px;
+  right: -46px;
+  opacity: .96;
+  object-fit: contain;
+  filter: saturate(.92) contrast(.98) brightness(1.03);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.08) 5%, rgba(0,0,0,.5) 18%, #000 34%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.08) 5%, rgba(0,0,0,.5) 18%, #000 34%, #000 100%);
+}
+
+/* Layered gray corner flourish, top-left — a quiet echo of the maroon/gold
+   ribbon swoosh at the bottom, in the same nested-band construction: three
+   right triangles sharing the corner as their apex, stacked smallest-and-
+   lightest on top, each tone butting directly against the next (no gaps),
+   sitting above the building art but behind the swoosh and the title copy. */
+#sc-cpb .cpb-masthead-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+  width: clamp(100px, 13.5vw, 132px);
+  height: clamp(80px, 10.8vw, 106px);
+}
+#sc-cpb .cpb-masthead-corner svg { display: block; width: 100%; height: 100%; }
+#sc-cpb .cpb-corner-gray-3 { fill: #C2C1C4; }
+#sc-cpb .cpb-corner-gray-2 { fill: #D5D4D6; }
+#sc-cpb .cpb-corner-gray-1 { fill: #E0DFE1; }
+
+/* Soft white blend behind the copy so the building never fights the title. */
+#sc-cpb .cpb-masthead::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      rgba(255,255,255,1) 0%,
+      rgba(255,255,255,1) 45%,
+      rgba(255,255,255,.88) 54%,
+      rgba(255,255,255,.32) 67%,
+      rgba(255,255,255,0) 80%);
+}
+
+/* Layered brand ribbons across the lower edge of the masthead. */
+#sc-cpb .cpb-masthead-swoosh {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  pointer-events: none;
+  /* Deeper than the original 94px so the corner sweep reads as a real dip,
+     but not so tall it climbs above the building art on the right — the SVG
+     below is preserveAspectRatio="none", so it stretches to fill this. */
+  height: 112px;
+}
+#sc-cpb .cpb-masthead-swoosh svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Each band is stroked in its own fill colour so neighbouring bands overlap
+   by a hair — without it, antialiasing leaves pale seams along shared edges. */
+#sc-cpb .cpb-masthead-swoosh path { stroke-width: .7; stroke-linejoin: round; }
+#sc-cpb .cpb-corner-maroon { fill: var(--cpb-maroon); stroke: var(--cpb-maroon); }
+#sc-cpb .cpb-corner-gold-dark { fill: #B98E21; stroke: #B98E21; }
+#sc-cpb .cpb-corner-gold { fill: var(--cpb-gold); stroke: var(--cpb-gold); }
+#sc-cpb .cpb-corner-gold-light { fill: #E8CB75; stroke: #E8CB75; }
+/* A dedicated stroke-only line (no fill) traced along the top edge of the
+   outermost gold band — a crisp, visible "curb" where the gold meets white,
+   without outlining the seams between the gold bands themselves. */
+#sc-cpb .cpb-corner-curb { fill: none; stroke: #FBEFCF; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+
+#sc-cpb .cpb-masthead-inner {
+  position: relative;
+  z-index: 5;
+  min-height: clamp(202px, 20vw, 212px);
+  width: 66%;
+  display: flex;
+  align-items: flex-start;
+  padding: 52px 0 66px clamp(92px, 10vw, 108px);
+}
+
+#sc-cpb .cpb-masthead-copy {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: min(520px, 100%);
+  margin: 0;
+}
+#sc-cpb .cpb-masthead-title {
+  margin: 0;
+  font-size: clamp(34px, 4.1vw, 46px);
+  line-height: .98;
+  font-weight: 900;
+  color: var(--cpb-maroon);
+  letter-spacing: -.035em;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255,255,255,.8);
+}
+#sc-cpb .cpb-masthead-tagline {
+  margin: 10px 0 0;
+  font-size: clamp(10px, 1.2vw, 13px);
+  line-height: 1.2;
+  font-weight: 900;
+  color: #253B5A;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+
+/* ---------- Plan selector (segmented bar) ---------- */
+#sc-cpb .cpb-plans {
+  flex: 0 0 auto;
+  position: relative; display: grid; grid-template-columns: repeat(4, 1fr);
+  background: #E4E4E7; border-radius: 11px; padding: 4px; margin-bottom: 14px;
+}
+#sc-cpb .cpb-plan-pill {
+  position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4);
+  background: var(--cpb-accent); border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(38,38,42,.08), 0 4px 12px rgba(38,38,42,.10);
+  transform: translateX(calc(var(--cpb-i, 0) * 100%));
+  transition: transform .38s cubic-bezier(.3,.7,.2,1);
+}
+#sc-cpb[data-theme="premier"] .cpb-plan-pill { border: 2px solid var(--cpb-maroon); }
+
+#sc-cpb .cpb-plan-pill::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px; width: 24px; height: 3px;
+  margin-left: -12px; border-radius: 2px; background: var(--cpb-accent);
+}
+#sc-cpb .cpb-plan {
+  position: relative; z-index: 1; cursor: pointer; background: none; border: 0; border-radius: 8px;
+  padding: 9px 6px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+#sc-cpb .cpb-plan:focus-visible { outline: 3px solid var(--cpb-gold); outline-offset: -3px; }
+#sc-cpb .cpb-plan-name { font-size: 14px; font-weight: 700; color: var(--cpb-body); line-height: 1.25; transition: color .2s ease; }
+#sc-cpb .cpb-plan-price { font-size: 12px; color: var(--cpb-muted); }
+#sc-cpb .cpb-plan:hover .cpb-plan-name { color: var(--cpb-ink); }
+#sc-cpb .cpb-plan[aria-checked="true"] .cpb-plan-name { color: var(--cpb-on-accent); font-weight: 900; }
+#sc-cpb .cpb-plan[aria-checked="true"] .cpb-plan-price { color: var(--cpb-on-accent); }
+
+/* ---------- Detail panel (themed per plan) ---------- */
+#sc-cpb .cpb-detail {
+  /* Fills whatever height the grid row gives it, so the plan card and the
+     "Your Plan & Total" panel beside it end on the same line. */
+  flex: 1 1 auto;
+  position: relative; overflow: hidden; isolation: isolate;
+  background: linear-gradient(135deg, var(--cpb-tint) 0%, var(--cpb-tint) 38%, #FFFFFF 100%);
+  border: 1px solid var(--cpb-edge); border-radius: 14px;
+  padding: 20px 22px 18px;
+  box-shadow: 0 1px 2px rgba(38,38,42,.05), 0 14px 34px rgba(38,38,42,.08);
+}
+#sc-cpb .cpb-detail::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    radial-gradient(120% 90% at 100% 0%, var(--cpb-glow), transparent 55%),
+    linear-gradient(90deg, var(--cpb-tint) 0%, var(--cpb-tint) 50%, transparent 88%),
+    var(--cpb-photo);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  /* Photo is sized to 50% width / 112% of the card's height, anchored to the
+     bottom-right corner, so it bleeds slightly past the card's bottom edge and
+     gets clipped there by overflow:hidden — the "photo spilling out of the
+     card" look. Nudge the vertical anchor per plan with --cpb-photo-pos above
+     if a crop looks off once the real photos are in. */
+  background-size: auto, auto, 50% auto;
+  background-position: center, center, right var(--cpb-photo-pos, bottom);
+}
+#sc-cpb .cpb-detail::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.7), transparent);
+  transform: translateX(-130%) skewX(-14deg); opacity: 0;
+}
+#sc-cpb .cpb-detail-top {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+}
+#sc-cpb .cpb-section-label { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; width: max(50%, 240px); max-width: 100%; }
+#sc-cpb .cpb-section-label-text {
+  flex: 0 0 auto; font-size: 11px; font-weight: 900; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--cpb-accent-ink); white-space: nowrap;
+}
+#sc-cpb .cpb-section-rule { height: 2px; border-radius: 2px; background: var(--cpb-gold); flex: 0 0 30px; }
+#sc-cpb .cpb-section-rule.is-long { flex: 1 1 auto; }
+#sc-cpb .cpb-detail-name {
+  margin: 0 0 4px; font-size: clamp(22px, 2.6vw, 28px); font-weight: 900; line-height: 1.1;
+  color: var(--cpb-ink); letter-spacing: -.01em;
+}
+#sc-cpb .cpb-name-accent { color: var(--cpb-accent-ink); }
+#sc-cpb .cpb-detail-top > div { flex: 1 1 auto; min-width: 0; width: 100%; }
+#sc-cpb .cpb-detail-tagline {
+  margin: 8px 0 0; max-width: 65%;
+  font-size: 15.5px; line-height: 1.5; color: var(--cpb-ink);
+  background: rgba(255,255,255,.8); border: 1px solid var(--cpb-edge); border-radius: 10px;
+  padding: 10px 14px;
+}
+#sc-cpb .cpb-detail-price {
+  text-align: right;
+  flex-shrink: 0;
+  background: var(--cpb-surface);
+  border: 1px solid var(--cpb-edge);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+#sc-cpb .cpb-detail-price strong {
+  display: block; font-size: clamp(24px, 2.8vw, 30px); font-weight: 900; line-height: 1; color: var(--cpb-accent-ink);
+}
+#sc-cpb .cpb-detail-price span { font-size: 12px; color: var(--cpb-muted); font-weight: 700; }
+
+#sc-cpb .cpb-features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+#sc-cpb .cpb-feature {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--cpb-edge); border-radius: 10px; padding: 10px 12px;
+  background: var(--cpb-surface);
+}
+#sc-cpb .cpb-feature:last-child:nth-child(odd) { grid-column: 1 / -1; }
+#sc-cpb .cpb-icon {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--cpb-accent); color: var(--cpb-on-accent);
+  display: flex; align-items: center; justify-content: center;
+}
+#sc-cpb .cpb-icon svg { width: 19px; height: 19px; }
+#sc-cpb[data-theme="premier"] .cpb-feature:not(.is-plus) .cpb-icon { background: var(--cpb-maroon); color: #fff; }
+#sc-cpb .cpb-feature-rule { width: 1px; align-self: stretch; background: var(--cpb-edge); margin: 4px 0; }
+#sc-cpb .cpb-feature-title { margin: 0; font-size: 15px; font-weight: 900; color: var(--cpb-accent-ink); line-height: 1.25; }
+#sc-cpb .cpb-feature-text { margin: 1px 0 0; font-size: 12.5px; color: var(--cpb-body); }
+
+#sc-cpb .cpb-bestfor {
+  display: inline-flex; align-items: center; gap: 12px; margin-top: 10px;
+  background: rgba(255,255,255,.7); border-radius: 10px; padding: 10px 14px;
+}
+#sc-cpb .cpb-bestfor-icon { color: var(--cpb-accent-ink); flex-shrink: 0; }
+#sc-cpb .cpb-bestfor-icon svg { width: 22px; height: 22px; }
+#sc-cpb .cpb-bestfor .cpb-feature-rule { margin: 0; }
+#sc-cpb .cpb-bestfor p { margin: 0; flex: 1; font-size: 13.5px; font-style: italic; color: var(--cpb-accent-ink); }
+#sc-cpb .cpb-bestfor a {
+  flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--cpb-accent-ink); text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+#sc-cpb .cpb-bestfor a:hover, #sc-cpb .cpb-bestfor a:focus-visible { border-bottom-color: var(--cpb-accent); outline: none; }
+
+/* Plan-change moment: light sheen sweeps across while the content settles in */
+#sc-cpb .cpb-detail.cpb-swap::after { animation: cpbSheen .9s cubic-bezier(.4,0,.2,1); }
+#sc-cpb .cpb-swap .cpb-detail-top { animation: cpbSwap .35s ease both; }
+#sc-cpb .cpb-swap .cpb-features   { animation: cpbSwap .35s ease .06s both; }
+#sc-cpb .cpb-swap .cpb-bestfor    { animation: cpbSwap .35s ease .12s both; }
+@keyframes cpbSwap  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cpbSheen { 0% { opacity: 1; transform: translateX(-130%) skewX(-14deg); } 100% { opacity: 1; transform: translateX(360%) skewX(-14deg); } }
+
+/* ---------- "Your Plan & Total" panel (grid area: totals) ---------- */
+#sc-cpb .cpb-side {
+  grid-area: totals; min-width: 0;
+  background: var(--cpb-surface); border: 1px solid var(--cpb-line); border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column;
+}
+#sc-cpb .cpb-h3 { flex: 0 0 auto; margin: 0 0 10px; font-size: 17px; font-weight: 900; color: var(--cpb-maroon); line-height: 1.2; }
+#sc-cpb .cpb-side .cpb-section-label { width: 100%; margin-bottom: 6px; }
+
+/* Highlighted monthly-cost box */
+#sc-cpb .cpb-monthly {
+  position: relative;
+  background: var(--cpb-tint); border: 1px solid var(--cpb-edge); border-radius: 12px;
+  padding: 12px 14px 14px; margin-bottom: 18px;
+}
+#sc-cpb .cpb-monthly-head { display: flex; align-items: center; gap: 8px; }
+#sc-cpb .cpb-monthly-label { font-size: 12.5px; font-weight: 700; color: var(--cpb-accent-ink); line-height: 1.3; }
+
+#sc-cpb .cpb-monthly-amt {
+  display: block; margin-top: 6px; transform-origin: left center;
+  font-size: clamp(32px, 4vw, 38px); font-weight: 900; line-height: 1.1; letter-spacing: -.02em;
+  color: var(--cpb-accent-ink);
+}
+
+/* Itemized list */
+#sc-cpb .cpb-lines { list-style: none; margin: 0 0 12px; padding: 0; }
+#sc-cpb .cpb-line {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 22px; align-items: center; column-gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--cpb-line); font-size: 13px;
+}
+#sc-cpb .cpb-line:last-child { border-bottom: 0; }
+#sc-cpb .cpb-line-qty { font-weight: 900; color: var(--cpb-ink); white-space: nowrap; }
+#sc-cpb .cpb-line-name { color: var(--cpb-body); line-height: 1.3; }
+#sc-cpb .cpb-line.is-plan .cpb-line-name { font-weight: 900; color: var(--cpb-ink); }
+#sc-cpb .cpb-line-price { font-weight: 900; color: var(--cpb-ink); white-space: nowrap; }
+#sc-cpb .cpb-line-remove {
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--cpb-off); color: var(--cpb-muted); font-size: 10px; line-height: 1;
+  transition: background-color .15s ease, color .15s ease;
+}
+#sc-cpb .cpb-line-remove:hover { background: var(--cpb-red); color: #fff; }
+#sc-cpb .cpb-line-remove:focus-visible { outline: 2px solid var(--cpb-gold); outline-offset: 1px; }
+
+/* Selected-but-unavailable line: the add-on (or coverage surcharge) is kept
+   selected in the background, but isn't covered by the plan currently on
+   screen, so it's grayed out and struck through here and excluded from the
+   total. Swapping back to a plan that covers it restores it automatically. */
+#sc-cpb .cpb-line.is-locked .cpb-line-name,
+#sc-cpb .cpb-line.is-locked .cpb-line-price,
+#sc-cpb .cpb-line.is-locked .cpb-line-qty { color: var(--cpb-muted); text-decoration: line-through; }
+
+/* Notice banner: shown only while at least one line in the list above is
+   locked (grayed out) for the plan currently on screen. */
+#sc-cpb .cpb-lock-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--cpb-tint); border: 1px solid var(--cpb-edge); border-radius: 10px;
+  padding: 9px 12px; margin: 0 0 14px;
+  font-size: 12.5px; font-weight: 700; color: var(--cpb-accent-ink); line-height: 1.35;
+}
+#sc-cpb .cpb-lock-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
+#sc-cpb .cpb-lock-banner[hidden] { display: none; }
+
+/* Annual total */
+#sc-cpb .cpb-annual { border-top: 2px solid var(--cpb-line); padding-top: 12px; margin-bottom: 16px; }
+#sc-cpb .cpb-annual-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+#sc-cpb .cpb-annual-label { font-size: 13px; font-weight: 900; color: var(--cpb-ink); }
+#sc-cpb .cpb-annual-amt { display: inline-block; transform-origin: right center; font-size: 22px; font-weight: 900; line-height: 1.1; color: var(--cpb-accent-ink); }
+#sc-cpb .cpb-annual-amt small { font-size: 13px; font-weight: 700; color: var(--cpb-muted); margin-left: 2px; }
+#sc-cpb .cpb-annual-sub { margin-top: 3px; text-align: right; font-size: 12px; color: var(--cpb-muted); }
+#sc-cpb .cpb-monthly .cpb-annual-sub {
+  display: block;
+  margin-top: 4px;
+  text-align: left;
+  line-height: 1.2;
+}
+#sc-cpb .cpb-cta {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  background: var(--cpb-maroon); color: #fff;
+  font-size: 15px; font-weight: 900; text-decoration: none;
+  padding: 12px 20px; border-radius: 999px; border: none; cursor: pointer;
+  transition: background-color .15s ease;
+}
+#sc-cpb .cpb-cta:hover { background: var(--cpb-maroon-dark); }
+#sc-cpb .cpb-cta:focus-visible { outline: 3px solid var(--cpb-gold); outline-offset: 2px; }
+
+#sc-cpb .cpb-pulse { animation: cpbPulse .3s ease; }
+@keyframes cpbPulse { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* Maroon flash for an add-on that just became unavailable as a direct result
+   of switching plans (see selectPlan()) — same remove/reflow/add mechanics as
+   .cpb-pulse above, but colored instead of a scale bounce. */
+#sc-cpb .cpb-pulse-lock { animation: cpbPulseLock .6s ease; }
+@keyframes cpbPulseLock {
+  0%   { box-shadow: 0 0 0 0 rgba(107,26,44,0); }
+  35%  { box-shadow: 0 0 0 5px rgba(107,26,44,.55); }
+  100% { box-shadow: 0 0 0 0 rgba(107,26,44,0); }
+}
+
+/* ---------- Add-ons gallery (grid area: addons) ---------- */
+#sc-cpb .cpb-addons-section {
+  grid-area: addons; min-width: 0;
+  background: var(--cpb-surface); border: 1px solid var(--cpb-line); border-radius: 12px; padding: 16px 16px 18px;
+}
+#sc-cpb .cpb-addons-section .cpb-h3 { margin-bottom: 2px; }
+#sc-cpb .cpb-addons-sub { margin: 0 0 14px; font-size: 13.5px; color: var(--cpb-body); }
+#sc-cpb .cpb-addons-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+
+/* Per-system accent colors (HVAC red, plumbing blue) carried over from the old grouped rows. */
+#sc-cpb .cpb-addon.is-hvac     { --g-tint: #FBEEEF; --g-edge: #EFCFD4; --g-accent: #A3102E; --g-ink: #6B1A2C; }
+#sc-cpb .cpb-addon.is-plumbing { --g-tint: #EBF2FB; --g-edge: #C9DAF0; --g-accent: #1F5AA6; --g-ink: #173A66; }
+
+#sc-cpb .cpb-addon {
+  position: relative;
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  text-align: left; cursor: pointer;
+  background: var(--g-tint); border: 1px solid #7D7D84; border-radius: 12px;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+#sc-cpb .cpb-addon:not(.is-locked):hover { border-color: var(--g-accent); box-shadow: 0 2px 10px rgba(38,38,42,.10); }
+#sc-cpb .cpb-addon:focus-visible { outline: 3px solid var(--cpb-gold); outline-offset: 2px; }
+#sc-cpb .cpb-addon-photo { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--g-edge); }
+#sc-cpb .cpb-addon-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+#sc-cpb .cpb-addon-body {
+  flex: 1 1 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding: 10px 12px 12px;
+  transition: background-color .15s ease;
+}
+#sc-cpb .cpb-addon-name { font-size: 14px; font-weight: 700; color: var(--cpb-ink); line-height: 1.3; transition: color .15s ease; }
+#sc-cpb .cpb-addon-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+#sc-cpb .cpb-addon-row .cpb-addon-name { flex: 1 1 auto; min-width: 0; }
+#sc-cpb .cpb-addon-row .cpb-addon-price { flex: 0 0 auto; align-self: center; margin: 0; white-space: nowrap; }
+#sc-cpb .cpb-addon-price {
+  display: inline-flex; align-items: baseline; gap: 2px; white-space: nowrap;
+  font-size: 12.5px; font-weight: 900; color: var(--g-ink);
+  background: color-mix(in srgb, var(--g-accent) 14%, #fff);
+  border-radius: 999px; padding: 4px 10px; transition: background-color .15s ease, color .15s ease;
+}
+#sc-cpb .cpb-addon-price small { font-size: 10.5px; font-weight: 700; opacity: 1; }
+#sc-cpb .cpb-addon-note { font-size: 11px; font-weight: 700; color: var(--g-ink); line-height: 1.25; }
+#sc-cpb .cpb-addon-qty { margin-top: auto; padding-top: 4px; align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 6px; }
+#sc-cpb .cpb-qty-input {
+  width: 48px; height: 38px; border: 1px solid #7D7D84; border-radius: 7px; padding: 0 4px;
+  background: #fff; color: var(--g-ink); font: inherit; font-size: 13px; font-weight: 900; text-align: center; outline: none;
+}
+#sc-cpb .cpb-qty-input:focus { border-color: var(--g-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--g-accent) 20%, transparent); }
+#sc-cpb .cpb-qty-plus, #sc-cpb .cpb-qty-minus {
+  width: 38px; height: 38px; border: 0; border-radius: 7px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--g-accent); color: #fff; font-size: 22px; font-weight: 900; line-height: 1;
+}
+#sc-cpb .cpb-qty-plus:hover, #sc-cpb .cpb-qty-minus:hover { filter: brightness(.94); }
+#sc-cpb .cpb-qty-plus:focus-visible, #sc-cpb .cpb-qty-minus:focus-visible { outline: 2px solid var(--cpb-gold); outline-offset: 1px; }
+/* Minus is only shown once the quantity is above its floor; it keeps its
+   space when hidden so the +/- pair stays symmetric and nothing shifts. */
+#sc-cpb .cpb-qty-minus:disabled { visibility: hidden; }
+/* Unlike "-", "+" stays visible once disabled (at the 9-cap, or when the
+   whole card is locked) so its tooltip can still be hovered — it just needs
+   to visually read as disabled instead of looking clickable. */
+#sc-cpb .cpb-qty-plus:disabled { opacity: .45; cursor: not-allowed; }
+#sc-cpb .cpb-addon.is-quantity { cursor: default; }
+#sc-cpb .cpb-addon.is-quantity:not(.is-locked):hover { border-color: var(--g-edge); box-shadow: none; }
+
+/* Per-card "more info" badge, top-right corner of every .cpb-addon photo.
+   Purely informational: stays clickable in .is-locked state (see the JS click
+   handler, which intercepts clicks on it before the card's own toggle/upsell
+   behavior runs) and never carries a locked/disabled look of its own. */
+#sc-cpb .cpb-addon-info {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 30px; height: 30px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; overflow: hidden;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+#sc-cpb .cpb-addon-info img { display: block; width: 100%; height: 100%; object-fit: contain; }
+#sc-cpb .cpb-addon-info:hover { background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+#sc-cpb .cpb-addon-info:focus-visible { outline: 3px solid var(--cpb-gold); outline-offset: 2px; }
+
+/* Shared modal for all 9 add-ons: one fixed-position overlay, content swapped
+   per click. Sits outside the .cpb-addons-grid photo/card stacking entirely,
+   so its overflow:hidden ancestors (.cpb-addon, #sc-cpb) don't clip it. */
+/* overflow-y + margin:auto on the card: the lead modal is now tall enough (with
+   the Turnstile widget) to exceed a short viewport, and a fixed, centered flex
+   child with no scroll clips off-screen — including its own close button. */
+#sc-cpb .cpb-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+#sc-cpb .cpb-modal[hidden] { display: none; }
+#sc-cpb .cpb-modal-backdrop { position: absolute; inset: 0; background: rgba(38,38,42,.55); }
+#sc-cpb .cpb-modal-card {
+  position: relative; z-index: 1; width: min(420px, 100%); margin: auto;
+  background: var(--cpb-surface); border: 1px solid var(--cpb-edge); border-radius: 16px;
+  padding: 28px 24px 24px; box-shadow: 0 24px 60px rgba(38,38,42,.30);
+}
+#sc-cpb .cpb-modal-close {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: var(--cpb-off); color: var(--cpb-muted); font-size: 18px; line-height: 1;
+  transition: background-color .15s ease, color .15s ease;
+}
+#sc-cpb .cpb-modal-close:hover { background: var(--cpb-red); color: #fff; }
+#sc-cpb .cpb-modal-close:focus-visible { outline: 3px solid var(--cpb-gold); outline-offset: 2px; }
+#sc-cpb .cpb-modal-title { margin: 0 0 6px; font-size: 20px; font-weight: 900; color: var(--cpb-accent-ink); line-height: 1.25; padding-right: 24px; }
+#sc-cpb .cpb-modal-price {
+  display: inline-flex; align-items: baseline; gap: 2px; margin: 0 0 14px;
+  font-size: 13px; font-weight: 900; color: var(--cpb-accent-ink);
+  background: var(--cpb-tint); border-radius: 999px; padding: 5px 12px;
+}
+#sc-cpb .cpb-modal-desc { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--cpb-body); }
+
+.cpb-lead-modal[hidden] { display: none; }
+
+.cpb-lead-card { max-width: 560px; text-align: left; }
+
+.cpb-lead-recap {
+  background: color-mix(in srgb, var(--cpb-maroon) 6%, #fff);
+  border: 1px solid color-mix(in srgb, var(--cpb-maroon) 18%, #fff);
+  border-radius: 10px;
+  padding: .9rem 1rem;
+  margin: 0 0 1.1rem;
+  font-size: .95rem;
+  line-height: 1.5;
+}
+
+.cpb-lead-recap dl { display: grid; grid-template-columns: auto 1fr; gap: .2rem .6rem; margin: 0; }
+.cpb-lead-recap dt { font-weight: 600; color: var(--cpb-maroon); }
+.cpb-lead-recap dd { margin: 0; }
+.cpb-lead-recap .cpb-lead-recap-total {
+  margin-top: .5rem;
+  padding-top: .5rem;
+  border-top: 1px dashed color-mix(in srgb, var(--cpb-maroon) 25%, #fff);
+  font-weight: 700;
+  color: var(--cpb-maroon);
+}
+
+.cpb-lead-form { display: flex; flex-direction: column; gap: .9rem; }
+/* `display: flex` above outranks the browser's own [hidden] { display: none },
+   so form.hidden = true on success did not actually hide the form: the customer
+   saw the confirmation AND the filled-in form with an active Send button, and a
+   second click would fail (the Turnstile token is single-use). Same guard the
+   file already uses for .cpb-modal[hidden] and .cpb-lock-banner[hidden]. */
+.cpb-lead-form[hidden] { display: none; }
+.cpb-lead-field { display: flex; flex-direction: column; gap: .3rem; }
+.cpb-lead-field label { font-weight: 600; font-size: .9rem; color: var(--cpb-maroon); }
+.cpb-lead-optional { font-weight: 400; color: #767676; font-size: .82rem; }
+
+.cpb-lead-field input[type="text"],
+.cpb-lead-field input[type="tel"],
+.cpb-lead-field input[type="email"],
+.cpb-lead-field select {
+  border: 1px solid #d9d2c8;
+  border-radius: 8px;
+  padding: .55rem .7rem;
+  font: inherit;
+  color: inherit;
+}
+
+.cpb-lead-field input:focus,
+.cpb-lead-field select:focus {
+  outline: 2px solid var(--cpb-accent);
+  outline-offset: 1px;
+  border-color: var(--cpb-accent);
+}
+
+.cpb-lead-field input[aria-invalid="true"],
+.cpb-lead-field select[aria-invalid="true"] { border-color: #b3261e; }
+
+.cpb-lead-error { color: #b3261e; font-size: .82rem; min-height: 1em; }
+
+.cpb-lead-checkbox-field { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: .5rem .6rem; }
+.cpb-lead-checkbox-field input[type="checkbox"] { margin-top: .25rem; flex: 0 0 auto; }
+.cpb-lead-checkbox-field label { flex: 1 1 260px; font-weight: 400; color: inherit; font-size: .88rem; }
+.cpb-lead-checkbox-field .cpb-lead-error { flex-basis: 100%; }
+
+.cpb-lead-disclosure {
+  font-size: .85rem;
+  line-height: 1.5;
+  color: #4a4a4a;
+  background: #faf7f2;
+  border-left: 3px solid var(--cpb-accent);
+  padding: .6rem .8rem;
+  margin: 0;
+}
+
+.cpb-lead-form-error {
+  color: #b3261e;
+  font-size: .88rem;
+  background: #fbeceb;
+  border: 1px solid #f1c4c1;
+  border-radius: 8px;
+  padding: .55rem .7rem;
+}
+
+.cpb-lead-submit-row { margin-top: .2rem; }
+.cpb-lead-submit-row .cpb-cta { width: 100%; text-align: center; cursor: pointer; border: none; font: inherit; }
+.cpb-lead-submit-row .cpb-cta[disabled] { opacity: .6; cursor: not-allowed; }
+
+.cpb-lead-confirm { padding: .5rem 0 .2rem; font-size: 1rem; line-height: 1.6; color: var(--cpb-accent-ink, var(--cpb-maroon)); }
+
+/* Active/fill state: filled means the add-on is currently included in the total. */
+#sc-cpb .cpb-addon.is-active { border-color: var(--g-accent); }
+#sc-cpb .cpb-addon.is-active .cpb-addon-body { background: var(--g-accent); }
+#sc-cpb .cpb-addon.is-active .cpb-addon-name { color: #fff; }
+#sc-cpb .cpb-addon.is-active .cpb-addon-note { color: rgba(255,255,255,.92); }
+#sc-cpb .cpb-addon.is-active .cpb-addon-price { background: rgba(255,255,255,.15); color: #fff; }
+#sc-cpb .cpb-addon.is-active .cpb-qty-input { border-color: rgba(255,255,255,.55); }
+#sc-cpb .cpb-addon.is-active .cpb-qty-plus, #sc-cpb .cpb-addon.is-active .cpb-qty-minus { background: rgba(255,255,255,.22); }
+
+/* Item 3 fix: an add-on the current plan already includes for free (e.g.
+   Premier's Water Softener Salt / Reverse Osmosis Service) — visually
+   similar to is-active (it IS part of the order) but not interactive, since
+   there's nothing to toggle or count. */
+#sc-cpb .cpb-addon.is-included { cursor: default; border-color: var(--g-accent); }
+#sc-cpb .cpb-addon.is-included:hover { box-shadow: none; }
+#sc-cpb .cpb-addon.is-included .cpb-addon-body { background: var(--g-accent); }
+#sc-cpb .cpb-addon.is-included .cpb-addon-name { color: #fff; }
+#sc-cpb .cpb-addon.is-included .cpb-addon-price { background: rgba(255,255,255,.15); color: #fff; }
+#sc-cpb .cpb-line.is-included .cpb-line-price { color: var(--cpb-accent-ink); }
+
+/* Unavailable for the current plan — dimmed/grayed card. Still clickable: see the
+   click handler, which auto-switches the plan to Bundled and selects it. The
+   disabled controls ignore pointer events so a click anywhere on the card
+   (including over them) reaches the card itself. */
+#sc-cpb .cpb-addon.is-locked { background: var(--cpb-off); border-color: #7D7D84; }
+#sc-cpb .cpb-addon.is-locked .cpb-addon-photo { background: #D6D6D9; }
+#sc-cpb .cpb-addon.is-locked .cpb-addon-photo img { filter: grayscale(1); opacity: .55; }
+#sc-cpb .cpb-addon.is-locked .cpb-addon-name { color: var(--cpb-muted); }
+#sc-cpb .cpb-addon.is-locked .cpb-addon-note { color: var(--cpb-muted); }
+#sc-cpb .cpb-addon.is-locked .cpb-addon-price { background: var(--cpb-surface); color: var(--cpb-muted); }
+#sc-cpb .cpb-addon.is-locked .cpb-qty-input { background: #F4F4F5; border-color: #D6D6D9; color: var(--cpb-muted); }
+#sc-cpb .cpb-addon.is-locked .cpb-qty-plus, #sc-cpb .cpb-addon.is-locked .cpb-qty-minus { background: #C8C8CD; color: #fff; }
+#sc-cpb .cpb-addon.is-locked .cpb-qty-input,
+#sc-cpb .cpb-addon.is-locked .cpb-qty-plus,
+#sc-cpb .cpb-addon.is-locked .cpb-qty-minus { pointer-events: none; }
+
+/* Accessible keyboard focus: white inner ring + dark outer ring. */
+#sc-cpb .cpb-plan:focus-visible,
+#sc-cpb .cpb-line-remove:focus-visible,
+#sc-cpb .cpb-cta:focus-visible,
+#sc-cpb .cpb-addon:focus-visible,
+#sc-cpb .cpb-qty-input:focus-visible,
+#sc-cpb .cpb-qty-plus:focus-visible,
+#sc-cpb .cpb-qty-minus:focus-visible,
+#sc-cpb .cpb-addon-info:focus-visible,
+#sc-cpb .cpb-modal-close:focus-visible,
+#sc-cpb .cpb-bestfor a:focus-visible {
+  outline: 3px solid #FFFFFF;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 8px #26262A;
+}
+
+/* ---------- Responsive ---------- */
+/* Keep plan card + totals panel side-by-side through normal laptop widths.
+   Stacking begins only once the available module width is genuinely tablet-sized. */
+@media (max-width: 820px) {
+  /* Single column via grid-area reassignment: plan card -> add-ons -> totals. */
+  #sc-cpb .cpb-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "plan"
+      "addons"
+      "totals";
+  }
+}
+@media (max-width: 720px) {
+  #sc-cpb { margin: 12px auto; max-width: calc(100% - 24px); border-radius: 16px; }
+  #sc-cpb .cpb-wrap { padding: 14px 14px 0; }
+  #sc-cpb .cpb-layout { padding-bottom: 16px; }
+  #sc-cpb .cpb-detail { padding: 16px 16px 14px; }
+  #sc-cpb .cpb-detail::before {
+    background-image: radial-gradient(120% 90% at 100% 0%, var(--cpb-glow), transparent 55%);
+    background-size: auto; background-position: center;
+  }
+#sc-cpb .cpb-detail-top { flex-direction: column; gap: 10px; }
+  #sc-cpb .cpb-detail-tagline { max-width: 100%; }
+  #sc-cpb .cpb-detail-price { text-align: left; }
+  #sc-cpb .cpb-features { grid-template-columns: 1fr; }
+  #sc-cpb .cpb-bestfor { flex-wrap: wrap; }
+  #sc-cpb .cpb-addons-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+  /* Masthead: keep the branded composition but protect the copy from the building. */
+  #sc-cpb .cpb-masthead { min-height: 188px; }
+  #sc-cpb .cpb-masthead-inner { min-height: 188px; width: 72%; padding: 48px 0 56px 58px; }
+  #sc-cpb .cpb-masthead-copy { width: min(460px, 100%); margin: 0; }
+  #sc-cpb .cpb-masthead-title { font-size: clamp(27px, 4.6vw, 35px); }
+  #sc-cpb .cpb-masthead-tagline { margin-top: 8px; font-size: 9px; letter-spacing: .15em; }
+  #sc-cpb .cpb-masthead-building { width: 62%; top: -74px; right: -50px; opacity: .88; }
+  #sc-cpb .cpb-masthead::before { background: linear-gradient(90deg, #fff 0%, #fff 49%, rgba(255,255,255,.86) 58%, rgba(255,255,255,.18) 78%, transparent 100%); }
+  #sc-cpb .cpb-masthead-swoosh { height: 88px; }
+  #sc-cpb .cpb-masthead-corner { width: clamp(85px, 17vw, 112px); height: clamp(68px, 13.6vw, 90px); }
+}
+@media (max-width: 520px) {
+  #sc-cpb .cpb-plan { padding: 8px 2px; }
+  #sc-cpb .cpb-plan-name { font-size: 12.5px; }
+  #sc-cpb .cpb-plan-price { font-size: 11px; }
+  #sc-cpb .cpb-icon { width: 36px; height: 36px; }
+  #sc-cpb .cpb-icon svg { width: 17px; height: 17px; }
+  #sc-cpb .cpb-addons-section { padding: 14px 12px 16px; }
+  #sc-cpb .cpb-addons-grid { gap: 10px; }
+  #sc-cpb .cpb-addon-body { padding: 9px 10px 10px; }
+  #sc-cpb .cpb-addon-name { font-size: 13px; }
+  #sc-cpb .cpb-addon-qty { gap: 4px; }
+  #sc-cpb .cpb-qty-input { width: 40px; }
+  #sc-cpb .cpb-qty-plus, #sc-cpb .cpb-qty-minus { width: 34px; height: 34px; }
+
+  /* Mobile: keep the same identity, with the building as a restrained right-side watermark. */
+  #sc-cpb .cpb-masthead { min-height: 198px; }
+  #sc-cpb .cpb-masthead-inner { min-height: 198px; width: 82%; align-items: flex-start; padding: 48px 0 60px 24px; }
+  #sc-cpb .cpb-masthead-copy { width: auto; max-width: 100%; margin: 0; }
+  #sc-cpb .cpb-masthead-title { font-size: 25px; white-space: normal; }
+  #sc-cpb .cpb-masthead-tagline { margin-top: 5px; font-size: 8.5px; letter-spacing: .09em; white-space: normal; }
+  #sc-cpb .cpb-masthead-building { width: 82%; top: -42px; right: -116px; opacity: .45; }
+  #sc-cpb .cpb-masthead::before { background: linear-gradient(90deg, #fff 0%, #fff 55%, rgba(255,255,255,.82) 68%, rgba(255,255,255,.15) 92%, transparent 100%); }
+  #sc-cpb .cpb-masthead-swoosh { height: 75px; }
+  #sc-cpb .cpb-masthead-corner { width: clamp(70px, 20vw, 92px); height: clamp(56px, 16vw, 74px); }
+}
+/* Very narrow phones: two photo cards per row no longer fit their +/- controls. */
+@media (max-width: 360px) {
+  #sc-cpb .cpb-addons-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Includes #sc-cpb itself (not just its descendants) so the module's own
+     theme-color transitions are disabled too, not just child elements'. */
+  #sc-cpb, #sc-cpb *, #sc-cpb *::before, #sc-cpb *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+  <header class="cpb-masthead">
+    <img class="cpb-masthead-building" src="/img/background.png" alt="" aria-hidden="true">
+    <span class="cpb-masthead-corner" aria-hidden="true">
+      <svg viewBox="0 0 132 106" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+        <polygon class="cpb-corner-gray-3" points="0,0 132,0 0,106"></polygon>
+        <polygon class="cpb-corner-gray-2" points="0,0 95,0 0,76"></polygon>
+        <polygon class="cpb-corner-gray-1" points="0,0 56,0 0,43"></polygon>
+      </svg>
+    </span>
+    <span class="cpb-masthead-swoosh" aria-hidden="true">
+      <svg viewBox="0 0 1440 94" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+        <!-- Maroon is the only band that crosses the centre: a broad, shallow
+             sweep that is deepest at the outer corners and settles to a thin
+             line in the middle. Each gold band is a full-width parallel
+             layer riding directly on maroon's own curve (not a per-corner
+             ribbon), so all four bands sweep in the same fashion and none
+             of them dead-end before reaching either corner. -->
+        <path class="cpb-corner-maroon" d="M0 26 C0.9 26.3 2.1 26.7 5.5 27.7 C8.9 28.7 14.1 30.3 20.5 32.1 C27 33.9 35 36.2 44.4 38.6 C53.8 41 64.6 43.8 76.7 46.5 C88.8 49.3 102.4 52.3 117.2 55.2 C132 58 148.2 61 165.7 63.8 C183.2 66.5 202 69.3 222.1 71.7 C242.2 74.1 263.6 76.4 286.2 78.3 C308.9 80.2 332.8 81.9 358 83.3 C383.2 84.7 409.7 85.8 437.4 86.6 C465.1 87.4 494 88 524.2 88.3 C554.4 88.7 585.8 88.8 618.4 88.9 C651.1 89 686.1 89 720 89 C753.9 89 788.9 89 821.6 88.9 C854.2 88.8 885.6 88.7 915.8 88.3 C946 88 974.9 87.4 1002.6 86.6 C1030.3 85.8 1056.8 84.7 1082 83.3 C1107.2 81.9 1131.1 80.2 1153.8 78.3 C1176.4 76.4 1197.8 74.1 1217.9 71.7 C1238 69.3 1256.8 66.5 1274.3 63.8 C1291.8 61 1308 58 1322.8 55.2 C1337.6 52.3 1351.2 49.3 1363.3 46.5 C1375.4 43.8 1386.2 41 1395.6 38.6 C1405 36.2 1413 33.9 1419.5 32.1 C1425.9 30.3 1431.1 28.7 1434.5 27.7 C1437.9 26.7 1439.1 26.3 1440 26 L1440 94 L0 94 Z"></path>
+        <path class="cpb-corner-gold-dark" d="M0 17 L5.5 18.92 L20.5 23.91 L44.4 31.27 L76.7 40.21 L117.2 50.06 L165.7 59.8 L222.1 68.75 L286.2 76.22 L358 81.88 L437.4 85.62 L524.2 87.55 L618.4 88.23 L720 88.34 L821.6 88.23 L915.8 87.55 L1002.6 85.62 L1082 81.88 L1153.8 76.22 L1217.9 68.75 L1274.3 59.8 L1322.8 50.06 L1363.3 40.21 L1395.6 31.27 L1419.5 23.91 L1434.5 18.92 L1440 17 L1440 26 L1434.5 27.7 L1419.5 32.1 L1395.6 38.6 L1363.3 46.5 L1322.8 55.2 L1274.3 63.8 L1217.9 71.7 L1153.8 78.3 L1082 83.3 L1002.6 86.6 L915.8 88.3 L821.6 88.9 L720 89 L618.4 88.9 L524.2 88.3 L437.4 86.6 L358 83.3 L286.2 78.3 L222.1 71.7 L165.7 63.8 L117.2 55.2 L76.7 46.5 L44.4 38.6 L20.5 32.1 L5.5 27.7 L0 26 Z"></path>
+        <path class="cpb-corner-gold" d="M0 9 L5.5 11.12 L20.5 16.62 L44.4 24.75 L76.7 34.62 L117.2 45.5 L165.7 56.25 L222.1 66.12 L286.2 74.38 L358 80.62 L437.4 84.75 L524.2 86.88 L618.4 87.63 L720 87.75 L821.6 87.63 L915.8 86.88 L1002.6 84.75 L1082 80.62 L1153.8 74.38 L1217.9 66.12 L1274.3 56.25 L1322.8 45.5 L1363.3 34.62 L1395.6 24.75 L1419.5 16.62 L1434.5 11.12 L1440 9 L1440 17 L1434.5 18.92 L1419.5 23.91 L1395.6 31.27 L1363.3 40.21 L1322.8 50.06 L1274.3 59.8 L1217.9 68.75 L1153.8 76.22 L1082 81.88 L1002.6 85.62 L915.8 87.55 L821.6 88.23 L720 88.34 L618.4 88.23 L524.2 87.55 L437.4 85.62 L358 81.88 L286.2 76.22 L222.1 68.75 L165.7 59.8 L117.2 50.06 L76.7 40.21 L44.4 31.27 L20.5 23.91 L5.5 18.92 L0 17 Z"></path>
+        <path class="cpb-corner-gold-light" d="M0 2 L5.5 4.3 L20.5 10.25 L44.4 19.05 L76.7 29.74 L117.2 41.51 L165.7 53.14 L222.1 63.83 L286.2 72.76 L358 79.52 L437.4 83.99 L524.2 86.29 L618.4 87.1 L720 87.24 L821.6 87.1 L915.8 86.29 L1002.6 83.99 L1082 79.52 L1153.8 72.76 L1217.9 63.83 L1274.3 53.14 L1322.8 41.51 L1363.3 29.74 L1395.6 19.05 L1419.5 10.25 L1434.5 4.3 L1440 2 L1440 9 L1434.5 11.12 L1419.5 16.62 L1395.6 24.75 L1363.3 34.62 L1322.8 45.5 L1274.3 56.25 L1217.9 66.12 L1153.8 74.38 L1082 80.62 L1002.6 84.75 L915.8 86.88 L821.6 87.63 L720 87.75 L618.4 87.63 L524.2 86.88 L437.4 84.75 L358 80.62 L286.2 74.38 L222.1 66.12 L165.7 56.25 L117.2 45.5 L76.7 34.62 L44.4 24.75 L20.5 16.62 L5.5 11.12 L0 9 Z"></path>
+        <path class="cpb-corner-curb" d="M0 2 L5.5 4.3 L20.5 10.25 L44.4 19.05 L76.7 29.74 L117.2 41.51 L165.7 53.14 L222.1 63.83 L286.2 72.76 L358 79.52 L437.4 83.99 L524.2 86.29 L618.4 87.1 L720 87.24 L821.6 87.1 L915.8 86.29 L1002.6 83.99 L1082 79.52 L1153.8 72.76 L1217.9 63.83 L1274.3 53.14 L1322.8 41.51 L1363.3 29.74 L1395.6 19.05 L1419.5 10.25 L1434.5 4.3 L1440 2"></path>
+      </svg>
+    </span>
+    <div class="cpb-masthead-inner">
+      <div class="cpb-masthead-copy">
+        <h2 class="cpb-masthead-title">Service Care Plan Builder</h2>
+        <p class="cpb-masthead-tagline">Choose the plan that's right for your home</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="cpb-wrap">
+    <!-- One grid, three sibling areas: plan / totals / addons (see .cpb-layout CSS). -->
+    <div class="cpb-layout">
+      <div class="cpb-main">
+        <div class="cpb-plans" role="radiogroup" aria-label="Base plan" data-cpb="plans"></div>
+        <section class="cpb-detail" aria-live="polite" data-cpb="detail"></section>
+      </div>
+
+      <aside class="cpb-side" aria-labelledby="cpb-totals-title">
+        <h3 class="cpb-h3" id="cpb-totals-title">Your Plan &amp; Total</h3>
+
+        <div class="cpb-monthly">
+          <div class="cpb-monthly-head">
+            <span class="cpb-monthly-label">Average Cost Per Month</span>
+          </div>
+          <span class="cpb-monthly-amt" aria-live="polite" data-cpb="monthly">$0.00</span>
+          <div class="cpb-annual-sub" data-cpb="annual-note">Billed annually at $0/yr — monthly payments aren't offered.</div>
+        </div>
+
+        <div class="cpb-section-label">
+          <span class="cpb-section-rule"></span>
+          <span class="cpb-section-label-text">Selected Plan &amp; Add-ons</span>
+          <span class="cpb-section-rule is-long"></span>
+        </div>
+        <ul class="cpb-lines" aria-label="Selected plan and add-ons" data-cpb="lines"></ul>
+
+        <div class="cpb-lock-banner" data-cpb="lock-banner" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+          <span>Some add-ons aren't available for your selected plan.</span>
+        </div>
+
+<div class="cpb-annual">
+  <div class="cpb-annual-row">
+    <span class="cpb-annual-label">Total Annual Price</span>
+    <strong class="cpb-annual-amt" aria-live="polite" data-cpb="annual"><span data-cpb="total">$0</span><small>/yr</small></strong>
+  </div>
+  <div class="cpb-annual-sub">*Applicable taxes are not included and will be added where required.</div>
+</div>
+
+        <button type="button" class="cpb-cta" data-cpb="cta">Finish and Review Choices</button>
+      </aside>
+
+      <section class="cpb-addons-section" aria-labelledby="cpb-addons-title">
+        <h3 class="cpb-h3" id="cpb-addons-title">Add-ons</h3>
+        <p class="cpb-addons-sub">Customize your plan with additional services.</p>
+        <div class="cpb-addons-grid" data-cpb="addons"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Shared "more info" modal, reused for all 9 add-on cards; content is
+       populated dynamically by JS based on which card's info icon was clicked. -->
+  <div class="cpb-modal" data-cpb="addon-modal" hidden>
+    <div class="cpb-modal-backdrop" data-cpb="addon-modal-backdrop"></div>
+    <div class="cpb-modal-card" role="dialog" aria-modal="true" aria-labelledby="cpb-modal-title" aria-describedby="cpb-modal-desc">
+      <button type="button" class="cpb-modal-close" aria-label="Close" data-cpb="addon-modal-close">&times;</button>
+      <h3 class="cpb-modal-title" id="cpb-modal-title" data-cpb="addon-modal-title"></h3>
+      <p class="cpb-modal-price" data-cpb="addon-modal-price"></p>
+      <p class="cpb-modal-desc" id="cpb-modal-desc" data-cpb="addon-modal-desc"></p>
+    </div>
+  </div>
+
+  <div class="cpb-modal cpb-lead-modal" id="cpbLeadModal" hidden>
+    <div class="cpb-modal-backdrop" data-cpb-lead-close></div>
+    <div class="cpb-modal-card cpb-lead-card" role="dialog" aria-modal="true" aria-labelledby="cpbLeadTitle">
+      <button type="button" class="cpb-modal-close" data-cpb-lead-close aria-label="Close">&times;</button>
+
+      <h2 id="cpbLeadTitle" class="cpb-modal-title">Request Your Care Plan</h2>
+
+      <div class="cpb-lead-recap" id="cpbLeadRecap"></div>
+
+      <form id="cpbLeadForm" class="cpb-lead-form" novalidate>
+        <div class="cpb-lead-field">
+          <label for="cpbLeadName">Customer Name</label>
+          <input type="text" id="cpbLeadName" name="customerName" autocomplete="name" required aria-describedby="cpbLeadNameErr">
+          <span class="cpb-lead-error" id="cpbLeadNameErr" role="alert"></span>
+        </div>
+
+        <div class="cpb-lead-field">
+          <label for="cpbLeadPhone">Phone Number</label>
+          <input type="tel" id="cpbLeadPhone" name="phone" autocomplete="tel" required aria-describedby="cpbLeadPhoneErr">
+          <span class="cpb-lead-error" id="cpbLeadPhoneErr" role="alert"></span>
+        </div>
+
+        <div class="cpb-lead-field">
+          <label for="cpbLeadAddress">Service/Location Address</label>
+          <input type="text" id="cpbLeadAddress" name="address" autocomplete="street-address" required aria-describedby="cpbLeadAddressErr">
+          <span class="cpb-lead-error" id="cpbLeadAddressErr" role="alert"></span>
+        </div>
+
+        <div class="cpb-lead-field">
+          <label for="cpbLeadBestTime">Best Time to Call <span class="cpb-lead-optional">(optional)</span></label>
+          <select id="cpbLeadBestTime" name="bestTime">
+            <option value="">No preference</option>
+            <option value="morning">Morning (8&ndash;11)</option>
+            <option value="midday">Midday (11&ndash;2)</option>
+            <option value="afternoon">Afternoon (2&ndash;5)</option>
+          </select>
+        </div>
+
+        <p class="cpb-lead-disclosure">
+          Sending this request does not enroll you in a Care Plan, and no payment is taken online. A Sun City team member will reach out during regular business hours (Monday&ndash;Friday, 8:00&nbsp;AM&ndash;5:00&nbsp;PM) to confirm your plan and price, go over the applicable terms, take payment if you decide to move forward, and get your visits scheduled.
+        </p>
+
+        <div class="cpb-lead-field cpb-lead-checkbox-field">
+          <input type="checkbox" id="cpbLeadAck" name="ack" required aria-describedby="cpbLeadAckErr">
+          <label for="cpbLeadAck">I understand that sending this request does not enroll me or take payment. Sun City will contact me to confirm my plan, price and applicable terms before enrollment is completed.</label>
+          <span class="cpb-lead-error" id="cpbLeadAckErr" role="alert"></span>
+        </div>
+
+        <!-- Cloudflare Turnstile. Rendered EXPLICITLY from JS when this modal opens:
+             the modal starts hidden, and an implicit (class="cf-turnstile") render
+             against a hidden container does not produce a usable widget. The site
+             key lives in TURNSTILE_SITEKEY, next to SUBMIT_ENDPOINT below, so going
+             live is a find-and-replace on one line. -->
+        <div class="cpb-lead-field cpb-lead-turnstile">
+          <div id="cpbTurnstile"></div>
+          <span class="cpb-lead-error" id="cpbLeadTurnstileErr" role="alert"></span>
+        </div>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+
+        <div class="cpb-lead-form-error" id="cpbLeadFormError" role="alert" hidden></div>
+
+        <div class="cpb-lead-submit-row">
+          <button type="submit" class="cpb-cta" id="cpbLeadSubmitBtn">Send My Request</button>
+        </div>
+      </form>
+
+      <div class="cpb-lead-confirm" id="cpbLeadConfirm" hidden></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  /* ================= CONFIG — update URLs to match your WP slugs ================= */
+  var LINKS = {
+    signUp:   '/member-sign-up/',
+    rewards:  '/member-rewards-program/',
+    hvac:     '/hvac-care-plan/',
+    plumbing: '/plumbing-care-plan/',
+    bundled:  '/bundled-care-plan/',
+    premier:  '/premier-care-plan/'
+  };
+
+  /* Highest quantity selectable for any add-on, including the two equipment
+     count cards (# of HVAC Systems / # of Water Heaters). Change this one
+     value to raise or lower the cap everywhere it's enforced. */
+  var MAX_ADDON_QTY = 9;
+
+  /* ================= ICONS ================= */
+  var P = {
+    calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+    filter:   '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+    clock:    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    tag:      '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="8" cy="8" r="1.6"/>',
+    heater:   '<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M6 8h12M10 14.5c0-1.5 2-2.5 2-4 0 1.5 2 2.5 2 4a2 2 0 0 1-4 0z"/>',
+    gauge:    '<path d="M3.5 17a9 9 0 1 1 17 0"/><path d="M12 13l4-4"/><circle cx="12" cy="13" r="1.3"/>',
+    wrench:   '<path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6l-8.4 8.4a2.1 2.1 0 0 1-3-3L18 9.6"/><path d="M14.7 6.3 11 2.6 9.6 4l3.7 3.7"/><path d="m3 21 4-4"/>',
+    layers:   '<path d="M12 3 2.5 8 12 13l9.5-5L12 3z"/><path d="M2.5 13 12 18l9.5-5"/>',
+    gift:     '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8.5h14V12M12 8v12.5M12 8S10.5 3.5 8 4.2 7.5 8 12 8zm0 0s1.5-4.5 4-3.8S16.5 8 12 8z"/>',
+    shield:   '<path d="M12 2.8 20 6v6c0 4.6-3.4 8.2-8 9.2-4.6-1-8-4.6-8-9.2V6l8-3.2z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+    truck:    '<path d="M2.5 6.5h11v10h-11zM13.5 10h4l3 3v3.5h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',
+    moon:     '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+    cube:     '<path d="M12 2.8 20 7v10l-8 4.2L4 17V7l8-4.2z"/><path d="M4 7l8 4.2L20 7M12 11.2v10"/>',
+    cylinder: '<ellipse cx="12" cy="5" rx="6" ry="2.3"/><path d="M6 5v14c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3V5M9 10v6M12 10.5v6M15 10v6"/>',
+    house:    '<path d="M3 11 12 3.5 21 11"/><path d="M5.5 9v11.5h13V9M10 20.5v-6h4v6"/>',
+    lock:     '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  };
+  function icon(name, sw) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
+  }
+
+  /* ================= DATA (from Pricebook) ================= */
+  var PLANS = [
+    {
+      id: 'hvac', name: 'HVAC', full: 'HVAC Care Plan', price: 260, scope: 'Heating & cooling',
+      covers: ['hvac'],
+      tagline: 'Stay on top of your homes heating and cooling maintenance with seasonal visits and Member Discounts throughout the year.',
+      features: [
+        { i: 'calendar', t: '2 Seasonal Visits', d: 'Heating & cooling inspections' },
+        { i: 'filter',   t: 'Filters Included',  d: 'Replacement air filters' },
+        { i: 'clock',    t: 'Priority Scheduling', d: 'Faster access to service' },
+        { i: 'tag',      t: '10% Off Repairs',   d: 'Savings on repairs & services' }
+      ]
+    },
+    {
+      id: 'plumbing', name: 'Plumbing', full: 'Plumbing Care Plan', price: 160, scope: 'Water & plumbing',
+      covers: ['plumbing'],
+      tagline: 'A yearly checkup for your water heater and plumbing, plus member savings.',
+      features: [
+        { i: 'wrench', t: 'Annual Plumbing Visit', d: 'Inspection + water heater flush' },
+        { i: 'gauge',  t: 'Pressure & Quality Tests', d: 'Water pressure and quality checked' },
+        { i: 'clock',  t: 'Preferred Scheduling',  d: 'Faster access to service' },
+        { i: 'tag',    t: '10% Off Repairs',       d: 'Savings on repairs & services' }
+      ]
+    },
+    {
+      id: 'bundled', name: 'Bundled', full: 'Bundled Care Plan', price: 400, scope: 'HVAC + plumbing',
+      covers: ['hvac', 'plumbing'],
+      tagline: 'Full HVAC and plumbing coverage together in one membership.',
+      rewards: true,
+      features: [
+        { i: 'calendar', t: '3 Visits a Year',     d: '2 HVAC + 1 plumbing, plus filters' },
+        { i: 'clock',    t: 'Preferred Scheduling', d: 'Faster access to service' },
+        { i: 'tag',      t: '10% Off Repairs',     d: 'Savings on repairs & services' },
+        { i: 'gift',     t: 'Sun City Rewards',    d: 'Access to the member rewards program' }
+      ]
+    },
+    {
+      id: 'premier', name: 'Premier', full: 'Premier Care Plan', price: 600, scope: 'Bundled + extras',
+      covers: ['hvac', 'plumbing'], premier: true, tag: 'Most coverage',
+      tagline: 'Our top-tier membership: everything in Bundled, with after-hours savings and lower service fees.',
+      rewards: true,
+      features: [
+        { i: 'layers',   t: 'Everything in Bundled', d: 'All Bundled coverage and perks' },
+        { i: 'clock',    t: 'Priority Scheduling',   d: 'Plus a reduced $99 dispatch fee', plus: true },
+        { i: 'moon',     t: '2 Free After-Hours Calls', d: 'Per year, no after-hours charge', plus: true },
+        { i: 'cube',     t: 'Softener Salt & Reverse Osmosis Service', d: 'Complimentary with service visits', plus: true }
+      ]
+    }
+  ];
+
+  /* Each add-on's `photo` is its card image. LOCAL PREVIEW ONLY: these are plain
+     relative filenames (same convention as the plan photos in the CSS), so keep
+     this HTML file in the same folder as the images to test in a browser.
+     BEFORE GOING LIVE: upload each image to the WordPress media library and swap
+     each `photo` value for the real hosted URL. Switching .jpg -> .png later is a
+     one-line edit to that add-on's `photo` field — nothing else references it. */
+  var ADDON_GROUPS = [
+    { system: 'hvac', label: 'HVAC add-ons', needs: 'HVAC, Bundled, or Premier', items: [
+      { id: 'hvacSystems', name: '# of HVAC Systems', price: 125, quantityOnly: true, included: 1, photo: '/img/addon-hvaccount.jpg', desc: 'Have more than one HVAC system at your property? This add-on extends your plan\'s seasonal inspections and filter coverage to each additional system, so every unit gets the same care as your first.' },
+      { id: 'qfc',  name: 'Quarterly Filter Change', price: 120, photo: '/img/addon-filterchange.jpg', desc: 'Your home receives four filter change visits per year, so your HVAC system stays clean, efficient, and well-maintained throughout the seasons.' },
+      { id: 'mst',  name: 'Mini-Split Tune-Up',      price: 80,  photo: '/img/addon-minisplit.jpg', desc: 'Each of your mini-split units receives a professional tune-up during your HVAC care plan visit, keeping every room in your home comfortable and your equipment running at its best.' }
+    ]},
+    { system: 'plumbing', label: 'Plumbing add-ons', needs: 'Plumbing, Bundled, or Premier', items: [
+      { id: 'waterHeaters', name: '# of Water Heaters', price: 50, quantityOnly: true, included: 1, photo: '/img/addon-waterheatercount.jpg', desc: 'Have more than one water heater at your property? This add-on extends your plan\'s annual service visit to each additional unit, so every water heater gets the same care as your first.' },
+      { id: 'wss',  name: 'Water Softener Salt',           price: 68,  includedIn: ['premier'], photo: '/img/addon-softenersalt.jpg', desc: 'Your technician will top off your water softener with salt during the visit and leave extra bags on hand — so you\'re covered between visits without the extra trip to the store.' },
+      { id: 'wsv',  name: 'Water Softener Service',        price: 75,  photo: '/img/addon-softenerservice.jpg', desc: 'Your water softener is professionally inspected and serviced during your annual plumbing visit, helping protect your plumbing, appliances, and water quality throughout the year.' },
+      { id: 'ros',  name: 'Reverse Osmosis Service',       price: 50,  includedIn: ['premier'], photo: '/img/addon-reverseosmosis.jpg', desc: 'Your RO system is professionally serviced during your annual plumbing visit, keeping it operating at peak performance for cleaner, better-tasting water all year long.' },
+      { id: 'twf',  name: 'Tankless Water Heater Flush',   price: 40,  photo: '/img/addon-tanklessflush.jpg', desc: 'Your tankless water heater receives a professional chemical descaling flush each year, clearing out mineral buildup to keep it running efficiently and extend its lifespan.' },
+      { id: 'qbb',  name: 'Quarterly BigBlue Filter Change', price: 180, photo: '/img/addon-bigbluefilter.jpg', desc: 'Your whole house water filter has four filter change visits per year, so your home filter stays clean, efficient, and well-maintained throughout the seasons.' }
+    ]}
+  ];
+
+  /* ================= STATE ================= */
+  var root = document.getElementById('sc-cpb');
+  var $ = function (k) { return root.querySelector('[data-cpb="' + k + '"]'); };
+  var state = { plan: 'hvac', addons: {}, addonQty: {}, coverageQty: { hvacSystems: 1, waterHeaters: 1 } };
+  var ADDON_INDEX = {};
+  ADDON_GROUPS.forEach(function (g) {
+    g.items.forEach(function (a) {
+      a.system = g.system;
+      ADDON_INDEX[a.id] = a;
+      if (!a.quantityOnly) state.addonQty[a.id] = 0;
+    });
+  });
+
+  function plan() { return PLANS.filter(function (p) { return p.id === state.plan; })[0]; }
+  function eligible(a) { return plan().covers.indexOf(a.system) !== -1; }
+  function includedFree(a) { return !!(a.includedIn && a.includedIn.indexOf(state.plan) !== -1); }
+  function money(n) { return '$' + n.toLocaleString('en-US'); }
+  function moneyCents(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function normalizedQty(value, min, fallback, max) {
+    if (String(value).trim() === '') return fallback;
+    var n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    n = Math.floor(n);
+    n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    return n;
+  }
+  function addonQty(id) { return normalizedQty(state.addonQty[id], 0, 0); }
+  function coverageQty(id) { return normalizedQty(state.coverageQty[id], 1, 1); }
+
+  /* ================= RENDER ================= */
+  function buildPlans() {
+    $('plans').innerHTML = '<span class="cpb-plan-pill" aria-hidden="true"></span>' + PLANS.map(function (p) {
+      return '<button type="button" role="radio" class="cpb-plan" data-plan="' + p.id + '">' +
+        '<span class="cpb-plan-name">' + esc(p.name) + '</span>' +
+        '<span class="cpb-plan-price">' + money(p.price) + '/yr</span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function syncPlans() {
+    var idx = 0;
+    PLANS.forEach(function (p, i) {
+      var on = p.id === state.plan, b = root.querySelector('[data-plan="' + p.id + '"]');
+      b.setAttribute('aria-checked', on);
+      b.setAttribute('tabindex', on ? 0 : -1);
+      if (on) idx = i;
+    });
+    $('plans').style.setProperty('--cpb-i', idx);
+    root.setAttribute('data-theme', state.plan);
+  }
+
+  function renderDetail(animate) {
+    var p = plan(), el = $('detail');
+    el.className = 'cpb-detail';
+    var link = p.rewards
+      ? '<a href="' + LINKS.rewards + '">About Sun City Rewards</a>'
+      : '<a href="' + LINKS[p.id] + '">See full plan details</a>';
+    el.innerHTML =
+      '<div class="cpb-detail-top">' +
+        '<div>' +
+        '<h3 class="cpb-detail-name"><span class="cpb-name-accent">' + esc(p.name) + '</span> Care Plan</h3>' +
+        '<p class="cpb-detail-tagline">' + esc(p.tagline) + '</p></div>' +
+      '</div>' +
+      '<div class="cpb-section-label">' +
+        '<span class="cpb-section-rule"></span>' +
+        '<span class="cpb-section-label-text">What\'s Included</span>' +
+        '<span class="cpb-section-rule is-long"></span>' +
+      '</div>' +
+      '<div class="cpb-features">' + p.features.map(function (f) {
+        return '<div class="cpb-feature' + (f.plus ? ' is-plus' : '') + '">' +
+          '<span class="cpb-icon">' + icon(f.i) + '</span>' +
+          '<span class="cpb-feature-rule"></span>' +
+          '<div><p class="cpb-feature-title">' + esc(f.t) + '</p>' +
+          '<p class="cpb-feature-text">' + esc(f.d) + '</p></div></div>';
+      }).join('') + '</div>' +
+      '<div class="cpb-bestfor">' +
+        link +
+      '</div>';
+    if (p.rewards) {
+      el.querySelector('.cpb-bestfor a').insertAdjacentHTML('beforebegin',
+        '<a href="' + LINKS[p.id] + '">See full plan details</a>');
+    }
+    if (animate) { el.classList.remove('cpb-swap'); void el.offsetWidth; el.classList.add('cpb-swap'); }
+  }
+
+  /* − [qty] + controls shared by both kinds of add-on card. `floor` is the lowest
+     quantity the minus button can reach (0 for normal add-ons, `included` for
+     quantityOnly ones); minus is only enabled once qty is above it. */
+  function qtyControls(a, qty, open, floor) {
+    var q = !!a.quantityOnly;
+    var inputLabel = q ? a.name : 'Quantity for ' + a.name;
+    var plusLabel  = q ? 'Increase ' + a.name : 'Increase quantity for ' + a.name;
+    var minusLabel = q ? 'Decrease ' + a.name : 'Decrease quantity for ' + a.name;
+    var atMax = qty >= MAX_ADDON_QTY;
+    var plusTitle = (open && atMax) ? ' title="Need more than this? Call our office at 575-526-9758."' : '';
+    return '<span class="cpb-addon-qty">' +
+      '<button type="button" class="cpb-qty-minus" aria-label="' + esc(minusLabel) + '" data-qty-minus="' + a.id + '"' + (open && qty > floor ? '' : ' disabled') + '>&minus;</button>' +
+      '<input class="cpb-qty-input" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="' + esc(inputLabel) + '" data-qty-input="' + a.id + '" value="' + qty + '"' + (open ? '' : ' disabled') + '>' +
+      '<button type="button" class="cpb-qty-plus" aria-label="' + esc(plusLabel) + '" data-qty-plus="' + a.id + '"' + (open && !atMax ? '' : ' disabled') + plusTitle + '>+</button>' +
+    '</span>';
+  }
+
+  function renderAddons() {
+    var html = '';
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var open = eligible(a);
+        var photo = '<span class="cpb-addon-photo"><img src="' + esc(a.photo) + '" alt="" loading="lazy"></span>';
+        var infoBadge = '<button type="button" class="cpb-addon-info" aria-label="More info about ' + esc(a.name) + '" data-addon-info="' + a.id + '"><img src="/img/question-mark-icon.png" alt="" loading="lazy"></button>';
+        if (a.quantityOnly) {
+          var specialQty = coverageQty(a.id);
+          html += '<div class="cpb-addon is-' + a.system + ' is-quantity' + (open ? ' is-active' : ' is-locked') + '" data-coverage-qty="' + a.id + '">' +
+            photo +
+            infoBadge +
+            '<span class="cpb-addon-body">' +
+              '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
+              '<span class="cpb-addon-note">' + a.included + ' included · +' + money(a.price) + ' each additional</span>' +
+              qtyControls(a, specialQty, open, a.included) +
+            '</span>' +
+          '</div>';
+          return;
+        }
+        if (open && includedFree(a)) {
+          html += '<div class="cpb-addon is-' + a.system + ' is-included" title="Included free with your Premier Care Plan">' +
+            photo +
+            infoBadge +
+            '<span class="cpb-addon-body">' +
+              '<span class="cpb-addon-row">' +
+                '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
+                '<span class="cpb-addon-price">Included</span>' +
+              '</span>' +
+            '</span>' +
+          '</div>';
+          return;
+        }
+        var qty = addonQty(a.id), on = !!state.addons[a.id];
+        html += '<div role="button" tabindex="0" class="cpb-addon is-' + a.system + (open ? (on ? ' is-active' : '') : ' is-locked') + '" data-addon="' + a.id + '" aria-pressed="' + on + '"' +
+          (open ? '' : ' title="Switches your plan to Bundled to unlock this add-on"') + '>' +
+          photo +
+          infoBadge +
+          '<span class="cpb-addon-body">' +
+            '<span class="cpb-addon-row">' +
+              '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
+              '<span class="cpb-addon-price">+' + money(a.price) + '<small>/ea</small></span>' +
+            '</span>' +
+            qtyControls(a, qty, open, 0) +
+          '</span>' +
+        '</div>';
+      });
+    });
+    $('addons').innerHTML = html;
+  }
+
+  function pulseEl(el, cls) {
+    cls = cls || 'cpb-pulse';
+    el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+  }
+
+  /* Item 2 fix — builds the payload the lead-capture modal (and the eventual
+     intake endpoint) need: the full plan + every add-on's quantity, unit
+     price, line total and included-free flag, plus the annual total and
+     monthly-equivalent figure. Takes the exact `lines`/`total` renderTotal()
+     just finished computing — no separate eligibility/pricing math to drift
+     out of sync with what's on screen.
+     `locked` (added during audit, not in the original handoff spec): true
+     for a line that belonged to a previously-selected plan and isn't
+     covered by the plan currently on screen (shown crossed-out in the
+     sidebar). Kept in the payload so the office still sees what the
+     customer had queued up before switching plans; the lead-modal recap
+     filters these out so the customer never sees a bare, unexplained "$0"
+     line (see buildRecapHTML below). */
+  function assembleSelectionPayload(p, lines, total) {
+    var addons = lines.filter(function (l) { return !l.plan; }).map(function (l) {
+      var a = ADDON_INDEX[l.id];
+      return {
+        id: l.id,
+        name: a ? a.name : l.name,
+        unitPrice: a ? a.price : 0,
+        quantity: l.qty != null ? l.qty : 1,
+        lineTotal: l.locked ? 0 : l.price,
+        includedFree: !!l.included,
+        locked: !!l.locked
+      };
+    });
+    return {
+      planId: p.id,
+      plan: p.full,
+      basePrice: p.price,
+      addons: addons,
+      total: total,
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100
+    };
+  }
+
+  /* Zero-arg getter the lead-capture modal calls. Always returns the
+     freshest payload: renderTotal() recomputes state.selection on every
+     plan/add-on change, and that happens synchronously before a user could
+     reach the CTA button. */
+  function buildSelectionPayload() { return state.selection; }
+
+  function renderTotal(pulse) {
+    var p = plan(), total = p.price, ids = [];
+    var lines = [{ name: '' + p.full, price: p.price, plan: true }];
+
+    /* Normal add-ons have two independent pieces of state:
+       quantity = how many the customer has chosen, selected = whether that
+       quantity is currently included in the total. */
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        if (a.quantityOnly || !state.addons[a.id]) return;
+        var qty = addonQty(a.id);
+        if (qty <= 0) return;
+        var lineTotal = a.price * qty;
+        var locked = !eligible(a);
+        if (!locked) { total += lineTotal; ids.push(a.id); }
+        lines.push({ name: a.name, price: lineTotal, id: a.id, locked: locked, qty: qty });
+      });
+    });
+
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        if (!a.quantityOnly) return;
+        var qty = coverageQty(a.id), surcharge = Math.max(0, qty - a.included) * a.price;
+        if (surcharge <= 0) return;
+        var locked = !eligible(a);
+        if (!locked) total += surcharge;
+        lines.push({ name: a.name + ' (' + qty + ' total)', price: surcharge, id: a.id, locked: locked, qty: qty });
+      });
+    });
+
+    /* Item 3 fix: add-ons the current plan includes at no charge (Premier's
+       Water Softener Salt / Reverse Osmosis Service) always show as a $0
+       line while eligible, regardless of state.addons — they aren't
+       "selected" by the customer, they're already part of the plan, so
+       they can't be double-charged either. */
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        if (a.quantityOnly || !eligible(a) || !includedFree(a)) return;
+        lines.push({ name: a.name, price: 0, id: a.id, included: true });
+      });
+    });
+
+    var monthly = moneyCents(total / 12);
+    $('monthly').textContent = monthly + '*';
+    $('annual-note').textContent = '*All plans will be billed annually, monthly payments are not available.';
+    $('total').textContent = money(total) + '*';
+    $('lines').innerHTML = lines.map(function (l) {
+      return '<li class="cpb-line' + (l.plan ? ' is-plan' : '') + (l.locked ? ' is-locked' : '') + (l.included ? ' is-included' : '') + '"' + (l.id ? ' data-line="' + l.id + '"' : '') + '>' +
+        '<span class="cpb-line-qty">' + (l.qty != null ? l.qty + ' &times;' : '') + '</span>' +
+        '<span class="cpb-line-name">' + esc(l.name) + '</span>' +
+        '<span class="cpb-line-price">' + (l.included ? 'Included' : money(l.price)) + '</span>' +
+        (l.plan || l.included
+          ? '<span aria-hidden="true"></span>'
+          : '<button type="button" class="cpb-line-remove" aria-label="Remove ' + esc(l.name) + '" data-remove="' + l.id + '">&#10005;</button>') +
+      '</li>';
+    }).join('');
+    var lockBanner = $('lock-banner');
+    if (lockBanner) {
+      var anyLocked = lines.some(function (l) { return l.locked; });
+      if (anyLocked) lockBanner.removeAttribute('hidden'); else lockBanner.setAttribute('hidden', '');
+    }
+    /* Item 2 fix: replaces the old two-field query string (plan + a bare
+       addon-id list, which silently dropped quantities, coverage counts,
+       the annual total and the monthly equivalent) with the complete
+       payload, stashed on state for the lead-capture modal to read and
+       mirrored onto the DOM for inspection/debugging. */
+    state.selection = assembleSelectionPayload(p, lines, total);
+    root.setAttribute('data-selection', JSON.stringify(state.selection));
+    if (pulse) {
+      pulseEl($('monthly'));
+      pulseEl($('annual'));
+    }
+  }
+
+  /* Add-ons that are currently eligible+selected under the plan about to be
+     left, but won't be covered by `newPlanId` — used only by selectPlan() to
+     drive the one-time maroon "just got locked" pulse below. Must run before
+     state.plan is reassigned, since eligible() reads the current plan. */
+  function newlyLockedAddonIds(newPlanId) {
+    var newPlan = PLANS.filter(function (p) { return p.id === newPlanId; })[0];
+    if (!newPlan) return [];
+    var ids = [];
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var wasEligible = eligible(a);
+        var staysEligible = newPlan.covers.indexOf(a.system) !== -1;
+        if (!wasEligible || staysEligible) return;
+        var wasSelected = a.quantityOnly
+          ? coverageQty(a.id) > a.included
+          : (!!state.addons[a.id] && addonQty(a.id) > 0);
+        if (wasSelected) ids.push(a.id);
+      });
+    });
+    return ids;
+  }
+
+  function selectPlan(id, focus) {
+    if (id === state.plan) return;
+    var newlyLocked = newlyLockedAddonIds(id);
+    state.plan = id;
+    syncPlans(); renderDetail(true); renderAddons(); renderTotal(true);
+    newlyLocked.forEach(function (addonId) {
+      var card = root.querySelector('[data-addon="' + addonId + '"], [data-coverage-qty="' + addonId + '"]');
+      if (card) pulseEl(card, 'cpb-pulse-lock');
+      var line = root.querySelector('[data-line="' + addonId + '"]');
+      if (line) pulseEl(line, 'cpb-pulse-lock');
+    });
+    if (focus) root.querySelector('[data-plan="' + id + '"]').focus();
+  }
+
+  /* ================= EVENTS ================= */
+  $('plans').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-plan]'); if (b) selectPlan(b.getAttribute('data-plan'));
+  });
+  $('plans').addEventListener('keydown', function (e) {
+    var keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+    if (!(e.key in keys)) return;
+    e.preventDefault();
+    var i = PLANS.findIndex(function (p) { return p.id === state.plan; });
+    var n = PLANS[(i + keys[e.key] + PLANS.length) % PLANS.length];
+    selectPlan(n.id, true);
+  });
+
+  /* Refreshes one add-on card in place (quantity field, minus enabled/disabled,
+     filled/unfilled state) without re-rendering the whole grid. `skipInput`
+     leaves the text field alone so it never overwrites what's being typed. */
+  function syncAddonCard(id, skipInput) {
+    var a = ADDON_INDEX[id];
+    var el = root.querySelector('[data-addon="' + id + '"], [data-coverage-qty="' + id + '"]');
+    if (!a || !el) return;
+    var qty = a.quantityOnly ? coverageQty(id) : addonQty(id);
+    var floor = a.quantityOnly ? a.included : 0;
+    var input = el.querySelector('[data-qty-input]');
+    if (input && !skipInput) input.value = qty;
+    var minus = el.querySelector('[data-qty-minus]');
+    if (minus) minus.disabled = !eligible(a) || qty <= floor;
+    var plusBtn = el.querySelector('[data-qty-plus]');
+    if (plusBtn) {
+      var atMax = qty >= MAX_ADDON_QTY;
+      plusBtn.disabled = !eligible(a) || atMax;
+      if (eligible(a) && atMax) {
+        plusBtn.setAttribute('title', 'Need more than this? Call our office at 575-526-9758.');
+      } else {
+        plusBtn.removeAttribute('title');
+      }
+    }
+    if (!a.quantityOnly) {
+      var on = !!state.addons[id];
+      el.classList.toggle('is-active', on);
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /* Fully deactivates an add-on: normal add-ons go to qty 0 and off, the two
+     quantityOnly add-ons drop back to their included count. Used by the
+     sidebar's remove button (✕). */
+  function removeAddon(id) {
+    var a = ADDON_INDEX[id];
+    if (!a) return;
+    if (a.quantityOnly) {
+      state.coverageQty[id] = a.included;
+    } else {
+      state.addonQty[id] = 0;
+      delete state.addons[id];
+    }
+    syncAddonCard(id);
+    renderTotal(true);
+  }
+
+  function toggleAddonCard(b) {
+    var id = b.getAttribute('data-addon'), a = ADDON_INDEX[id];
+    if (!a) return;
+
+    if (!eligible(a)) {
+      /* Preserve the existing soft-upsell behavior for a locked normal add-on:
+         clicking it switches to Bundled, starts at qty 1 when needed, and
+         includes it in the total. */
+      if (state.plan !== 'premier') state.plan = 'bundled';
+      if (addonQty(id) < 1) state.addonQty[id] = 1;
+      state.addons[id] = true;
+      syncPlans(); renderDetail(true); renderAddons(); renderTotal(true);
+      return;
+    }
+
+    if (state.addons[id]) {
+      /* Turn it off without touching the stored quantity. */
+      delete state.addons[id];
+    } else {
+      /* First card selection starts at qty 1. Later re-selection reuses the
+         quantity the customer already chose. */
+      if (addonQty(id) < 1) state.addonQty[id] = 1;
+      state.addons[id] = true;
+    }
+
+    syncAddonCard(id);
+    renderTotal(true);
+  }
+
+  $('addons').addEventListener('click', function (e) {
+    if (e.target.closest('[data-qty-input]')) return;
+
+    var infoIcon = e.target.closest('[data-addon-info]');
+    if (infoIcon) {
+      e.stopPropagation();
+      openAddonModal(infoIcon.getAttribute('data-addon-info'), infoIcon);
+      return;
+    }
+
+    var plus = e.target.closest('[data-qty-plus]');
+    if (plus) {
+      e.stopPropagation();
+      var plusId = plus.getAttribute('data-qty-plus'), plusItem = ADDON_INDEX[plusId];
+      if (!plusItem || !eligible(plusItem)) return;
+      if (plusItem.quantityOnly) {
+        state.coverageQty[plusId] = Math.min(MAX_ADDON_QTY, coverageQty(plusId) + 1);
+      } else {
+        state.addonQty[plusId] = Math.min(MAX_ADDON_QTY, addonQty(plusId) + 1);
+        state.addons[plusId] = true; // adding one means it's included in the total
+      }
+      syncAddonCard(plusId);
+      renderTotal(true);
+      return;
+    }
+
+    var minus = e.target.closest('[data-qty-minus]');
+    if (minus) {
+      e.stopPropagation();
+      var minusId = minus.getAttribute('data-qty-minus'), minusItem = ADDON_INDEX[minusId];
+      if (!minusItem || !eligible(minusItem)) return;
+      if (minusItem.quantityOnly) {
+        state.coverageQty[minusId] = Math.max(minusItem.included, coverageQty(minusId) - 1);
+      } else {
+        var next = Math.max(0, addonQty(minusId) - 1);
+        state.addonQty[minusId] = next;
+        if (next === 0) delete state.addons[minusId]; // hitting the floor fully deactivates it
+      }
+      syncAddonCard(minusId);
+      renderTotal(true);
+      return;
+    }
+
+    var b = e.target.closest('[data-addon]');
+    if (b) toggleAddonCard(b);
+  });
+
+  $('addons').addEventListener('keydown', function (e) {
+    var b = e.target.closest('[data-addon]');
+    if (!b || e.target.closest('[data-qty-input]') || e.target.closest('[data-qty-plus]') || e.target.closest('[data-qty-minus]') || e.target.closest('[data-addon-info]')) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAddonCard(b); }
+  });
+
+  $('addons').addEventListener('input', function (e) {
+    var input = e.target.closest('[data-qty-input]');
+    if (!input) return;
+    var id = input.getAttribute('data-qty-input'), a = ADDON_INDEX[id];
+    if (!a || !eligible(a)) return;
+    if (a.quantityOnly) {
+      state.coverageQty[id] = normalizedQty(input.value, 1, 1, MAX_ADDON_QTY);
+    } else {
+      /* While the customer is typing, keep the on/off toggle untouched.
+         This prevents a brief blank field during editing (for example 3 ->
+         blank -> 2) from accidentally turning the add-on off. */
+      if (String(input.value).trim() === '') return;
+      var typedQty = Number(input.value);
+      if (!Number.isFinite(typedQty)) return;
+      state.addonQty[id] = Math.min(MAX_ADDON_QTY, Math.max(0, Math.floor(typedQty)));
+    }
+    syncAddonCard(id, true);
+    renderTotal(false);
+  });
+
+  $('addons').addEventListener('change', function (e) {
+    var input = e.target.closest('[data-qty-input]');
+    if (!input) return;
+    var id = input.getAttribute('data-qty-input'), a = ADDON_INDEX[id];
+    if (!a || !eligible(a)) return;
+    if (a.quantityOnly) {
+      state.coverageQty[id] = normalizedQty(input.value, 1, 1, MAX_ADDON_QTY);
+    } else {
+      var committed = normalizedQty(input.value, 0, 0, MAX_ADDON_QTY);
+      state.addonQty[id] = committed;
+      if (committed > 0) state.addons[id] = true; else delete state.addons[id];
+    }
+    syncAddonCard(id);
+    renderTotal(true);
+  });
+
+  /* Sidebar ✕ buttons (delegated, since the list is re-rendered on every change). */
+  $('lines').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove]');
+    if (btn) removeAddon(btn.getAttribute('data-remove'));
+  });
+
+  /* Click-to-toggle info popover (works on touch, not hover-only). Closes on
+     outside click or Escape. */
+  root.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !addonModal.hasAttribute('hidden')) { closeAddonModal(); }
+  });
+
+  /* Shared "more info" modal for all 9 add-on cards — one DOM node, populated
+     per click from ADDON_INDEX. Mirrors the open/close pattern used by the
+     cpb-info tooltip above but as a centered dialog instead of a popover. */
+  var addonModal = $('addon-modal'), addonModalTitle = $('addon-modal-title'),
+      addonModalPrice = $('addon-modal-price'), addonModalDesc = $('addon-modal-desc'),
+      addonModalClose = $('addon-modal-close'), addonModalBackdrop = $('addon-modal-backdrop'),
+      addonModalCard = addonModal.querySelector('.cpb-modal-card'), addonModalTrigger = null;
+  function getModalFocusable() {
+    return Array.prototype.slice.call(
+      addonModalCard.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    );
+  }
+  function openAddonModal(id, triggerEl) {
+    var a = ADDON_INDEX[id];
+    if (!a) return;
+    addonModalTrigger = triggerEl || null;
+    addonModalTitle.textContent = a.name;
+    addonModalPrice.textContent = a.quantityOnly
+      ? (a.included + ' included · +' + money(a.price) + ' each additional')
+      : ('+' + money(a.price) + '/ea');
+    addonModalDesc.textContent = a.desc || '';
+    addonModal.removeAttribute('hidden');
+    addonModalClose.focus();
+  }
+  function closeAddonModal() {
+    addonModal.setAttribute('hidden', '');
+    if (addonModalTrigger) { addonModalTrigger.focus(); addonModalTrigger = null; }
+  }
+  addonModalClose.addEventListener('click', closeAddonModal);
+  addonModalBackdrop.addEventListener('click', closeAddonModal);
+  addonModal.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    var focusable = getModalFocusable();
+    if (!focusable.length) return;
+    var first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
+     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
+     public intake project, so this becomes an absolute https:// URL and that origin
+     must be listed in the endpoint's ALLOWED_ORIGINS. */
+  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+
+  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
+     "always passes, visible widget" TEST key — fine for the sandbox, replace with
+     the real site key (and add the live hostnames to the widget) at launch. */
+  var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+
+  (function initLeadModal() {
+    var ctaBtn = $('cta'); // data-cpb="cta" — the only lookup that can use $()
+    var modal = root.querySelector('#cpbLeadModal');
+    var backdropEls = modal ? modal.querySelectorAll('[data-cpb-lead-close]') : [];
+    var form = modal ? modal.querySelector('#cpbLeadForm') : null;
+    var recapEl = modal ? modal.querySelector('#cpbLeadRecap') : null;
+    var confirmEl = modal ? modal.querySelector('#cpbLeadConfirm') : null;
+    var formErrorEl = modal ? modal.querySelector('#cpbLeadFormError') : null;
+    var submitBtn = modal ? modal.querySelector('#cpbLeadSubmitBtn') : null;
+    var lastFocusedEl = null;
+    var lastSelection = null;
+
+    if (!ctaBtn || !modal || !form) return; // markup not wired up yet
+
+    var FIELD_IDS = {
+      name: 'cpbLeadName',
+      phone: 'cpbLeadPhone',
+      address: 'cpbLeadAddress',
+      ack: 'cpbLeadAck'
+    };
+
+    function field(id) { return modal.querySelector('#' + id); }
+
+    function focusableEls() {
+      return Array.prototype.slice.call(
+        modal.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(function (el) { return el.offsetParent !== null; });
+    }
+
+    function trapFocus(e) {
+      if (e.key !== 'Tab') return;
+      var items = focusableEls();
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
+    function onKeydown(e) {
+      if (e.key === 'Escape') { closeLeadModal(); return; }
+      trapFocus(e);
+    }
+
+    // -- Recap, built from buildSelectionPayload() --------------------------
+    // DEPENDS ON: buildSelectionPayload(), added by the Item 2 fix above.
+    // Contract: { planId, plan, basePrice,
+    //             addons: [{ id, name, unitPrice, quantity, lineTotal, includedFree, locked }],
+    //             total, monthlyEquivalent }
+    //
+    // Two audit-driven changes vs. the handoff draft, resolving open questions 1 & 3:
+    //  - `locked` lines (add-ons that belonged to a previously-selected plan and
+    //    aren't covered by the plan on screen) are skipped here — the customer
+    //    would otherwise see a bare, unexplained "$0" line. They stay in the raw
+    //    payload (see assembleSelectionPayload) so the office isn't blind to them.
+    //  - the two quantity-only add-ons (# of HVAC Systems / # of Water Heaters)
+    //    are labeled "(N additional)" instead of "x total-count", since the price
+    //    next to them is only the surcharge for the extra unit(s), not the total.
+
+    function buildRecapHTML() {
+      var selection = buildSelectionPayload();
+      var rows = '';
+
+      (selection.addons || []).forEach(function (a) {
+        if (a.locked) return;
+        var catalogItem = ADDON_INDEX[a.id];
+        var qtyLabel = '';
+        if (catalogItem && catalogItem.quantityOnly) {
+          var extra = a.quantity - catalogItem.included;
+          if (extra > 0) qtyLabel = ' (' + extra + ' additional)';
+        } else if (a.quantity > 1) {
+          qtyLabel = ' &times; ' + a.quantity;
+        }
+        var valueLabel = a.includedFree ? 'Included' : esc(money(a.lineTotal));
+        rows += '<dt>' + esc(a.name) + qtyLabel + '</dt><dd>' + valueLabel + '</dd>';
+      });
+
+      var html = '<dl>' +
+        '<dt>Plan</dt><dd>' + esc(selection.plan) + '</dd>' +
+        rows +
+        '</dl>' +
+        '<div class="cpb-lead-recap-total">Estimated annual total: ' + esc(money(selection.total)) + '</div>';
+
+      return { html: html, selection: selection };
+    }
+
+    function renderRecap() {
+      var built = buildRecapHTML();
+      lastSelection = built.selection;
+      recapEl.innerHTML = built.html;
+    }
+
+    // -- Turnstile ------------------------------------------------------------
+    // A token is single-use and expires in ~5 minutes, so the widget is rendered
+    // when the modal opens and reset whenever the modal closes or a submission
+    // fails — otherwise a retry would replay a spent token and be rejected.
+    // The API script is loaded with ?render=explicit and is async, so it may not
+    // be ready on the first open; mountTurnstile() waits for it briefly.
+
+    var turnstileHost = modal.querySelector('#cpbTurnstile');
+    var turnstileErrEl = modal.querySelector('#cpbLeadTurnstileErr');
+    var turnstileWidgetId = null;
+    var turnstileWaitTimer = null;
+
+    function setTurnstileError(message) {
+      if (turnstileErrEl) turnstileErrEl.textContent = message || '';
+    }
+
+    function mountTurnstile() {
+      if (!turnstileHost) return;
+      if (turnstileWaitTimer) { clearInterval(turnstileWaitTimer); turnstileWaitTimer = null; }
+      setTurnstileError('');
+
+      if (!window.turnstile) {
+        // Script still in flight. Poll briefly, then tell the customer plainly.
+        var waited = 0;
+        turnstileWaitTimer = setInterval(function () {
+          waited += 100;
+          if (window.turnstile) {
+            clearInterval(turnstileWaitTimer); turnstileWaitTimer = null;
+            mountTurnstile();
+          } else if (waited >= 10000) {
+            clearInterval(turnstileWaitTimer); turnstileWaitTimer = null;
+            setTurnstileError('The verification check could not load. Please refresh the page, or call our office at 575-526-9758.');
+          }
+        }, 100);
+        return;
+      }
+
+      if (turnstileWidgetId !== null) { window.turnstile.reset(turnstileWidgetId); return; }
+
+      turnstileWidgetId = window.turnstile.render(turnstileHost, {
+        sitekey: TURNSTILE_SITEKEY,
+        'error-callback': function () {
+          setTurnstileError('The verification check could not run. Please try again.');
+        },
+        'expired-callback': function () {
+          if (turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+        }
+      });
+    }
+
+    function resetTurnstile() {
+      if (turnstileWaitTimer) { clearInterval(turnstileWaitTimer); turnstileWaitTimer = null; }
+      if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+      setTurnstileError('');
+    }
+
+    function turnstileResponse() {
+      if (!window.turnstile || turnstileWidgetId === null) return '';
+      try { return window.turnstile.getResponse(turnstileWidgetId) || ''; } catch (err) { return ''; }
+    }
+
+    // -- Open / close, with focus management ---------------------------------
+
+    function resetModalUI() {
+      form.reset();
+      form.hidden = false;
+      confirmEl.hidden = true;
+      formErrorEl.hidden = true;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send My Request';
+      clearAllErrors();
+    }
+
+    function openLeadModal() {
+      lastFocusedEl = ctaBtn;
+      resetModalUI();
+      renderRecap();
+      modal.hidden = false;
+      mountTurnstile(); // after unhiding: Turnstile needs a visible container
+      document.addEventListener('keydown', onKeydown, true);
+      var items = focusableEls();
+      if (items.length) items[0].focus();
+    }
+
+    function closeLeadModal() {
+      resetTurnstile(); // never carry a spent/stale token into the next open
+      modal.hidden = true;
+      document.removeEventListener('keydown', onKeydown, true);
+      if (lastFocusedEl) lastFocusedEl.focus();
+    }
+
+    ctaBtn.addEventListener('click', openLeadModal); // button, not a link — nothing to preventDefault
+    Array.prototype.forEach.call(backdropEls, function (el) {
+      el.addEventListener('click', closeLeadModal);
+    });
+
+    // -- Validation -----------------------------------------------------------
+
+    /* The server requires 10-15 actual digits (see lib/intake/validate.js), so the
+       character-class check alone is not enough — a 7-character entry would pass
+       here and then be rejected server-side. Both sides now agree. */
+    var PHONE_RE = /^[\d\s().+-]+$/;
+    function phoneLooksValid(value) {
+      var digits = String(value).replace(/\D/g, '');
+      return PHONE_RE.test(value) && digits.length >= 10 && digits.length <= 15;
+    }
+
+    function setError(fieldId, message) {
+      var input = field(fieldId);
+      var errEl = field(fieldId + 'Err');
+      if (!input || !errEl) return;
+      if (message) { input.setAttribute('aria-invalid', 'true'); errEl.textContent = message; }
+      else { input.removeAttribute('aria-invalid'); errEl.textContent = ''; }
+    }
+
+    function clearAllErrors() {
+      Object.keys(FIELD_IDS).forEach(function (key) { setError(FIELD_IDS[key], ''); });
+      setTurnstileError('');
+      formErrorEl.hidden = true;
+    }
+
+    function validateForm() {
+      var ok = true;
+      var name = field(FIELD_IDS.name).value.trim();
+      var phone = field(FIELD_IDS.phone).value.trim();
+      var address = field(FIELD_IDS.address).value.trim();
+      var ack = field(FIELD_IDS.ack).checked;
+
+      if (!name) { setError(FIELD_IDS.name, 'Name is required.'); ok = false; }
+      if (!phone) { setError(FIELD_IDS.phone, 'Phone number is required.'); ok = false; }
+      else if (!phoneLooksValid(phone)) { setError(FIELD_IDS.phone, 'Enter a valid 10-digit phone number.'); ok = false; }
+      if (!address) { setError(FIELD_IDS.address, 'Service address is required.'); ok = false; }
+      if (!ack) { setError(FIELD_IDS.ack, 'Please check this box to continue.'); ok = false; }
+      return ok;
+    }
+
+    // -- Submit -----------------------------------------------------------------
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearAllErrors();
+      if (!validateForm()) return;
+
+      var turnstileToken = turnstileResponse();
+      if (!turnstileToken) {
+        setTurnstileError('Please complete the verification check.');
+        return;
+      }
+
+      var selection = lastSelection || buildSelectionPayload();
+
+      var payload = {
+        planId: selection.planId,
+        plan: selection.plan,
+        basePrice: selection.basePrice,
+        addons: selection.addons,
+        total: selection.total,
+        monthlyEquivalent: selection.monthlyEquivalent,
+        customerName: field(FIELD_IDS.name).value.trim(),
+        phone: field(FIELD_IDS.phone).value.trim(),
+        address: field(FIELD_IDS.address).value.trim(),
+        bestTime: modal.querySelector('#cpbLeadBestTime').value,
+        submittedAt: new Date().toISOString(),
+        turnstileToken: turnstileToken
+      };
+
+      // Rate limiting is enforced server-side by the intake endpoint (429 +
+      // Retry-After, handled below). Prices in this payload are recomputed
+      // server-side from the catalog and are never trusted as sent.
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+
+      fetch(SUBMIT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        // Read the JSON body either way: errors carry { code, error, fieldErrors }.
+        return res.json().then(function (data) { return { res: res, data: data }; },
+                               function ()     { return { res: res, data: null }; });
+      }).then(function (out) {
+        var res = out.res, data = out.data || {};
+
+        if (res.ok) {
+          form.hidden = true;
+          confirmEl.hidden = false;
+          confirmEl.innerHTML = '<p>We received your Care Plan request. No payment has been taken, and your Care Plan is not active yet. A Sun City team member will contact you during regular office hours, Monday&ndash;Friday, 8:00&nbsp;AM&ndash;5:00&nbsp;PM.</p>';
+          var items = focusableEls();
+          if (items.length) items[0].focus();
+          return;
+        }
+
+        // The token was spent on this attempt, pass or fail — get a fresh one
+        // before the customer can retry.
+        resetTurnstile();
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send My Request';
+
+        // Field-level messages, next to the inputs they belong to.
+        var fieldErrors = data.fieldErrors || {};
+        var serverToLocal = { customerName: FIELD_IDS.name, phone: FIELD_IDS.phone, address: FIELD_IDS.address };
+        var placedAny = false;
+        Object.keys(fieldErrors).forEach(function (key) {
+          if (key === 'turnstileToken') { setTurnstileError(fieldErrors[key]); placedAny = true; return; }
+          if (serverToLocal[key]) { setError(serverToLocal[key], fieldErrors[key]); placedAny = true; }
+        });
+
+        var message;
+        if (res.status === 429) {
+          // Server-side rate limit. Retry-After is in seconds.
+          var retryAfter = Number(res.headers.get('Retry-After'));
+          var minutes = retryAfter > 0 ? Math.max(1, Math.ceil(retryAfter / 60)) : 0;
+          message = minutes
+            ? 'We have already received several requests from this connection. Please wait about ' + minutes +
+              (minutes === 1 ? ' minute' : ' minutes') + ' and try again, or call our office at 575-526-9758 and we will take your request over the phone.'
+            : 'We have already received several requests from this connection. Please wait a few minutes and try again, or call our office at 575-526-9758.';
+        } else if (data.code === 'TURNSTILE_FAILED') {
+          message = 'The verification check did not pass. Please complete it again and resend.';
+        } else if (res.status === 400 && placedAny) {
+          message = 'Please check the highlighted fields and try again.';
+        } else if (res.status === 400) {
+          message = data.error || 'Please check your details and try again.';
+        } else {
+          message = 'Something went wrong sending your request. Please try again, or call us directly at 575-526-9758.';
+        }
+
+        formErrorEl.hidden = false;
+        formErrorEl.textContent = message;
+      }).catch(function () {
+        // Network-level failure: no response at all.
+        resetTurnstile();
+        formErrorEl.hidden = false;
+        formErrorEl.textContent = 'Something went wrong sending your request. Please try again, or call us directly at 575-526-9758.';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send My Request';
+      });
+    });
+  })();
+
+  buildPlans(); syncPlans(); renderDetail(false); renderAddons(); renderTotal(false);
+})();
+</script>
+</div>
+<!-- ============================ END SUN CITY CARE PLAN BUILDER ============================ -->
+
+<div class="demo-spacer"></div>
+</body>
+</html>

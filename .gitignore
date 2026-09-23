@@ -1,0 +1,15 @@
+node_modules/
+.wrangler/
+
+# Local secrets for `wrangler pages dev`. NEVER commit this — the repo is public.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+
+# Test scratch
+tests/.tmp/
+*.log
+.DS_Store
