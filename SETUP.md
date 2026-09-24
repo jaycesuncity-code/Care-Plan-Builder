@@ -224,27 +224,38 @@ customer's submission.
 1. Open <https://care-plan-builder.pages.dev/memberships/>.
 2. Pick **Premier**, tick **Mini-Split Tune-Up**, raise **# of HVAC Systems** to 3.
    Sidebar total should read **$930/yr** (600 + 80 + 2 × 125).
-3. Click the CTA. The recap should show the plan, the add-ons, and both of Premier's
-   complimentary add-ons as **Included**. The Turnstile box should appear and
-   self-solve (test key).
-4. Fill in a clearly fake name, a real-format phone, an address, pick **Midday**, tick
+3. Confirm that this canonical selection shows **no** Water Softener Salt line and
+   **no** Reverse Osmosis Service line. Neither corresponding paid service was selected.
+4. Click the CTA. The recap should show Premier, Mini-Split Tune-Up, and
+   **# of HVAC Systems × 3** with total **$930**. It should not contain phantom
+   water-treatment lines. The Turnstile box should appear and self-solve (test key).
+5. Fill in a clearly fake name, a real-format phone, an address, pick **Midday**, tick
    the acknowledgement, send.
-5. Expect the confirmation panel, and the form to disappear.
-6. Check the dashboard at <https://care-plan-builder.pages.dev/> — the lead should be
-   at the top of the queue. Open it: **Best time to call** = `Midday`, base $600, the
-   $0 **Included** lines, `# of HVAC Systems × 3` at $250, total **$930**.
-7. Check `service@suncitylc.com` for the email: subject
+6. Expect the confirmation panel, and the form to disappear.
+7. Check the dashboard at <https://care-plan-builder.pages.dev/> — the lead should be
+   at the top of the queue. Open it: **Best time to call** = `Midday`, base $600,
+   `Mini-Split Tune-Up` = $80, `# of HVAC Systems × 3` = $250, total **$930**,
+   and no phantom salt/RO line.
+8. Check `service@suncitylc.com` for the email: subject
    `New Care Plan request: Premier Care Plan - <name>`.
-8. Verify the numbers in the database are the server's, not the browser's:
+9. Verify the numbers in the database are the server's, not the browser's:
 
    ```bash
    npx wrangler d1 execute care-plan-builder --remote --command \
      "SELECT id, plan, best_time, base_price, addon_total, total_price FROM submissions ORDER BY id DESC LIMIT 3"
    ```
 
-9. Submit six leads in a row. The sixth should be refused with the wait-time message
-   (default limit: 5 per 10 minutes per IP).
-10. Delete the test rows when you're done — see part 8.
+10. Run a focused Premier softener-pairing check:
+    - select **Water Softener Service × 2**
+    - the service line should be **$150**
+    - **Water Softener Salt × 2** should appear automatically as **Included / $0**
+    - increasing/decreasing the service quantity should change salt 1:1
+    - removing Water Softener Service should remove the included salt line
+    - **Reverse Osmosis Service** should remain a normal paid **$50 each** add-on; its
+      replacement filters are the Premier perk, so no separate free RO line should appear.
+11. Submit six leads in a row. The sixth should be refused with the wait-time message
+    (default limit: 5 per 10 minutes per IP).
+12. Delete the test rows when you're done — see part 8.
 
 ---
 
