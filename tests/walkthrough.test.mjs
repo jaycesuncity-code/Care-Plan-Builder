@@ -77,3 +77,22 @@ test("the Builder posts the Turnstile token and the endpoint requires it", async
   });
   assert.equal(result.ok, false, "the endpoint rejects a payload with no token");
 });
+
+
+test("the walkthrough documents the corrected Premier pairing markers in the Builder", () => {
+  assert.match(walkthrough, /Premier \+ Water Softener Service ×2/);
+  assert.match(walkthrough, /Water Softener Salt ×2/);
+  assert.match(builder, /includedWith: 'wsv'/, "salt must be paired to Water Softener Service");
+  assert.match(builder, /data-premier-pair/, "paired cards need the Premier visual grouping");
+  assert.match(builder, /function premierSaltQty\(\)/, "salt quantity must be derived from service state");
+  assert.doesNotMatch(
+    builder,
+    /id: 'ros'[^\n]*includedIn:\s*\['premier'\]/,
+    "Reverse Osmosis Service must not be a free Premier add-on"
+  );
+  assert.match(
+    builder,
+    /RO Filters Included[^\n]*paid Reverse Osmosis Service/,
+    "Premier card copy must describe free filters during a paid RO service"
+  );
+});
