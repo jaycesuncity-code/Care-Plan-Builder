@@ -83,7 +83,7 @@ test("plans match the builder: id, full name, price, covered systems", () => {
   }
 });
 
-test("add-ons match the builder: id, name, price, system, quantityOnly, included, includedIn", () => {
+test("add-ons match the builder: id, name, price, system, quantityOnly, included, includedIn, includedWith", () => {
   const builderItems = [];
   for (const group of builder.addonGroups) {
     for (const item of group.items) builderItems.push({ ...item, system: group.system });
@@ -115,6 +115,11 @@ test("add-ons match the builder: id, name, price, system, quantityOnly, included
       [...(serverItem.includedIn || [])].sort(),
       [...(builderItem.includedIn || [])].sort(),
       `${builderItem.id}: includedIn differs`
+    );
+    assert.equal(
+      serverItem.includedWith ?? null,
+      builderItem.includedWith ?? null,
+      `${builderItem.id}: includedWith differs`
     );
   }
 });
