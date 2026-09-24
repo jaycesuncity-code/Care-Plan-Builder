@@ -683,10 +683,25 @@
 #sc-cpb .cpb-addon.is-active .cpb-qty-input { border-color: rgba(255,255,255,.55); }
 #sc-cpb .cpb-addon.is-active .cpb-qty-plus, #sc-cpb .cpb-addon.is-active .cpb-qty-minus { background: rgba(255,255,255,.22); }
 
-/* Item 3 fix: an add-on the current plan already includes for free (e.g.
-   Premier's Water Softener Salt / Reverse Osmosis Service) — visually
-   similar to is-active (it IS part of the order) but not interactive, since
-   there's nothing to toggle or count. */
+/* Premier paired benefit: complimentary salt is derived from the paid Water
+   Softener Service quantity. The salt card is informational/non-editable; it
+   becomes active only when the paid service is selected. */
+#sc-cpb .cpb-premier-pair {
+  position: relative; grid-column: span 2; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  padding: 12px; border: 1px solid var(--cpb-gold); border-radius: 14px;
+  background: color-mix(in srgb, var(--cpb-gold) 10%, #fff);
+}
+#sc-cpb .cpb-premier-pair-label {
+  position: absolute; top: -10px; left: 14px; z-index: 3;
+  padding: 2px 8px; border-radius: 999px; background: #fff;
+  color: var(--cpb-maroon); font-size: 10px; font-weight: 900;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+#sc-cpb .cpb-addon.is-premier-salt { cursor: default; }
+#sc-cpb .cpb-addon.is-premier-salt:hover { box-shadow: none; }
+#sc-cpb .cpb-addon.is-premier-salt .cpb-addon-note { margin-top: 2px; }
+
 #sc-cpb .cpb-addon.is-included { cursor: default; border-color: var(--g-accent); }
 #sc-cpb .cpb-addon.is-included:hover { box-shadow: none; }
 #sc-cpb .cpb-addon.is-included .cpb-addon-body { background: var(--g-accent); }
@@ -794,6 +809,7 @@
 /* Very narrow phones: two photo cards per row no longer fit their +/- controls. */
 @media (max-width: 360px) {
   #sc-cpb .cpb-addons-grid { grid-template-columns: minmax(0, 1fr); }
+  #sc-cpb .cpb-premier-pair { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   /* Includes #sc-cpb itself (not just its descendants) so the module's own
@@ -1052,7 +1068,7 @@
         { i: 'layers',   t: 'Everything in Bundled', d: 'All Bundled coverage and perks' },
         { i: 'clock',    t: 'Priority Scheduling',   d: 'Plus a reduced $99 dispatch fee', plus: true },
         { i: 'moon',     t: '2 Free After-Hours Calls', d: 'Per year, no after-hours charge', plus: true },
-        { i: 'cube',     t: 'Softener Salt & Reverse Osmosis Service', d: 'Complimentary with service visits', plus: true }
+        { i: 'cube',     t: 'RO Filters Included', d: 'Filters replaced during a paid Reverse Osmosis Service are included at no additional charge', plus: true }
       ]
     }
   ];
@@ -1071,9 +1087,9 @@
     ]},
     { system: 'plumbing', label: 'Plumbing add-ons', needs: 'Plumbing, Bundled, or Premier', items: [
       { id: 'waterHeaters', name: '# of Water Heaters', price: 50, quantityOnly: true, included: 1, photo: '/img/addon-waterheatercount.jpg', desc: 'Have more than one water heater at your property? This add-on extends your plan\'s annual service visit to each additional unit, so every water heater gets the same care as your first.' },
-      { id: 'wss',  name: 'Water Softener Salt',           price: 68,  includedIn: ['premier'], photo: '/img/addon-softenersalt.jpg', desc: 'Your technician will top off your water softener with salt during the visit and leave extra bags on hand — so you\'re covered between visits without the extra trip to the store.' },
+      { id: 'wss',  name: 'Water Softener Salt',           price: 68,  includedIn: ['premier'], includedWith: 'wsv', photo: '/img/addon-softenersalt.jpg', desc: 'Your technician will top off your water softener with salt during the visit and leave extra bags on hand — so you\'re covered between visits without the extra trip to the store.' },
       { id: 'wsv',  name: 'Water Softener Service',        price: 75,  photo: '/img/addon-softenerservice.jpg', desc: 'Your water softener is professionally inspected and serviced during your annual plumbing visit, helping protect your plumbing, appliances, and water quality throughout the year.' },
-      { id: 'ros',  name: 'Reverse Osmosis Service',       price: 50,  includedIn: ['premier'], photo: '/img/addon-reverseosmosis.jpg', desc: 'Your RO system is professionally serviced during your annual plumbing visit, keeping it operating at peak performance for cleaner, better-tasting water all year long.' },
+      { id: 'ros',  name: 'Reverse Osmosis Service',       price: 50,  photo: '/img/addon-reverseosmosis.jpg', desc: 'Your RO system is professionally serviced during your annual plumbing visit, keeping it operating at peak performance for cleaner, better-tasting water all year long.' },
       { id: 'twf',  name: 'Tankless Water Heater Flush',   price: 40,  photo: '/img/addon-tanklessflush.jpg', desc: 'Your tankless water heater receives a professional chemical descaling flush each year, clearing out mineral buildup to keep it running efficiently and extend its lifespan.' },
       { id: 'qbb',  name: 'Quarterly BigBlue Filter Change', price: 180, photo: '/img/addon-bigbluefilter.jpg', desc: 'Your whole house water filter has four filter change visits per year, so your home filter stays clean, efficient, and well-maintained throughout the seasons.' }
     ]}
@@ -1094,7 +1110,9 @@
 
   function plan() { return PLANS.filter(function (p) { return p.id === state.plan; })[0]; }
   function eligible(a) { return plan().covers.indexOf(a.system) !== -1; }
-  function includedFree(a) { return !!(a.includedIn && a.includedIn.indexOf(state.plan) !== -1); }
+  function premierSaltQty() {
+    return state.plan === 'premier' && state.addons.wsv ? addonQty('wsv') : 0;
+  }
   function money(n) { return '$' + n.toLocaleString('en-US'); }
   function moneyCents(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -1190,6 +1208,49 @@
         var open = eligible(a);
         var photo = '<span class="cpb-addon-photo"><img src="' + esc(a.photo) + '" alt="" loading="lazy"></span>';
         var infoBadge = '<button type="button" class="cpb-addon-info" aria-label="More info about ' + esc(a.name) + '" data-addon-info="' + a.id + '"><img src="/img/question-mark-icon.png" alt="" loading="lazy"></button>';
+
+        /* Premier exception: Water Softener Service stays a normal PAID add-on,
+           while its salt benefit is derived 1:1 from the selected service
+           quantity. The salt card is deliberately non-editable. */
+        if (state.plan === 'premier' && a.id === 'wss') {
+          var service = ADDON_INDEX.wsv;
+          var serviceQty = addonQty('wsv');
+          var serviceOn = !!state.addons.wsv;
+          var saltQty = premierSaltQty();
+          var servicePhoto = '<span class="cpb-addon-photo"><img src="' + esc(service.photo) + '" alt="" loading="lazy"></span>';
+          var serviceInfo = '<button type="button" class="cpb-addon-info" aria-label="More info about ' + esc(service.name) + '" data-addon-info="wsv"><img src="/img/question-mark-icon.png" alt="" loading="lazy"></button>';
+          var saltPrice = saltQty > 0 ? 'Included &times; ' + saltQty : 'Included with service';
+
+          html += '<div class="cpb-premier-pair" data-premier-pair>' +
+            '<span class="cpb-premier-pair-label">Premier Pairing</span>' +
+            '<div role="button" tabindex="0" class="cpb-addon is-plumbing' + (serviceOn ? ' is-active' : '') + '" data-addon="wsv" aria-pressed="' + serviceOn + '">' +
+              servicePhoto +
+              serviceInfo +
+              '<span class="cpb-addon-body">' +
+                '<span class="cpb-addon-row">' +
+                  '<span class="cpb-addon-name">' + esc(service.name) + '</span>' +
+                  '<span class="cpb-addon-price">+' + money(service.price) + '<small>/ea</small></span>' +
+                '</span>' +
+                '<span class="cpb-addon-note">Each paid service includes one complimentary salt refill.</span>' +
+                qtyControls(service, serviceQty, true, 0) +
+              '</span>' +
+            '</div>' +
+            '<div class="cpb-addon is-plumbing is-premier-salt' + (saltQty > 0 ? ' is-included' : '') + '" data-premier-salt title="Included with each Water Softener Service under Premier">' +
+              photo +
+              infoBadge +
+              '<span class="cpb-addon-body">' +
+                '<span class="cpb-addon-row">' +
+                  '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
+                  '<span class="cpb-addon-price" data-premier-salt-price>' + saltPrice + '</span>' +
+                '</span>' +
+                '<span class="cpb-addon-note">Each Water Softener Service includes one complimentary salt refill.</span>' +
+              '</span>' +
+            '</div>' +
+          '</div>';
+          return;
+        }
+        if (state.plan === 'premier' && a.id === 'wsv') return;
+
         if (a.quantityOnly) {
           var specialQty = coverageQty(a.id);
           html += '<div class="cpb-addon is-' + a.system + ' is-quantity' + (open ? ' is-active' : ' is-locked') + '" data-coverage-qty="' + a.id + '">' +
@@ -1203,19 +1264,7 @@
           '</div>';
           return;
         }
-        if (open && includedFree(a)) {
-          html += '<div class="cpb-addon is-' + a.system + ' is-included" title="Included free with your Premier Care Plan">' +
-            photo +
-            infoBadge +
-            '<span class="cpb-addon-body">' +
-              '<span class="cpb-addon-row">' +
-                '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
-                '<span class="cpb-addon-price">Included</span>' +
-              '</span>' +
-            '</span>' +
-          '</div>';
-          return;
-        }
+
         var qty = addonQty(a.id), on = !!state.addons[a.id];
         html += '<div role="button" tabindex="0" class="cpb-addon is-' + a.system + (open ? (on ? ' is-active' : '') : ' is-locked') + '" data-addon="' + a.id + '" aria-pressed="' + on + '"' +
           (open ? '' : ' title="Switches your plan to Bundled to unlock this add-on"') + '>' +
@@ -1233,7 +1282,6 @@
     });
     $('addons').innerHTML = html;
   }
-
   function pulseEl(el, cls) {
     cls = cls || 'cpb-pulse';
     el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
@@ -1290,7 +1338,7 @@
        quantity is currently included in the total. */
     ADDON_GROUPS.forEach(function (g) {
       g.items.forEach(function (a) {
-        if (a.quantityOnly || !state.addons[a.id]) return;
+        if (a.quantityOnly || !state.addons[a.id] || (state.plan === 'premier' && a.id === 'wss')) return;
         var qty = addonQty(a.id);
         if (qty <= 0) return;
         var lineTotal = a.price * qty;
@@ -1311,17 +1359,13 @@
       });
     });
 
-    /* Item 3 fix: add-ons the current plan includes at no charge (Premier's
-       Water Softener Salt / Reverse Osmosis Service) always show as a $0
-       line while eligible, regardless of state.addons — they aren't
-       "selected" by the customer, they're already part of the plan, so
-       they can't be double-charged either. */
-    ADDON_GROUPS.forEach(function (g) {
-      g.items.forEach(function (a) {
-        if (a.quantityOnly || !eligible(a) || !includedFree(a)) return;
-        lines.push({ name: a.name, price: 0, id: a.id, included: true });
-      });
-    });
+    /* Premier's complimentary salt is conditional, not a blanket included
+       add-on. Its quantity is always derived from the selected paid Water
+       Softener Service quantity; no service means no salt line. */
+    var saltQty = premierSaltQty();
+    if (saltQty > 0) {
+      lines.push({ name: ADDON_INDEX.wss.name, price: 0, id: 'wss', included: true, qty: saltQty });
+    }
 
     var monthly = moneyCents(total / 12);
     $('monthly').textContent = monthly + '*';
@@ -1431,6 +1475,18 @@
       var on = !!state.addons[id];
       el.classList.toggle('is-active', on);
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    /* Keep the non-editable Premier salt card visually synchronized with the
+       paid Water Softener Service without re-rendering the whole grid. */
+    if (state.plan === 'premier' && id === 'wsv') {
+      var saltCard = root.querySelector('[data-premier-salt]');
+      if (saltCard) {
+        var saltQty = premierSaltQty();
+        saltCard.classList.toggle('is-included', saltQty > 0);
+        var saltPrice = saltCard.querySelector('[data-premier-salt-price]');
+        if (saltPrice) saltPrice.innerHTML = saltQty > 0 ? 'Included &times; ' + saltQty : 'Included with service';
+      }
     }
   }
 
