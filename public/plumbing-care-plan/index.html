@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plumbing Care Plan | Sun City Plumbing &amp; Heating</title>
+<style>
+  /* Demo page only (not part of the block). Delete this wrapper before pasting into LiveCanvas.
+     The block inherits its fonts from the site theme; this is just a stand-in for the sandbox. */
+  body { margin: 0; background: #ffffff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+</style>
+</head>
+<body>
+
+<!--
+  ============================================================================
+  SUN CITY PLUMBING &amp; HEATING — Plumbing Care Plan (plumbing-care-plan)
+  Paste this whole block into one LiveCanvas custom HTML block on the
+  "Plumbing Care Plan" page. Self-contained: no Bootstrap classes, no external
+  fonts, scripts or images. Every class is namespaced "scp-care-" and the
+  whole page is scoped under the .scp-care wrapper.
+  Placeholder links are marked with TODO comments.
+  ============================================================================
+-->
+<style>
+/* ==========================================================================
+   SUN CITY — CARE PLAN PAGE BLOCK  (LiveCanvas / Bootstrap-safe)
+   --------------------------------------------------------------------------
+   Every rule is scoped under .scp-care and every class is prefixed
+   "scp-care-", so this block cannot collide with Bootstrap, LiveCanvas or
+   theme CSS in either direction. No Bootstrap grid classes are used, so the
+   layout is identical whether or not the theme's grid CSS changes.
+   No external fonts, images or scripts are loaded.
+   ========================================================================== */
+
+.scp-care{
+  /* --- brand ------------------------------------------------------------ */
+  --scp-maroon:#6B1A2C;
+  --scp-maroon-deep:#4E1220;
+  --scp-maroon-soft:#F7EDEF;
+  --scp-gold:#C9A84C;
+  --scp-gold-deep:#8A6A1F;
+  --scp-gold-soft:#FBF4E3;
+
+  --scp-ink:#23201F;
+  --scp-slate:#65605E;
+  --scp-line:#E3E0DD;
+  --scp-white:#FFFFFF;
+  --scp-gray:#F1F0EE;
+  --scp-charcoal:#3D3D3D;
+  --scp-charcoal-soft:#DCD7D3;
+
+  /* tinted ground + solid brand band, so the page is never a wall of white */
+  --scp-tint:#FAF5F4;
+  --scp-brand-band:#6B1A2C;
+  --scp-onbrand-ring:rgba(255,255,255,.55);
+  --scp-onbrand-ico:#FFFFFF;
+  --scp-onbrand-lede:rgba(255,255,255,.78);
+
+  /* accent = maroon by default; .scp-care--gold swaps it for Premier */
+  --scp-accent:var(--scp-maroon);
+  --scp-accent-text:var(--scp-maroon);
+  --scp-accent-soft:var(--scp-maroon-soft);
+  --scp-accent-on:#FFFFFF;
+
+  /* --- type -------------------------------------------------------------
+     Inherits the site's real fonts by default, so this block always matches
+     the rest of youknowsuncity.com. To pin specific families instead, set
+     these two here (e.g. --scp-font-head:"Merriweather",Georgia,serif;).   */
+  --scp-font-body:inherit;
+  --scp-font-head:inherit;
+
+  --scp-radius:14px;
+  --scp-pad:clamp(40px, 6vw, 72px);
+
+  font-family:var(--scp-font-body);
+  color:var(--scp-ink);
+  background:var(--scp-white);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.scp-care--gold{
+  --scp-accent:var(--scp-gold);
+  --scp-accent-text:var(--scp-gold-deep);
+  --scp-accent-soft:var(--scp-gold-soft);
+  --scp-accent-on:#231B05;
+  --scp-tint:#FCF8EF;
+  --scp-brand-band:#4A1520;
+  --scp-onbrand-ring:rgba(201,168,76,.75);
+  --scp-onbrand-ico:#E3C36B;
+}
+
+/* --- local reset: stops theme/Bootstrap typography leaking in ------------ */
+.scp-care *,
+.scp-care *::before,
+.scp-care *::after{box-sizing:border-box;}
+.scp-care h1,.scp-care h2,.scp-care h3,.scp-care p,.scp-care ul,.scp-care li{margin:0;padding:0;}
+.scp-care ul{list-style:none;}
+.scp-care h1,.scp-care h2,.scp-care h3{
+  font-family:var(--scp-font-head);
+  font-weight:800;
+  line-height:1.15;
+  letter-spacing:-0.01em;
+  color:inherit;
+  text-wrap:balance;
+}
+.scp-care button{font:inherit;color:inherit;background:none;border:none;margin:0;}
+/* themes love `img,svg{margin:0 auto}` — an auto margin inside a flex row eats
+   all the free space and shunts the row sideways, so neutralise it here */
+.scp-care .scp-care-wrap svg,.scp-care .scp-care-wrap img,.scp-care .scp-care-wrap figure{margin:0;}
+.scp-care img{max-width:100%;height:auto;display:block;}
+/* plain links inside copy; CTAs and cards set their own colour below with
+   a higher-specificity selector so theme link styles cannot win */
+.scp-care .scp-care-prose a,.scp-care .scp-care-lede a{color:var(--scp-accent-text);}
+
+/* --- bands + container -------------------------------------------------- */
+.scp-care .scp-care-band{padding-block:var(--scp-pad);background:var(--scp-white);position:relative;}
+.scp-care .scp-care-band--gray{background:var(--scp-gray);}
+.scp-care .scp-care-band--dark{background:var(--scp-charcoal);color:#FFFFFF;}
+.scp-care .scp-care-band--dark .scp-care-prose p{color:var(--scp-charcoal-soft);}
+.scp-care .scp-care-band--tint{background:var(--scp-tint);}
+.scp-care .scp-care-band--brand{background:var(--scp-brand-band);color:#FFFFFF;}
+.scp-care .scp-care-band--brand .scp-care-lede{color:var(--scp-onbrand-lede);}
+.scp-care .scp-care-band--brand .scp-care-perk-ico{
+  border-color:var(--scp-onbrand-ring);color:var(--scp-onbrand-ico);background:transparent;
+}
+.scp-care .scp-care-band--brand .scp-care-perk:hover .scp-care-perk-ico{background:rgba(255,255,255,.12);}
+.scp-care .scp-care-band--brand .scp-care-flag{
+  color:#EFD79B;background:rgba(255,255,255,.08);border-color:rgba(201,168,76,.55);
+}
+.scp-care .scp-care-band--tight{padding-block:clamp(32px,4.5vw,52px);}
+.scp-care .scp-care-wrap{width:100%;max-width:1080px;margin-inline:auto;padding-inline:clamp(18px,5vw,32px);}
+
+/* --- wave dividers ------------------------------------------------------ */
+.scp-care .scp-care-wave{line-height:0;display:block;margin-bottom:-1px;}
+.scp-care .scp-care-wave svg{display:block;width:100%;height:clamp(34px,4.5vw,58px);}
+
+/* --- hero --------------------------------------------------------------- */
+.scp-care .scp-care-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);
+  gap:clamp(24px,4vw,48px);
+  align-items:end;
+}
+.scp-care .scp-care-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--scp-accent-text);margin-bottom:14px;
+}
+.scp-care .scp-care-eyebrow::before{content:"";width:22px;height:2px;background:var(--scp-accent);border-radius:2px;}
+.scp-care .scp-care-title{font-size:clamp(30px,5vw,46px);margin-bottom:14px;}
+.scp-care .scp-care-tagline{font-size:clamp(16px,1.6vw,18.5px);color:var(--scp-slate);max-width:46ch;}
+
+.scp-care .scp-care-pricecard{
+  border:1px solid var(--scp-line);
+  border-top:4px solid var(--scp-accent);
+  border-radius:var(--scp-radius);
+  padding:24px;
+  background:var(--scp-white);
+  box-shadow:0 14px 34px -26px rgba(35,32,31,.5);
+}
+.scp-care .scp-care-price{
+  font-family:var(--scp-font-head);
+  font-size:clamp(38px,5vw,46px);font-weight:800;line-height:1;
+  color:var(--scp-accent-text);letter-spacing:-0.02em;
+}
+.scp-care .scp-care-priceunit{display:block;font-size:13px;color:var(--scp-slate);margin-top:6px;letter-spacing:.02em;}
+.scp-care .scp-care-pricerule{height:1px;background:var(--scp-line);margin:18px 0;}
+
+.scp-care a.scp-care-cta,.scp-care .scp-care-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  background:var(--scp-accent);color:var(--scp-accent-on);text-decoration:none;
+  font-weight:800;font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;
+  padding:14px 26px;border-radius:999px;cursor:pointer;
+  box-shadow:0 8px 20px -12px rgba(35,32,31,.75);
+  transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.scp-care a.scp-care-cta:hover,.scp-care a.scp-care-cta:focus-visible,
+.scp-care .scp-care-cta:hover,.scp-care .scp-care-cta:focus-visible{
+  transform:translateY(-2px);
+  box-shadow:0 14px 26px -12px rgba(35,32,31,.6);
+  color:var(--scp-accent-on);text-decoration:none;
+}
+.scp-care a.scp-care-cta:active,.scp-care .scp-care-cta:active{transform:translateY(0);}
+.scp-care a.scp-care-cta--ghost,.scp-care .scp-care-cta--ghost{
+  width:auto;background:transparent;color:#FFFFFF;border:1.5px solid rgba(255,255,255,.65);box-shadow:none;
+}
+.scp-care a.scp-care-cta--ghost:hover,.scp-care a.scp-care-cta--ghost:focus-visible,
+.scp-care .scp-care-cta--ghost:hover,.scp-care .scp-care-cta--ghost:focus-visible{background:rgba(255,255,255,.12);color:#FFFFFF;}
+.scp-care a.scp-care-cta--wide,.scp-care .scp-care-cta--wide{width:auto;}
+.scp-care .scp-care-notes{font-size:12.5px;color:var(--scp-slate);margin-top:12px;text-align:center;}
+
+.scp-care *:focus-visible{outline:2px solid var(--scp-accent);outline-offset:3px;border-radius:4px;}
+.scp-care .scp-care-band--dark *:focus-visible{outline-color:#FFFFFF;}
+
+/* --- split (image + prose) ---------------------------------------------- */
+.scp-care .scp-care-split{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(24px,4vw,48px);align-items:center;
+}
+.scp-care .scp-care-split--flip .scp-care-figure{order:2;}
+.scp-care .scp-care-prose p{font-size:clamp(15px,1.45vw,16.5px);line-height:1.75;color:var(--scp-ink);}
+.scp-care .scp-care-prose p + p{margin-top:14px;}
+.scp-care .scp-care-prose .scp-care-h3{font-size:clamp(19px,2.2vw,23px);margin-bottom:12px;}
+
+/* --- photo placeholders ------------------------------------------------- */
+.scp-care .scp-care-figure{
+  position:relative;aspect-ratio:4/3;border-radius:var(--scp-radius);overflow:hidden;
+  border:1px dashed #C6C1BD; /* fallback */
+  border-color:color-mix(in srgb, var(--scp-accent) 38%, #C9C4C0);
+  background:var(--scp-gray); /* fallback */
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--scp-accent) 6%, transparent), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(35,32,31,.035) 0 2px, transparent 2px 11px),
+    var(--scp-gray);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:26px;text-align:center;color:var(--scp-slate);
+}
+.scp-care .scp-care-band--dark .scp-care-figure{
+  border-color:rgba(255,255,255,.28);color:var(--scp-charcoal-soft);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.07), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 2px, transparent 2px 11px),
+    rgba(0,0,0,.14);
+}
+.scp-care .scp-care-figure svg{width:30px;height:30px;opacity:.55;}
+.scp-care .scp-care-figcap{font-size:13px;font-style:italic;line-height:1.5;max-width:30ch;}
+.scp-care .scp-care-figtag{
+  position:absolute;top:12px;left:12px;
+  font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  background:var(--scp-white);color:var(--scp-slate);
+  padding:4px 9px;border-radius:999px;border:1px solid var(--scp-line);
+}
+.scp-care .scp-care-band--dark .scp-care-figtag{background:rgba(255,255,255,.14);color:#FFFFFF;border-color:rgba(255,255,255,.2);}
+
+/* --- section headings --------------------------------------------------- */
+.scp-care .scp-care-head{max-width:62ch;margin-bottom:clamp(26px,3vw,38px);}
+.scp-care .scp-care-h2{font-size:clamp(23px,3.1vw,32px);margin-bottom:12px;}
+.scp-care .scp-care-lede{font-size:clamp(15px,1.45vw,16.5px);color:var(--scp-slate);line-height:1.7;}
+
+/* --- visit checklists --------------------------------------------------- */
+.scp-care .scp-care-visit{
+  background:var(--scp-white);border:1px solid var(--scp-line);border-radius:var(--scp-radius);
+  padding:clamp(20px,2.6vw,30px);
+}
+.scp-care .scp-care-visit + .scp-care-visit{margin-top:18px;}
+.scp-care .scp-care-visit-head{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid var(--scp-line);
+}
+.scp-care .scp-care-visit-title{font-size:clamp(18px,2vw,21px);flex:1 1 auto;}
+.scp-care .scp-care-freq{
+  font-size:12px;font-weight:800;letter-spacing:.03em;white-space:nowrap;
+  color:var(--scp-accent-text);background:var(--scp-accent-soft);
+  padding:7px 14px;border-radius:999px;
+}
+.scp-care .scp-care-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px;}
+.scp-care .scp-care-list li{display:flex;align-items:flex-start;gap:11px;font-size:15px;line-height:1.55;}
+.scp-care .scp-care-wrap .scp-care-check{width:19px;height:19px;flex:none;margin:2px 0 0;color:var(--scp-accent);}
+
+/* --- perk grid ---------------------------------------------------------- */
+.scp-care .scp-care-perks{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:clamp(22px,3vw,34px);
+}
+.scp-care .scp-care-perk{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:4px;
+}
+.scp-care .scp-care-perk-ico{
+  width:62px;height:62px;flex:none;margin:0 0 16px;border-radius:50%;
+  border:1.5px solid var(--scp-accent);color:var(--scp-accent-text);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--scp-white);
+  transition:transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.scp-care .scp-care-perk:hover .scp-care-perk-ico{
+  transform:translateY(-3px);background:var(--scp-accent-soft);
+  box-shadow:0 12px 22px -16px rgba(35,32,31,.8);
+}
+.scp-care .scp-care-perk-ico svg{width:26px;height:26px;}
+.scp-care .scp-care-perk-text{font-size:15px;line-height:1.55;max-width:27ch;}
+.scp-care .scp-care-flag{
+  display:inline-block;margin-top:10px;
+  font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--scp-gold-deep);background:var(--scp-gold-soft);
+  border:1px solid #E4D3A2; /* fallback */
+  border-color:color-mix(in srgb, var(--scp-gold) 45%, transparent);
+  padding:3px 10px;border-radius:999px;
+}
+
+/* --- add-on accordion --------------------------------------------------- */
+.scp-care .scp-care-addons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;}
+.scp-care .scp-care-addon{
+  background:var(--scp-white);border:1px solid var(--scp-line);border-radius:12px;overflow:hidden;
+  transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.scp-care .scp-care-addon:hover{
+  transform:translateY(-2px);
+  border-color:var(--scp-accent); /* fallback */
+  border-color:color-mix(in srgb, var(--scp-accent) 45%, var(--scp-line));
+  box-shadow:0 14px 26px -22px rgba(35,32,31,.85);
+}
+.scp-care .scp-care-addon[data-scp-open="true"]{border-color:var(--scp-accent);}
+.scp-care .scp-care-addon-btn{
+  width:100%;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;
+  padding:16px 18px;
+}
+.scp-care .scp-care-addon-name{flex:1 1 auto;font-weight:700;font-size:15px;line-height:1.35;}
+.scp-care .scp-care-addon-price{font-size:13.5px;font-weight:800;color:var(--scp-slate);white-space:nowrap;}
+.scp-care .scp-care-addon-inc{
+  font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+  color:#1F6B3C;background:#E8F4EC;border:1px solid #BEDFCB;padding:4px 10px;border-radius:999px;
+}
+.scp-care .scp-care-chev{
+  flex:none;width:18px;height:18px;color:var(--scp-accent-text);
+  transition:transform .22s ease;
+}
+.scp-care .scp-care-addon[data-scp-open="true"] .scp-care-chev{transform:rotate(180deg);}
+.scp-care .scp-care-addon-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s ease;}
+.scp-care .scp-care-addon[data-scp-open="true"] .scp-care-addon-panel{grid-template-rows:1fr;}
+.scp-care .scp-care-addon-inner{overflow:hidden;}
+.scp-care .scp-care-addon-inner p{
+  font-size:14px;line-height:1.6;color:var(--scp-slate);
+  padding:0 18px 18px;margin-top:-2px;
+}
+
+/* --- closing + cross-links ---------------------------------------------- */
+.scp-care .scp-care-close{max-width:64ch;}
+.scp-care .scp-care-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:28px;}
+.scp-care a.scp-care-link{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  border:1px solid var(--scp-line);border-radius:12px;padding:16px 18px;
+  text-decoration:none;color:var(--scp-ink);font-size:14.5px;
+  transition:border-color .18s ease, transform .18s ease, background-color .18s ease;
+}
+.scp-care a.scp-care-link:hover{
+  transform:translateY(-2px);text-decoration:none;color:var(--scp-ink);
+  border-color:var(--scp-accent);background:var(--scp-accent-soft);
+}
+.scp-care a.scp-care-link b{font-weight:800;}
+.scp-care a.scp-care-link svg{width:17px;height:17px;flex:none;color:var(--scp-accent-text);}
+
+/* --- scroll reveal ------------------------------------------------------
+   The hidden state only applies once the JS has flagged the wrapper, so if
+   JS fails or is stripped, every section still renders normally.           */
+.scp-care[data-scp-ready="1"] [data-scp-reveal]{
+  opacity:0;transform:translateY(20px);
+  transition:opacity .62s cubic-bezier(.22,.61,.36,1), transform .62s cubic-bezier(.22,.61,.36,1);
+  transition-delay:var(--scp-delay,0ms);
+  will-change:opacity, transform;
+}
+.scp-care[data-scp-ready="1"] [data-scp-reveal].scp-care-in{opacity:1;transform:none;}
+
+@media (prefers-reduced-motion: reduce){
+  .scp-care *,.scp-care *::before,.scp-care *::after{
+    transition-duration:.001ms !important;
+    animation-duration:.001ms !important;
+    transition-delay:0ms !important;
+  }
+  .scp-care[data-scp-ready="1"] [data-scp-reveal]{opacity:1 !important;transform:none !important;}
+  .scp-care .scp-care-cta:hover,.scp-care .scp-care-addon:hover,.scp-care a.scp-care-link:hover,
+  .scp-care .scp-care-perk:hover .scp-care-perk-ico{transform:none;}
+}
+
+/* --- responsive --------------------------------------------------------- */
+@media (max-width:880px){
+  .scp-care .scp-care-hero{grid-template-columns:minmax(0,1fr);align-items:start;}
+  .scp-care .scp-care-split{grid-template-columns:minmax(0,1fr);}
+  .scp-care .scp-care-split--flip .scp-care-figure{order:0;}
+}
+@media (max-width:700px){
+  .scp-care .scp-care-list{grid-template-columns:minmax(0,1fr);}
+  .scp-care .scp-care-addons{grid-template-columns:minmax(0,1fr);}
+}
+@media (max-width:560px){
+  .scp-care .scp-care-visit-head{gap:10px;}
+  .scp-care .scp-care-freq{font-size:11.5px;padding:6px 12px;}
+  .scp-care .scp-care-addon-btn{padding:15px 15px;gap:10px;}
+  .scp-care .scp-care-addon-name{font-size:14.5px;}
+  .scp-care .scp-care-figure{aspect-ratio:3/2;}
+}
+
+/* --- hero "at a glance" chips ------------------------------------------- */
+.scp-care .scp-care-facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;}
+.scp-care .scp-care-fact{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:700;color:var(--scp-ink);
+  background:var(--scp-white);border:1px solid var(--scp-line);
+  border-radius:999px;padding:8px 15px;
+}
+.scp-care .scp-care-fact svg{width:15px;height:15px;flex:none;color:var(--scp-accent-text);}
+
+/* --- on-brand band: solid maroon opener + closer -------------------------
+   Appended last so these win on order over the light-ground defaults.     */
+.scp-care{--scp-invert-bg:#FFFFFF;--scp-invert-ink:var(--scp-maroon);}
+.scp-care--gold{--scp-invert-bg:var(--scp-gold);--scp-invert-ink:#231B05;}
+
+.scp-care .scp-care-band--brand .scp-care-eyebrow{color:rgba(255,255,255,.82);}
+.scp-care .scp-care-band--brand .scp-care-eyebrow::before{background:var(--scp-onbrand-ico);}
+.scp-care .scp-care-band--brand .scp-care-tagline,
+.scp-care .scp-care-band--brand .scp-care-prose p{color:var(--scp-onbrand-lede);}
+.scp-care .scp-care-band--brand *:focus-visible{outline-color:#FFFFFF;}
+
+.scp-care .scp-care-band--brand .scp-care-fact{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.26);
+  color:#FFFFFF;
+}
+.scp-care .scp-care-band--brand .scp-care-fact svg{color:var(--scp-onbrand-ico);}
+
+.scp-care .scp-care-band--brand .scp-care-figure{
+  border-color:rgba(255,255,255,.26);color:rgba(255,255,255,.78);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.08), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 2px, transparent 2px 11px),
+    rgba(0,0,0,.16);
+}
+.scp-care .scp-care-band--brand .scp-care-figtag{
+  background:rgba(255,255,255,.14);color:#FFFFFF;border-color:rgba(255,255,255,.22);
+}
+
+/* white (or gold, on Premier) CTA for use on a maroon ground */
+.scp-care a.scp-care-cta--invert,.scp-care .scp-care-cta--invert{
+  background:var(--scp-invert-bg);color:var(--scp-invert-ink);
+  box-shadow:0 10px 26px -14px rgba(0,0,0,.85);
+}
+.scp-care a.scp-care-cta--invert:hover,.scp-care a.scp-care-cta--invert:focus-visible,
+.scp-care .scp-care-cta--invert:hover,.scp-care .scp-care-cta--invert:focus-visible{
+  background:var(--scp-invert-bg);color:var(--scp-invert-ink);filter:brightness(.96);
+}
+
+.scp-care .scp-care-band--brand a.scp-care-link{
+  border-color:rgba(255,255,255,.26);color:#FFFFFF;background:rgba(255,255,255,.04);
+}
+.scp-care .scp-care-band--brand a.scp-care-link:hover{
+  border-color:#FFFFFF;background:rgba(255,255,255,.11);color:#FFFFFF;
+}
+.scp-care .scp-care-band--brand a.scp-care-link svg{color:var(--scp-onbrand-ico);}
+</style>
+
+<div class="scp-care" data-scp-plan="plumbing">
+
+  <!-- 1 — HERO (solid brand band) --------------------------------------- -->
+  <section class="scp-care-band scp-care-band--brand">
+    <div class="scp-care-wrap">
+      <div class="scp-care-hero" data-scp-reveal>
+        <div>
+          <p class="scp-care-eyebrow">Sun City Care Plans</p>
+          <!-- If your LiveCanvas template already prints the page title as an
+               h1, change this h1 to an h2 to keep one h1 per page. -->
+          <h1 class="scp-care-title">Plumbing Care Plan</h1>
+          <p class="scp-care-tagline">One thorough annual visit that catches the small problems before they turn expensive.</p>
+          <div class="scp-care-facts">
+            <span class="scp-care-fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M16 3v4M8 3v4M3.5 10h17" stroke-linecap="round"/></svg>1 visit per year</span>
+            <span class="scp-care-fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2" stroke-linecap="round" stroke-linejoin="round"/></svg>Preferred scheduling</span>
+            <span class="scp-care-fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><circle cx="7.5" cy="7.5" r="2.4"/><circle cx="16.5" cy="16.5" r="2.4"/><path d="M17 7L7 17" stroke-linecap="round"/></svg>10% off repairs</span>
+          </div>
+        </div>
+        <div class="scp-care-pricecard">
+          <span class="scp-care-price">$160</span>
+          <span class="scp-care-priceunit">per year, all visits included</span>
+          <div class="scp-care-pricerule"></div>
+          <a class="scp-care-cta" href="/memberships/">Choose Plan</a>
+          <p class="scp-care-notes">No contract term &mdash; renews yearly.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<div class="scp-care-wave" style="background:var(--scp-brand-band)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-tint);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-tint)"/>
+  </svg>
+</div>
+
+  <!-- 2 — HERO PHOTO + INTRO -------------------------------------------- -->
+  <section class="scp-care-band scp-care-band--tint">
+    <div class="scp-care-wrap">
+      <div class="scp-care-split" data-scp-reveal>
+        <figure class="scp-care-figure">
+          <span class="scp-care-figtag">Photo placeholder</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true" focusable="false"><rect x="3" y="6.5" width="18" height="13" rx="2.5"/><path d="M8.5 6.5l1.4-2.5h4.2l1.4 2.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+          <figcaption class="scp-care-figcap">Plumber inspecting and flushing a residential water heater</figcaption>
+        </figure>
+        <div class="scp-care-prose">
+          <p>Slow leaks, a failing pressure regulator and scale building up inside a water heater rarely announce themselves. They show up later as a spike in your water bill or a tank that fails years early.</p>
+              <p>The Plumbing Care Plan is one thorough annual visit built to find that kind of quiet problem while it is still cheap to fix.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<div class="scp-care-wave" style="background:var(--scp-tint)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-gray);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-gray)"/>
+  </svg>
+</div>
+
+  <!-- 3 — WHAT'S INCLUDED IN A VISIT ----------------------------------- -->
+  <section class="scp-care-band scp-care-band--gray">
+    <div class="scp-care-wrap">
+      <div class="scp-care-head" data-scp-reveal>
+        <h2 class="scp-care-h2">What's Included in a Visit</h2>
+        <p class="scp-care-lede">One visit, four checks that matter most for a healthy plumbing system &mdash; your water heater, your water pressure, your water quality, and a walkthrough of the fixtures and connections most likely to develop a slow leak.</p>
+      </div>
+      <div class="scp-care-visit" data-scp-reveal>
+            <div class="scp-care-visit-head">
+              <h3 class="scp-care-visit-title">Plumbing Visit</h3>
+              <span class="scp-care-freq">1&times; per year</span>
+            </div>
+            <ul class="scp-care-list">
+              <li><svg class="scp-care-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.6 2.6L16 9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Water heater flush</span></li>
+              <li><svg class="scp-care-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.6 2.6L16 9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Water pressure test</span></li>
+              <li><svg class="scp-care-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.6 2.6L16 9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Water quality test</span></li>
+              <li><svg class="scp-care-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.6 2.6L16 9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>General plumbing inspection — fixtures, connections, visible pipe condition</span></li>
+            </ul>
+          </div>
+    </div>
+  </section>
+
+<div class="scp-care-wave" style="background:var(--scp-gray)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-charcoal);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-charcoal)"/>
+  </svg>
+</div>
+
+  <!-- 4 — TRUST / CREDIBILITY ------------------------------------------ -->
+  <section class="scp-care-band scp-care-band--dark">
+    <div class="scp-care-wrap">
+      <div class="scp-care-split scp-care-split--flip" data-scp-reveal>
+        <div class="scp-care-prose">
+          <h2 class="scp-care-h2 scp-care-h3">Why Members Stick With Sun City</h2>
+          <p>Sun City has served Las Cruces and Do&ntilde;a Ana County since 1984. Whether we installed your water heater or someone else did, our factory-trained plumbers service every make and model to manufacturer spec.</p>
+              <p>If something needs more than a routine adjustment, you'll know before we leave &mdash; with your member discount already applied.</p>
+          <!-- TODO: point href at your reviews page (or Google reviews link) -->
+          <p style="margin-top:22px"><a class="scp-care-cta scp-care-cta--ghost" href="#">Read Reviews</a></p>
+        </div>
+        <figure class="scp-care-figure scp-care-figure--dark">
+          <span class="scp-care-figtag">Photo placeholder</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true" focusable="false"><rect x="3" y="6.5" width="18" height="13" rx="2.5"/><path d="M8.5 6.5l1.4-2.5h4.2l1.4 2.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+          <figcaption class="scp-care-figcap">Technician testing water pressure and water quality at a kitchen sink</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+<div class="scp-care-wave" style="background:var(--scp-charcoal)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-brand-band);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-brand-band)"/>
+  </svg>
+</div>
+
+  <!-- 5 — PLAN PERKS ---------------------------------------------------- -->
+  <section class="scp-care-band scp-care-band--brand">
+    <div class="scp-care-wrap">
+      <div class="scp-care-head" data-scp-reveal>
+        <h2 class="scp-care-h2">Plan Perks</h2>
+        <p class="scp-care-lede">What membership gets you between visits, every day of the year.</p>
+      </div>
+      <div class="scp-care-perks">
+            <div class="scp-care-perk" data-scp-reveal style="--scp-delay:0ms">
+              <div class="scp-care-perk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M16 3v4M8 3v4M3.5 10h17" stroke-linecap="round"/></svg></div>
+              <p class="scp-care-perk-text">Preferred scheduling ahead of non-members</p>
+            </div>
+            <div class="scp-care-perk" data-scp-reveal style="--scp-delay:80ms">
+              <div class="scp-care-perk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><circle cx="7.5" cy="7.5" r="2.4"/><circle cx="16.5" cy="16.5" r="2.4"/><path d="M17 7L7 17" stroke-linecap="round"/></svg></div>
+              <p class="scp-care-perk-text">10% off all repairs and services</p>
+            </div>
+      </div>
+    </div>
+  </section>
+
+<div class="scp-care-wave" style="background:var(--scp-brand-band)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-gray);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-gray)"/>
+  </svg>
+</div>
+
+  <!-- 6 — AVAILABLE ADD-ONS --------------------------------------------- -->
+  <section class="scp-care-band scp-care-band--gray">
+    <div class="scp-care-wrap">
+      <div class="scp-care-head" data-scp-reveal>
+        <h2 class="scp-care-h2">Available Add-Ons</h2>
+        <p class="scp-care-lede">Tap any add-on to see what it covers. Add-ons can be added when you sign up or at any renewal.</p>
+      </div>
+      <div class="scp-care-addons" data-scp-reveal>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-softenerSalt">
+                <span class="scp-care-addon-name">Water Softener Salt</span>
+                <span class="scp-care-addon-price">+$68/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-softenerSalt" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>Your technician tops off your water softener with salt during the visit and leaves extra bags on hand, so you're covered between visits.</p></div>
+              </div>
+            </div>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-softenerService">
+                <span class="scp-care-addon-name">Water Softener Service</span>
+                <span class="scp-care-addon-price">+$75/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-softenerService" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>Your water softener is professionally inspected and serviced during your annual plumbing visit, protecting your plumbing, appliances and water quality.</p></div>
+              </div>
+            </div>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-ro">
+                <span class="scp-care-addon-name">Reverse Osmosis Service</span>
+                <span class="scp-care-addon-price">+$50/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-ro" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>Your RO system is professionally serviced during your annual visit, keeping it running at peak performance for cleaner, better-tasting water.</p></div>
+              </div>
+            </div>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-tankless">
+                <span class="scp-care-addon-name">Tankless Water Heater Flush</span>
+                <span class="scp-care-addon-price">+$40/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-tankless" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>A professional chemical descaling flush each year clears mineral buildup, keeping your tankless water heater efficient and extending its lifespan.</p></div>
+              </div>
+            </div>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-waterHeater2">
+                <span class="scp-care-addon-name">Additional Water Heater</span>
+                <span class="scp-care-addon-price">+$50/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-waterHeater2" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>Extends your plan's coverage to a second water heater on the same property.</p></div>
+              </div>
+            </div>
+            <div class="scp-care-addon" data-scp-open="false">
+              <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-plumbing-addon-bigblue">
+                <span class="scp-care-addon-name">Quarterly BigBlue Filter Change</span>
+                <span class="scp-care-addon-price">+$180/yr</span>
+                <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="scp-care-addon-panel" id="scp-plumbing-addon-bigblue" aria-hidden="true">
+                <div class="scp-care-addon-inner"><p>Four filter-change visits a year for your whole-house water filter, so it stays clean and effective all year long.</p></div>
+              </div>
+            </div>
+      </div>
+    </div>
+  </section>
+
+
+<div class="scp-care-wave" style="background:var(--scp-gray)" aria-hidden="true">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z" style="fill:var(--scp-brand-band);opacity:.38"/>
+    <path d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z" style="fill:var(--scp-brand-band)"/>
+  </svg>
+</div>
+
+  <!-- 7 — CLOSING + CROSS-LINKS ------------------------------------------ -->
+  <section class="scp-care-band scp-care-band--brand scp-care-band--tight">
+    <div class="scp-care-wrap">
+      <div class="scp-care-close scp-care-prose" data-scp-reveal>
+<p>One visit a year is all it takes to stay ahead of the leaks and buildup you can't see. Choose your plan below to get started.</p>
+        <p style="margin-top:20px"><a class="scp-care-cta scp-care-cta--wide scp-care-cta--invert" href="/memberships/">Customize Your Plumbing Care Plan Here</a></p>
+      </div>
+      <div class="scp-care-links" data-scp-reveal>
+            <a class="scp-care-link" href="/memberships/">
+              <span>Compare all four plans on the <b>Memberships</b> hub</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><path d="M5 12h13M12.5 6.2L18.5 12l-6 5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ==========================================================================
+   SUN CITY — CARE PLAN PAGE BLOCK  (behaviour)
+   --------------------------------------------------------------------------
+   Vanilla JS, no dependencies. Safe to repeat on every plan page: it only
+   ever touches .scp-care wrappers it has not already initialised, so if two
+   blocks ever end up on one page nothing runs twice.
+   Handles: add-on accordion + IntersectionObserver scroll reveals.
+   Honours prefers-reduced-motion (reveals everything immediately).
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  function init() {
+    var roots = document.querySelectorAll('.scp-care:not([data-scp-ready])');
+    if (!roots.length) return;
+
+    var reduce = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    Array.prototype.forEach.call(roots, function (root) {
+      root.setAttribute('data-scp-ready', '1');
+
+      /* --- add-on accordion (delegated) --------------------------------- */
+      root.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('.scp-care-addon-btn');
+        if (!btn || !root.contains(btn)) return;
+        var item = btn.closest('.scp-care-addon');
+        if (!item) return;
+        var open = item.getAttribute('data-scp-open') === 'true';
+        item.setAttribute('data-scp-open', open ? 'false' : 'true');
+        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        var panel = document.getElementById(btn.getAttribute('aria-controls'));
+        if (panel) panel.setAttribute('aria-hidden', open ? 'true' : 'false');
+      });
+
+      /* --- scroll reveal ------------------------------------------------- */
+      var targets = root.querySelectorAll('[data-scp-reveal]');
+      if (!targets.length) return;
+
+      if (reduce || !('IntersectionObserver' in window)) {
+        Array.prototype.forEach.call(targets, function (el) {
+          el.classList.add('scp-care-in');
+        });
+        return;
+      }
+
+      var io = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('scp-care-in');
+          obs.unobserve(entry.target);
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+
+      Array.prototype.forEach.call(targets, function (el) { io.observe(el); });
+    });
+  }
+
+  init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  }
+})();
+</script>
+
+</body>
+</html>

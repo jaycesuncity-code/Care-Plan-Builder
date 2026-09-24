@@ -23,7 +23,7 @@ export async function onRequestGet({ env }) {
 
     const [addonsResult, notesResult] = await Promise.all([
       env.DB.prepare(
-        `SELECT submission_id, addon_name, addon_price, quantity FROM submission_addons WHERE submission_id IN (${placeholders})`
+        `SELECT submission_id, addon_name, addon_price, quantity, included_free, locked FROM submission_addons WHERE submission_id IN (${placeholders})`
       )
         .bind(...ids)
         .all(),

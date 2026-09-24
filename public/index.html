@@ -1297,11 +1297,25 @@ function openDetail(id){
     <tr><td>${row.plan} (base)</td><td>$${PLAN_BASE_PRICE[row.plan].toLocaleString()}</td></tr>
   `];
 
-  if(row.addons.length === 0){
+  /* Prefer addonDetail (per-line total, quantity, included/locked flags) from the
+     API; fall back to the names-only `addons` array + ADDON_CATALOG for rows that
+     predate it. The fallback lookup is guarded: the intake endpoint records add-on
+     names straight from the Builder's catalog — including "# of HVAC Systems" and
+     the "(included with plan)" / "(not covered by selected plan)" lines — and a
+     name that isn't in ADDON_CATALOG used to throw here and blank the modal. */
+  const addonLines = Array.isArray(row.addonDetail) && row.addonDetail.length
+    ? row.addonDetail
+    : row.addons.map(name => ({ name, price: ADDON_CATALOG[name], quantity: 1, includedFree: false, locked: false }));
+
+  if(addonLines.length === 0){
     priceRows.push(`<tr><td class="addon-empty" colspan="2">No add-ons selected</td></tr>`);
   } else {
-    row.addons.forEach(addon => {
-      priceRows.push(`<tr><td>${addon}</td><td>$${ADDON_CATALOG[addon].toLocaleString()}</td></tr>`);
+    addonLines.forEach(line => {
+      const qtyLabel = line.quantity > 1 ? ` &times; ${line.quantity}` : "";
+      const priceCell = line.includedFree ? "Included"
+        : line.locked ? "Not charged"
+        : (line.price != null ? `$${line.price.toLocaleString()}` : "&mdash;");
+      priceRows.push(`<tr><td>${line.name}${qtyLabel}</td><td>${priceCell}</td></tr>`);
     });
   }
 
