@@ -50,32 +50,99 @@ test("quantity-only add-ons bill only the units above the included count", () =>
   assert.equal(one.lines.length, 0);
 });
 
-test("Premier's included add-ons are recorded at $0 even when unsent", () => {
+test("Premier with no Water Softener Service creates no phantom salt line", () => {
   const pricing = priceSelection("premier", []);
-  const included = pricing.lines.filter((l) => l.includedFree).map((l) => l.id);
-  assert.deepEqual(included.sort(), ["ros", "wss"]);
+  assert.equal(pricing.lines.some((l) => l.id === "wss"), false);
+  assert.equal(pricing.lines.some((l) => l.id === "ros"), false);
   assert.equal(pricing.addonTotal, 0);
   assert.equal(pricing.total, 600);
-  for (const line of pricing.lines) {
-    assert.ok(line.storedName.endsWith(INCLUDED_SUFFIX), "included lines are labelled for the office");
-    assert.equal(line.lineTotal, 0);
-    assert.equal(line.billable, false);
-  }
 });
 
-test("a Premier included add-on is never double-charged, even if the payload sends it twice", () => {
-  // Reachable in the builder: select Water Softener Salt under Plumbing, then
-  // switch to Premier. renderTotal() emits BOTH a paid line (stale
-  // state.addons) and the $0 included line.
-  const pricing = priceSelection("premier", [
-    { id: "wss", quantity: 1 },
+test("Premier Water Softener Service x1 stays paid and creates matching included salt", () => {
+  const pricing = priceSelection("premier", [{ id: "wsv", quantity: 1 }]);
+  const service = pricing.lines.find((l) => l.id === "wsv");
+  const salt = pricing.lines.find((l) => l.id === "wss");
+
+  assert.equal(service.quantity, 1);
+  assert.equal(service.lineTotal, 75);
+  assert.equal(service.billable, true);
+  assert.equal(service.includedFree, false);
+
+  assert.equal(salt.quantity, 1);
+  assert.equal(salt.lineTotal, 0);
+  assert.equal(salt.includedFree, true);
+  assert.equal(salt.billable, false);
+  assert.ok(salt.storedName.endsWith(INCLUDED_SUFFIX));
+
+  assert.equal(pricing.addonTotal, 75);
+  assert.equal(pricing.total, 675);
+});
+
+test("Premier Water Softener Service x2 bills $150 and creates included salt x2", () => {
+  const pricing = priceSelection("premier", [{ id: "wsv", quantity: 2 }]);
+  const service = pricing.lines.find((l) => l.id === "wsv");
+  const salt = pricing.lines.find((l) => l.id === "wss");
+
+  assert.equal(service.quantity, 2);
+  assert.equal(service.lineTotal, 150);
+  assert.equal(salt.quantity, 2);
+  assert.equal(salt.lineTotal, 0);
+  assert.equal(pricing.addonTotal, 150);
+  assert.equal(pricing.total, 750);
+});
+
+test("Premier ignores independently sent or stale salt and derives it only from softener service", () => {
+  const noService = priceSelection("premier", [
+    { id: "wss", quantity: 9 },
     { id: "wss", quantity: 1 },
   ]);
-  const wssLines = pricing.lines.filter((l) => l.id === "wss");
-  assert.equal(wssLines.length, 1, "collapsed to a single line");
-  assert.equal(wssLines[0].includedFree, true);
-  assert.equal(pricing.addonTotal, 0, "Premier's salt is included, so it cannot be billed");
-  assert.equal(pricing.total, 600);
+  assert.equal(noService.lines.some((l) => l.id === "wss"), false);
+  assert.equal(noService.total, 600);
+
+  const withService = priceSelection("premier", [
+    { id: "wss", quantity: 9 },
+    { id: "wsv", quantity: 2 },
+  ]);
+  const salt = withService.lines.find((l) => l.id === "wss");
+  assert.equal(salt.quantity, 2, "salt quantity follows the paid service, not the client-sent salt quantity");
+  assert.equal(salt.lineTotal, 0);
+  assert.equal(withService.total, 750);
+});
+
+test("Plumbing and Bundled Water Softener Salt remain normal paid add-ons", () => {
+  const plumbing = priceSelection("plumbing", [{ id: "wss", quantity: 2 }]);
+  assert.equal(plumbing.addonTotal, 136);
+  assert.equal(plumbing.lines[0].includedFree, false);
+  assert.equal(plumbing.total, 296);
+
+  const bundled = priceSelection("bundled", [{ id: "wss", quantity: 2 }]);
+  assert.equal(bundled.addonTotal, 136);
+  assert.equal(bundled.lines[0].includedFree, false);
+  assert.equal(bundled.total, 536);
+});
+
+test("Premier Reverse Osmosis Service is paid and never creates a separate free line", () => {
+  const pricing = priceSelection("premier", [{ id: "ros", quantity: 2 }]);
+  const roLines = pricing.lines.filter((l) => l.id === "ros");
+
+  assert.equal(roLines.length, 1);
+  assert.equal(roLines[0].quantity, 2);
+  assert.equal(roLines[0].lineTotal, 100);
+  assert.equal(roLines[0].includedFree, false);
+  assert.equal(pricing.addonTotal, 100);
+  assert.equal(pricing.total, 700);
+  assert.equal(pricing.lines.some((l) => /filter/i.test(l.id)), false, "no independent RO-filter add-on exists");
+});
+
+test("canonical Premier selection still totals $930 with no phantom water-treatment lines", () => {
+  const pricing = priceSelection("premier", [
+    { id: "mst", quantity: 1 },
+    { id: "hvacSystems", quantity: 3 },
+  ]);
+  assert.equal(pricing.addonTotal, 330);
+  assert.equal(pricing.total, 930);
+  assert.equal(pricing.lines.some((l) => l.id === "wss"), false);
+  assert.equal(pricing.lines.some((l) => l.id === "ros"), false);
 });
 
 test("add-ons a plan doesn't cover are kept but never billed", () => {
