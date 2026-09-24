@@ -1,7 +1,8 @@
 # Care Plan Builder — LiveCanvas Find/Replace walkthrough
 
-Fourteen edits to bring the hand-maintained LiveCanvas copy of the Builder in line with
-the sandbox version. Nothing else in the block changes.
+Fourteen intake/form edits bring the hand-maintained LiveCanvas copy of the Builder in line with
+the sandbox intake flow. A separate Premier policy-sync section below documents the targeted
+pricing/UI corrections added afterward; nothing unrelated in the block changes.
 
 **How to use this:** work top to bottom. Each step has an exact **Find this** block and
 an exact **Replace with** block. Before replacing, search the block for the *Find this*
@@ -499,11 +500,39 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 - **Three pre-existing bugs fixed** (steps 1–3): a modal that couldn't scroll, a card
   that could be clipped, and a form that never actually hid itself after a successful
   send.
-- **Not changed:** the pricing arrays, the plan/add-on rendering, the recap, the
-  selection payload, the focus trap, and the confirmation wording. The numbers the
-  customer sees are untouched — and every price is now recomputed server-side from a
-  catalog that a parity test keeps in step with this block's own `PLANS` and
-  `ADDON_GROUPS`.
+- **Steps 1–14 do not change pricing.** The later Premier policy correction below does make
+  targeted changes to `PLANS`, `ADDON_GROUPS`, add-on rendering, and selected-line pricing.
+  The server still recomputes every price from `lib/intake/catalog.js`, and catalog-parity
+  tests keep the browser/server tables synchronized.
+
+
+## Premier benefit corrections — keep the LiveCanvas copy synchronized
+
+These are targeted Builder changes on top of the fourteen intake edits above. When copying the
+sandbox Builder into LiveCanvas, preserve these rules and the matching code from
+`public/memberships/index.html`:
+
+- **Water Softener Service stays paid at $75 each.** Under Premier, selecting quantity `N`
+  creates a separate **Water Softener Salt ×N** line marked **Included / $0**.
+- The salt quantity is derived from Water Softener Service. It is not independently editable
+  under Premier. Increasing, decreasing, or removing the service must update/remove salt 1:1.
+- Plumbing and Bundled keep ordinary paid Water Softener Salt behavior.
+- **Reverse Osmosis Service stays paid at $50 each.** Premier's complimentary benefit is the
+  replacement filters used during that paid service. Do not create a free RO Service line and
+  do not create an independent RO-filter add-on.
+- The Premier plan card says the RO filters replaced during a paid Reverse Osmosis Service are
+  included at no additional charge.
+- The Premier add-on grid groups Water Softener Service and its salt refill with the subtle
+  **Premier Pairing** treatment. The salt card is informational/non-editable and only enters
+  the selected-items list after a paid softener service is selected.
+- The canonical Step 7 selection — Premier + Mini-Split Tune-Up + # of HVAC Systems = 3 —
+  remains **$930/yr** and shows **no** phantom Water Softener Salt or Reverse Osmosis Service.
+- Focused verification: **Premier + Water Softener Service ×2** must show the paid service at
+  **$150** and **Water Softener Salt ×2** as **Included / $0**.
+
+The machine checks now verify these Premier markers in the sandbox Builder in addition to the
+original fourteen intake replacements. Server-side repricing remains authoritative.
+
 
 ## Once it is live, double-check these
 
