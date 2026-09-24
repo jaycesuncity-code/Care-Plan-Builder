@@ -187,11 +187,49 @@ async function main() {
   await page.goto(`${BASE}/memberships/`, { waitUntil: "networkidle" });
   check("the builder block rendered", (await page.locator("#sc-cpb").count()) === 1);
 
-  // Premier: both complimentary add-ons should show as "Included".
+  // Premier starts with no phantom complimentary lines.
   await page.click('[data-plan="premier"]');
   await page.waitForTimeout(250);
-  const includedCards = await page.locator(".cpb-addon.is-included").count();
-  checkEqual("Premier shows two complimentary add-on cards", includedCards, 2);
+  checkEqual("Premier starts with no active included add-on cards", await page.locator(".cpb-addon.is-included").count(), 0);
+
+  // Paid Water Softener Service controls the complimentary salt quantity 1:1.
+  await page.click('[data-addon="wsv"]');
+  await page.waitForTimeout(150);
+  let selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  let wsvLine = selection.addons.find((a) => a.id === "wsv");
+  let wssLine = selection.addons.find((a) => a.id === "wss");
+  checkEqual("Premier softener service x1 is paid", wsvLine.lineTotal, 75);
+  checkEqual("Premier salt x1 is included", wssLine.quantity, 1);
+  checkEqual("Premier salt x1 is $0", wssLine.lineTotal, 0);
+  check("Premier salt is marked included", wssLine.includedFree === true, wssLine);
+
+  await page.click('[data-addon="wsv"] [data-qty-plus="wsv"]');
+  await page.waitForTimeout(100);
+  selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  wsvLine = selection.addons.find((a) => a.id === "wsv");
+  wssLine = selection.addons.find((a) => a.id === "wss");
+  checkEqual("increasing softener service updates paid quantity", wsvLine.quantity, 2);
+  checkEqual("increasing softener service updates salt quantity", wssLine.quantity, 2);
+  checkEqual("softener service x2 costs $150", wsvLine.lineTotal, 150);
+
+  await page.click('[data-addon="wsv"] [data-qty-minus="wsv"]');
+  await page.waitForTimeout(100);
+  selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  checkEqual("decreasing softener service updates salt quantity", selection.addons.find((a) => a.id === "wss").quantity, 1);
+
+  await page.click('[data-line="wsv"] [data-remove="wsv"]');
+  await page.waitForTimeout(100);
+  selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  checkEqual("removing softener service removes complimentary salt", selection.addons.filter((a) => a.id === "wss").length, 0);
+
+  // Stale paid salt from Plumbing must not duplicate/charge after switching to Premier.
+  await page.click('[data-plan="plumbing"]');
+  await page.click('[data-addon="wss"]');
+  await page.waitForTimeout(100);
+  await page.click('[data-plan="premier"]');
+  await page.waitForTimeout(150);
+  selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  checkEqual("switching Plumbing to Premier leaves no duplicate salt line", selection.addons.filter((a) => a.id === "wss").length, 0);
 
   // Add a billable HVAC add-on and raise the HVAC system count to 3.
   await page.click('[data-addon="mst"]');
@@ -199,7 +237,7 @@ async function main() {
   await page.click('[data-coverage-qty="hvacSystems"] [data-qty-plus="hvacSystems"]');
   await page.waitForTimeout(250);
 
-  const selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
+  selection = JSON.parse(await page.locator("#sc-cpb").getAttribute("data-selection"));
   checkEqual("plan in the on-page payload", selection.plan, "Premier Care Plan");
   // 600 + Mini-Split 80 + 2 additional HVAC systems (2 x 125)
   checkEqual("the builder's own total", selection.total, 930);
@@ -225,7 +263,7 @@ async function main() {
 
   const recapText = await page.locator("#cpbLeadRecap").innerText();
   check("the recap names the plan", /Premier Care Plan/.test(recapText), recapText);
-  check("the recap shows the included add-ons", /Included/.test(recapText), recapText);
+  check("the canonical recap has no phantom salt/RO service", !/Water Softener Salt|Reverse Osmosis Service/.test(recapText), recapText);
   check("the recap shows the annual total", /\$930/.test(recapText), recapText);
 
   // Closing must reset the widget: a token is single-use.
@@ -310,14 +348,14 @@ async function main() {
   const addonRows = await d1(
     `SELECT addon_name, addon_price, quantity, included_free, locked FROM submission_addons WHERE submission_id = ${row.id} ORDER BY id`
   );
-  checkEqual("four add-on rows: 2 complimentary + mini-split + system count", addonRows.length, 4);
+  checkEqual("two add-on rows: mini-split + system count", addonRows.length, 2);
   checkEqual("the equipment-count row keeps the total count", addonRows.find((a) => a.addon_name.startsWith("# of HVAC")).quantity, 3);
   checkEqual(
     "the equipment-count row bills only the additional units",
     addonRows.find((a) => a.addon_name.startsWith("# of HVAC")).addon_price,
     250
   );
-  checkEqual("both complimentary rows are $0", addonRows.filter((a) => a.included_free && a.addon_price === 0).length, 2);
+  checkEqual("canonical Premier D1 row has no phantom included lines", addonRows.filter((a) => a.included_free).length, 0);
 
   group("E2E 6 — the 429 message the customer actually sees");
   // RATE_LIMIT_MAX is 1 for this run, so the next submission is rate limited.
@@ -367,7 +405,7 @@ async function main() {
   checkEqual("it shows the stored call time verbatim", await dash.locator("#modalBestTime").innerText(), "Midday");
   const priceTable = await dash.locator("#modalPriceTable").innerText();
   check("the price table renders the plan base", /Premier Care Plan \(base\)/.test(priceTable), priceTable);
-  check("it shows the complimentary add-ons as Included", /Included/.test(priceTable), priceTable);
+  check("canonical dashboard detail has no phantom water-treatment lines", !/Water Softener Salt|Reverse Osmosis Service/.test(priceTable), priceTable);
   check("it shows the equipment count with its quantity", /# of HVAC Systems/.test(priceTable), priceTable);
   check("it shows the server-computed total", /\$930/.test(priceTable), priceTable);
   checkEqual("the dashboard threw no JS errors rendering it", dashErrors, []);
