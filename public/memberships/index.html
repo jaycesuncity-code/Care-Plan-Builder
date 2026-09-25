@@ -351,11 +351,25 @@
 #sc-cpb .cpb-feature-rule { width: 1px; align-self: stretch; background: var(--cpb-edge); margin: 4px 0; }
 #sc-cpb .cpb-feature-title { margin: 0; font-size: 15px; font-weight: 900; color: var(--cpb-accent-ink); line-height: 1.25; }
 #sc-cpb .cpb-feature-text { margin: 1px 0 0; font-size: 12.5px; color: var(--cpb-body); }
-#sc-cpb .cpb-filter-note {
-  margin: 8px 2px 0;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--cpb-muted);
+#sc-cpb .cpb-filter-note::before {
+  content: "i";
+
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 2px solid #66707D;
+  border-radius: 50%;
+
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 900;
+  font-family: Arial, sans-serif;
+  color: #66707D;
 }
 
 #sc-cpb .cpb-bestfor {
@@ -1261,10 +1275,7 @@
       ? '<a href="' + LINKS.rewards + '">About Sun City Rewards</a>'
       : '<a href="' + LINKS[p.id] + '">See full plan details</a>';
     var filterNote = p.covers.indexOf('hvac') !== -1
-      ? '<p class="cpb-filter-note">*Standard disposable HVAC filters are included. Specialty HVAC filters are subject to an additional charge.</p>'
-      : '';
-    var filterNote = p.covers.indexOf('hvac') !== -1
-      ? '<p class="cpb-filter-note">*Standard disposable HVAC filters are included. Specialty HVAC filters are subject to an additional charge.</p>'
+      ? '<p class="cpb-filter-note">Standard disposable HVAC filters are included. Specialty HVAC filters are subject to an additional charge.</p>'
       : '';
     el.innerHTML =
       '<div class="cpb-detail-top">' +
