@@ -29,7 +29,7 @@ database_id = "2c79b253-9f8d-4441-b2ca-6666ac23196a"
 DASHBOARD_URL = "https://care-plan-builder.pages.dev"
 # Exact-match CORS allowlist for the builder's origin(s). At launch the
 # WordPress site posts cross-origin, so both hostnames stay listed.
-ALLOWED_ORIGINS = "https://care-plan-builder.pages.dev,https://youknowsuncity.com,https://www.youknowsuncity.com,https://care-plan-intake-sandbox.care-plan-builder.pages.dev,feature-premier-benefit-corr.care-plan-builder.pages.dev"
+ALLOWED_ORIGINS = "https://care-plan-builder.pages.dev,https://youknowsuncity.com,https://www.youknowsuncity.com,https://care-plan-intake-sandbox.care-plan-builder.pages.dev,https://feature-premier-benefit-corr.care-plan-builder.pages.dev"
 # Rate limit: submissions per IP per window (seconds).
 RATE_LIMIT_MAX = "5"
 RATE_LIMIT_WINDOW_SECONDS = "600"
