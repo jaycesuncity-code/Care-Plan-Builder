@@ -351,20 +351,30 @@
 #sc-cpb .cpb-feature-rule { width: 1px; align-self: stretch; background: var(--cpb-edge); margin: 4px 0; }
 #sc-cpb .cpb-feature-title { margin: 0; font-size: 15px; font-weight: 900; color: var(--cpb-accent-ink); line-height: 1.25; }
 #sc-cpb .cpb-feature-text { margin: 1px 0 0; font-size: 12.5px; color: var(--cpb-body); }
+#sc-cpb .cpb-filter-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 2px 0;
+  padding: 10px 12px;
+  background: #E9ECEF;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #505862;
+}
 #sc-cpb .cpb-filter-note::before {
   content: "i";
-
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
   border: 2px solid #66707D;
   border-radius: 50%;
-
   font-size: 14px;
   line-height: 1;
   font-weight: 900;
