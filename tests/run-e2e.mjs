@@ -149,7 +149,10 @@ async function fillLead(page, overrides = {}) {
   await page.fill("#cpbLeadName", lead.customerName);
   await page.fill("#cpbLeadPhone", lead.phone);
   await page.fill("#cpbLeadAddress", lead.address);
-  if (lead.bestTime !== undefined) await page.selectOption("#cpbLeadBestTime", lead.bestTime);
+  if (lead.bestTime !== undefined) {
+    await page.click("#cpbLeadBestTimeButton");
+    await page.click(`#cpbLeadBestTimeList [data-value="${lead.bestTime}"]`);
+  }
   await page.check("#cpbLeadAck");
 }
 
