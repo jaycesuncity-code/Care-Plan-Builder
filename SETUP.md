@@ -43,7 +43,7 @@ environments, so there is nothing to restate today.
 ```bash
 npm install
 cp .dev.vars.example .dev.vars     # already points at the local mocks
-npm run db:migrate:local           # applies 0001, 0002, 0004, 0005
+npm run db:migrate:local           # applies 0001, 0002, 0004, 0005, 0006
 ```
 
 Two terminals:
@@ -79,8 +79,10 @@ Cloudflare Access work. Nothing here depends on it, and the numbering gap is fin
 
 ```bash
 npx wrangler d1 migrations list care-plan-builder --remote   # see what's pending
-npx wrangler d1 migrations apply care-plan-builder --remote  # applies 0004 and 0005
+npx wrangler d1 migrations apply care-plan-builder --remote  # applies pending migrations, including 0006
 ```
+
+`0006_pricing.sql` is additive: it creates the three pricing tables and seeds them, and does not alter existing tables. Back up the real D1 first anyway, then apply the pending migrations.
 
 **`0004` rebuilds the `submissions` table** (SQLite can't ALTER a CHECK constraint), so
 read this before running it on real data:
