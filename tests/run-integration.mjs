@@ -331,6 +331,38 @@ async function main() {
     checkEqual("total_price recomputed", row.total_price, 380);
     checkEqual("the response reports the server's total", tampered.body.total, 380);
 
+    group("A4b — D1 pricing + stale-price protection");
+    await d1("UPDATE pricing_items SET price = 270 WHERE id = 'plan:hvac'");
+    await d1("UPDATE pricing_meta SET version = 2, updated_at = datetime('now') WHERE id = 1");
+    const rowsBeforeStale = (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c;
+    const hitsBeforeStale = (await d1("SELECT COUNT(*) AS c FROM intake_rate_limit"))[0].c;
+    const staleChanged = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 260, total: 260, pricingVersion: 1 },
+      { ip: "203.0.113.31" }
+    );
+    checkEqual("stale version + changed total returns 409", staleChanged.status, 409);
+    checkEqual("409 is PRICES_CHANGED", staleChanged.body && staleChanged.body.error && staleChanged.body.error.code, "PRICES_CHANGED");
+    checkEqual("409 returns fresh pricing version", staleChanged.body && staleChanged.body.pricing && staleChanged.body.pricing.version, 2);
+    checkEqual("stale changed request inserts nothing", (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c, rowsBeforeStale);
+    checkEqual("stale changed request consumes no rate-limit hit", (await d1("SELECT COUNT(*) AS c FROM intake_rate_limit"))[0].c, hitsBeforeStale);
+
+    const staleSameTotal = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 270, total: 270, pricingVersion: 1 },
+      { ip: "203.0.113.32" }
+    );
+    checkEqual("stale version + same current total proceeds", staleSameTotal.status, 201);
+    checkEqual("server charges the D1 plan price", staleSameTotal.body && staleSameTotal.body.basePrice, 270);
+
+    const nullVersion = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 1, total: 1, pricingVersion: null },
+      { ip: "203.0.113.33" }
+    );
+    checkEqual("null pricingVersion keeps server-wins behavior", nullVersion.status, 201);
+    checkEqual("null-version request still charges D1", nullVersion.body && nullVersion.body.total, 270);
+
+    await d1("UPDATE pricing_items SET price = 260 WHERE id = 'plan:hvac'");
+    await d1("UPDATE pricing_meta SET version = 1, updated_at = datetime('now') WHERE id = 1");
+
     group("A5 — validation");
     const before = (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c;
 

@@ -486,12 +486,17 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 
 ## 15. [Required] Add the public pricing endpoint + version — JS
 
-Put the read-only pricing endpoint beside the submit endpoint. At launch both become absolute
-URLs on the public intake project. Expected matches: **1**
+Append the read-only pricing endpoint to the launch-config block. At launch it points at the
+same public intake project as the submit endpoint. Expected matches: **1**
 
 **Find this**
 
 ```js
+  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
+     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
+     public intake project, so this becomes an absolute https:// URL and that origin
+     must be listed in the endpoint's ALLOWED_ORIGINS. */
   var SUBMIT_ENDPOINT = '/api/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
@@ -503,16 +508,22 @@ URLs on the public intake project. Expected matches: **1**
 **Replace with**
 
 ```js
+  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
+     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
+     public intake project, so this becomes an absolute https:// URL and that origin
+     must be listed in the endpoint's ALLOWED_ORIGINS. */
   var SUBMIT_ENDPOINT = '/api/care-plan-request';
-  /* Sandbox: same-origin. At launch swap to the public intake project's absolute URL,
-     exactly like SUBMIT_ENDPOINT. */
-  var PRICING_ENDPOINT = '/api/pricing';
-  var pricingVersion = null;
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with
      the real site key (and add the live hostnames to the widget) at launch. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+
+  /* Same public intake project as SUBMIT_ENDPOINT. At launch swap this to its
+     absolute /api/pricing URL too. */
+  var PRICING_ENDPOINT = '/api/pricing';
+  var pricingVersion = null;
 ```
 
 ## 16. [Required] Load D1 pricing before the first render — JS

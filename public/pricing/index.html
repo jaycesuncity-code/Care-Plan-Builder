@@ -156,14 +156,26 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     }catch(err){showStatus('Could not load pricing. Please refresh and try again.','error');}
   }
 
+  function refreshChangedState(id, row, resetButton) {
+    var item=items.find(function(entry){return entry.id===id;});if(!item)return;
+    var isChanged=Number(proposed[id])!==Number(item.price);
+    if(row)row.classList.toggle('changed',isChanged);
+    if(resetButton)resetButton.disabled=!isChanged;
+    reviewBtn.disabled=changed().length===0;
+  }
   document.addEventListener('input',function(e){
     var id=e.target && e.target.getAttribute('data-price');if(!id)return;
-    proposed[id]=e.target.value;render();
+    proposed[id]=e.target.value;
+    var row=e.target.closest('.price-row');
+    refreshChangedState(id,row,row&&row.querySelector('[data-reset]'));
   });
   document.addEventListener('click',function(e){
     var id=e.target && e.target.getAttribute('data-reset');if(!id)return;
     var item=items.find(function(row){return row.id===id;});if(!item)return;
-    proposed[id]=item.price;render();
+    proposed[id]=item.price;
+    var row=e.target.closest('.price-row'), input=row&&row.querySelector('[data-price]');
+    if(input)input.value=item.price;
+    refreshChangedState(id,row,e.target);
   });
 
   function openReview(showConflict){
