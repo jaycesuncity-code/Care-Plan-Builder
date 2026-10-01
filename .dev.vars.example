@@ -41,3 +41,21 @@ ALLOWED_ORIGINS="http://localhost:8788,http://127.0.0.1:8788"
 # TEST ONLY — points Turnstile siteverify at a local mock. Leave unset in
 # production so the real https://challenges.cloudflare.com endpoint is used.
 # TURNSTILE_VERIFY_URL="http://127.0.0.1:8799/turnstile/siteverify"
+
+
+# --- Pricing editor / Cloudflare Access ------------------------------------
+# Production/Preview: add these three to the GATED DASHBOARD project as
+# encrypted Secrets. ACCESS_AUD must be the AUD tag for the pricing-specific
+# Access application protecting /pricing* + /api/pricing-admin*, NOT the
+# dashboard application's AUD.
+PRICING_EDITORS="editor@example.com,another-editor@example.com"
+ACCESS_TEAM_DOMAIN="your-team.cloudflareaccess.com"
+ACCESS_AUD="replace-with-pricing-access-application-aud"
+
+# LOCAL DEV ONLY — bypasses Access only when request hostname is localhost or
+# 127.0.0.1. It cannot activate on a deployed hostname.
+DEV_ADMIN_EMAIL="local-editor@example.com"
+
+# TEST ONLY — lets automated tests point JWT verification at a local JWKS.
+# Leave unset in production so https://<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs is used.
+# ACCESS_JWKS_URL="http://127.0.0.1:8799/access/jwks"

@@ -135,7 +135,7 @@ The other documented test pairs, useful for deliberately breaking things:
 Cloudflare dashboard → **Workers & Pages** → **care-plan-builder** → **Settings** →
 **Variables and Secrets**.
 
-For **each** of Production and Preview, add these four as **Secret** (encrypted):
+For **each** of Production and Preview on the **gated dashboard project**, add these seven as **Secret** (encrypted):
 
 | Name | Sandbox value | Notes |
 |---|---|---|
@@ -143,6 +143,9 @@ For **each** of Production and Preview, add these four as **Secret** (encrypted)
 | `N8N_WEBHOOK_URL` | `https://suncityautomation.app.n8n.cloud/webhook/care-plan-request` | see step 6 about test vs production URLs |
 | `N8N_WEBHOOK_SECRET` | any long random string | must match the n8n Header Auth credential exactly |
 | `IP_HASH_SALT` | any long random string | salts the stored IP hashes; rotating it just resets the rate-limit counters |
+| `PRICING_EDITORS` | comma-separated editor emails | server-side allowlist for price changes |
+| `ACCESS_TEAM_DOMAIN` | your Access team domain | used to verify the Access JWT issuer + fetch JWKS |
+| `ACCESS_AUD` | pricing Access application AUD tag | **must be the pricing-specific app's AUD, not the dashboard app's tag** |
 
 Generate the two random ones however you like, e.g.:
 
@@ -160,6 +163,33 @@ and dashboard copies would be ignored (see the note at the top). Change them by 
 `wrangler.toml` and pushing.
 
 Secrets take effect on the **next deployment** — redeploy after adding them.
+
+### Configure the pricing-page passphrase speed bump
+
+The passphrase is not the security boundary; Cloudflare Access and the server-side editor
+allowlist are. The page ships fail-closed with a hash placeholder. Choose an internal
+passphrase, generate its SHA-256 hash locally, and paste **only the hash** into
+`PASSPHRASE_SHA256` in `public/pricing/index.html`:
+
+```bash
+node scripts/hash-passphrase.mjs "your passphrase"
+```
+
+Never commit the passphrase itself. The salt and hash are visible in page source by design.
+
+### Restrict the Pricing page to editors
+
+Create a **second Cloudflare Access application** for the dashboard project. Keep the
+existing dashboard Access application as-is, then add a pricing-specific application whose
+paths cover both `/pricing*` and `/api/pricing-admin*`. Its Allow policy should include
+only the pricing-editor identities. Copy that application's AUD tag into the
+`ACCESS_AUD` secret above. A dashboard-app AUD in `ACCESS_AUD` will make every otherwise
+valid pricing editor receive 401. The server then applies `PRICING_EDITORS` as a second,
+case-insensitive allowlist.
+
+For local development only, `.dev.vars` may set `DEV_ADMIN_EMAIL`; that bypass is
+accepted only on `localhost` or `127.0.0.1`. `ACCESS_JWKS_URL` is test-only and must
+stay unset in production.
 
 ## 5. Deploy and verify the binding
 
@@ -278,7 +308,8 @@ middleware or reads `context.data.staffEmail`.
 1. A new repo (or a subdirectory build) containing only:
    ```
    functions/api/care-plan-request.js
-   lib/intake/          (catalog.js, validate.js, http.js, ratelimit.js,
+   functions/api/pricing.js
+   lib/intake/          (catalog.js, pricing.js, validate.js, http.js, ratelimit.js,
                          turnstile.js, persist.js, notify.js)
    public/              (can be a single index.html saying "nothing to see here")
    wrangler.toml
@@ -307,11 +338,20 @@ middleware or reads `context.data.staffEmail`.
    RATE_LIMIT_WINDOW_SECONDS = "600"
    ```
 
-   Same D1 id — both projects read and write one database. `ALLOWED_ORIGINS` drops the
-   `pages.dev` entry once the sandbox is gone.
+   Same D1 id — both projects share one database. The public project contains pricing
+   SELECT code only; **do not copy `functions/api/pricing-admin.js` or `lib/admin/` into
+   it**. A D1 binding itself cannot be read-only, so the project boundary is what enforces
+   public pricing read-only behavior. `ALLOWED_ORIGINS` drops the `pages.dev` entry once
+   the sandbox is gone.
 6. Add the same four **secrets** (step 4) to this project, Production and Preview.
 7. Deploy, then re-run the step 5 curl against
-   `https://care-plan-intake.pages.dev/api/care-plan-request`.
+   `https://care-plan-intake.pages.dev/api/care-plan-request`. Also GET
+   `https://care-plan-intake.pages.dev/api/pricing` and confirm it returns only
+   `version`, `updatedAt`, `plans` and `addons`.
+
+A new plan or add-on added later in `lib/intake/catalog.js` still has its hardcoded
+default as a safe runtime fallback, but it **will not appear in the Pricing editor until a
+new migration seeds its `plan:<id>` or `addon:<id>` row**.
 
 ### 8b. Point the Builder at it
 
@@ -320,6 +360,7 @@ constants together for exactly this moment):
 
 ```js
 var SUBMIT_ENDPOINT = 'https://care-plan-intake.pages.dev/api/care-plan-request';
+var PRICING_ENDPOINT = 'https://care-plan-intake.pages.dev/api/pricing';
 var TURNSTILE_SITEKEY = '<real sitekey from step 3>';
 ```
 
@@ -336,6 +377,7 @@ Apply all 14 walkthrough steps to the LiveCanvas block if you haven't already.
 | Where | From | To |
 |---|---|---|
 | Builder, `SUBMIT_ENDPOINT` | `/api/care-plan-request` | `https://care-plan-intake.pages.dev/api/care-plan-request` |
+| Builder, `PRICING_ENDPOINT` | `/api/pricing` | `https://care-plan-intake.pages.dev/api/pricing` |
 | Builder, `TURNSTILE_SITEKEY` | `1x00000000000000000000AA` | the real sitekey |
 | Builder, each add-on's `photo` | `/img/…` | the WordPress media-library URLs |
 | Builder, `LINKS` | sandbox slugs | the real WP slugs, if any differ |

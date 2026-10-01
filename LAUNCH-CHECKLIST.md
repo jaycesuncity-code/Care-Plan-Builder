@@ -28,4 +28,8 @@ functions/[[path]].js                 sandbox only: unmirrored links go to the l
 3. **Care Plan Builder.** Paste only what is between the BEGIN and END markers.
 4. **Links.** No change needed. Every link is root-relative and matches the WordPress slugs.
 5. **Delete** `functions/[[path]].js` and `public/404.html`. They exist only so unmirrored links work in the sandbox.
-6. **Form endpoint.** The builder posts to `/api/care-plan-request`. That endpoint is not in this project.
+6. **Public endpoints.** This repo contains both `/api/care-plan-request` and
+   `/api/pricing` for sandbox/testing. At launch, copy those public Functions plus
+   `lib/intake/*` to the separate `care-plan-intake` Pages project and point the
+   WordPress Builder's `SUBMIT_ENDPOINT` and `PRICING_ENDPOINT` at that project. Keep
+   `/api/pricing-admin` and `lib/admin/*` only in the gated dashboard project.
