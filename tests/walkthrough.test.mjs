@@ -34,7 +34,7 @@ function parseSteps(md) {
 const steps = parseSteps(walkthrough);
 
 test("the walkthrough parses into the documented number of steps", () => {
-  assert.equal(steps.length, 14, "builder-walkthrough.md should hold 14 Find/Replace steps");
+  assert.equal(steps.length, 19, "builder-walkthrough.md should hold 19 Find/Replace steps");
 });
 
 test("every step's replacement is present exactly once in the sandbox Builder", () => {
@@ -56,6 +56,8 @@ test("no step's original text is still in the sandbox Builder", () => {
 
 test("the launch constants the walkthrough promises are really there", () => {
   assert.match(builder, /var SUBMIT_ENDPOINT = '\/api\/care-plan-request';/);
+  assert.match(builder, /var PRICING_ENDPOINT = '\/api\/pricing';/);
+  assert.match(builder, /var pricingVersion = null;/);
   assert.match(builder, /var TURNSTILE_SITEKEY = '1x00000000000000000000AA';/);
   // And they are adjacent, which is the whole point of step 5.
   const endpointAt = builder.indexOf("var SUBMIT_ENDPOINT");
@@ -92,7 +94,16 @@ test("the walkthrough documents the corrected Premier pairing markers in the Bui
   );
   assert.match(
     builder,
-    /RO Filters Included[^\n]*paid Reverse Osmosis Service/,
-    "Premier card copy must describe free filters during a paid RO service"
+    /Filters replaced during a Reverse Osmosis Service are included at no additional charge/,
+    "Premier card copy must describe the current RO-filter benefit wording"
   );
+});
+
+
+test("the Builder carries pricing version and handles stale price refreshes", () => {
+  assert.match(builder, /pricingVersion: pricingVersion/);
+  assert.match(builder, /data\.error\.code === 'PRICES_CHANGED'/);
+  assert.match(builder, /Our prices were just updated/);
+  assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
+  assert.match(builder, /loadPricingThenRender\(\);/);
 });

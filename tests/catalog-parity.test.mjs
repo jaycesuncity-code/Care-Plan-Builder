@@ -146,3 +146,25 @@ test("the builder's bestTime <select> only offers values the server accepts", as
     );
   }
 });
+
+
+test("0006 seed matches every catalog id, label and default price", () => {
+  const sql = readFileSync(join(here, "..", "migrations", "0006_pricing.sql"), "utf8");
+  const rows = [...sql.matchAll(/\('(plan|addon):([^']+)',\s*'(plan|addon)',\s*'((?:''|[^'])*)',\s*(\d+),\s*NULL,\s*NULL\)/g)]
+    .map((match) => ({
+      id: `${match[1]}:${match[2]}`,
+      kind: match[3],
+      label: match[4].replace(/''/g, "'"),
+      price: Number(match[5]),
+    }));
+
+  const expected = [
+    ...PLANS.map((plan) => ({ id: `plan:${plan.id}`, kind: "plan", label: plan.full, price: plan.price })),
+    ...ADDON_GROUPS.flatMap((group) =>
+      group.items.map((item) => ({ id: `addon:${item.id}`, kind: "addon", label: item.name, price: item.price }))
+    ),
+  ];
+
+  assert.deepEqual(rows, expected);
+  assert.equal(rows.length, 13, "4 plans + 9 add-ons, including the two counts and Water Softener Salt");
+});

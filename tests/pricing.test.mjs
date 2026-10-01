@@ -268,3 +268,38 @@ test("every value BEST_TIME_MAP can produce is allowed by the 0004 CHECK", () =>
     assert.ok(allowed.includes(stored), `the server can produce best_time="${stored}" but the CHECK forbids it`);
   }
 });
+
+
+test("D1 price maps override catalog numbers without changing pricing rules", () => {
+  const map = {
+    version: 7,
+    plans: { hvac: 300 },
+    addons: { hvacSystems: 140, qfc: 135, mst: 90 },
+  };
+  const pricing = priceSelection("hvac", [
+    { id: "qfc", quantity: 2 },
+    { id: "hvacSystems", quantity: 3 },
+  ], map);
+  assert.equal(pricing.basePrice, 300);
+  assert.equal(pricing.lines.find((l) => l.id === "qfc").unitPrice, 135);
+  assert.equal(pricing.lines.find((l) => l.id === "hvacSystems").lineTotal, 280);
+  assert.equal(pricing.total, 850);
+});
+
+test("a missing D1 id falls back to the catalog default", () => {
+  const pricing = priceSelection("hvac", [{ id: "qfc", quantity: 1 }], {
+    plans: { hvac: 300 },
+    addons: {},
+  });
+  assert.equal(pricing.basePrice, 300);
+  assert.equal(pricing.lines[0].unitPrice, 120);
+  assert.equal(pricing.total, 420);
+});
+
+test("pricingVersion is optional integer-or-null", () => {
+  assert.equal(validateIntake({ ...VALID, pricingVersion: 8 }).value.pricingVersion, 8);
+  assert.equal(validateIntake({ ...VALID, pricingVersion: null }).value.pricingVersion, null);
+  assert.equal(validateIntake({ ...VALID }).value.pricingVersion, null);
+  assert.equal(validateIntake({ ...VALID, pricingVersion: "8" }).ok, false);
+  assert.equal(validateIntake({ ...VALID, pricingVersion: 8.5 }).ok, false);
+});
