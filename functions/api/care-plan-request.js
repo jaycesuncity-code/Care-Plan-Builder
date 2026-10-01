@@ -174,8 +174,9 @@ export async function onRequestPost(context) {
 
   // --- 6. repricing (authoritative D1 prices; client prices are never trusted) --
   let pricing;
+  let currentPricing;
   try {
-    const currentPricing = await loadPricing(env.DB);
+    currentPricing = await loadPricing(env.DB);
     pricing = priceSelection(input.planId, input.addons, currentPricing);
   } catch (err) {
     console.error("care-plan-request: pricing load/reprice failed");
@@ -185,6 +186,26 @@ export async function onRequestPost(context) {
       message: "We could not confirm current pricing. Please try again or call us at 575-526-9758.",
       originInfo,
     });
+  }
+
+  // If the Builder priced against an older D1 version AND that actually changes
+  // the displayed total, stop before writing anything so the customer can review
+  // the new amount. A version change with an identical total is harmless.
+  if (
+    typeof input.pricingVersion === "number" &&
+    input.pricingVersion !== currentPricing.version &&
+    Number(body.total) !== pricing.total
+  ) {
+    return json(
+      {
+        error: {
+          code: "PRICES_CHANGED",
+          message: "Our prices were just updated. Please review your updated total, then send again.",
+        },
+        pricing: currentPricing,
+      },
+      { status: 409, originInfo }
+    );
   }
 
   // Drift detector. The server's numbers win regardless; a mismatch means the
