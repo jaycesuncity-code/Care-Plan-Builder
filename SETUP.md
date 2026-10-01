@@ -359,8 +359,7 @@ new migration seeds its `plan:<id>` or `addon:<id>` row**.
 
 ### 8b. Point the Builder at it
 
-In the LiveCanvas copy of the Builder (`builder-walkthrough.md` step 5 put both
-constants together for exactly this moment):
+In the LiveCanvas copy of the Builder (`builder-walkthrough.md` steps 5 and 15 keep the launch constants together for this moment):
 
 ```js
 var SUBMIT_ENDPOINT = 'https://care-plan-intake.pages.dev/api/care-plan-request';
@@ -374,7 +373,7 @@ only if the page's origin is in that project's `ALLOWED_ORIGINS`. Both
 keep whichever the site actually serves, and remember the scheme and any `www.` must
 match exactly. No trailing slash.
 
-Apply all 14 walkthrough steps to the LiveCanvas block if you haven't already.
+Apply all 19 walkthrough steps to the LiveCanvas block if you haven't already.
 
 ### 8c. Constants and values to swap, in one list
 

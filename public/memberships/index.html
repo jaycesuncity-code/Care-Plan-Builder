@@ -1449,7 +1449,8 @@
       basePrice: p.price,
       addons: addons,
       total: total,
-      monthlyEquivalent: Math.round((total / 12) * 100) / 100
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100,
+      pricingVersion: pricingVersion
     };
   }
 
@@ -2279,7 +2280,7 @@
         addons: selection.addons,
         total: selection.total,
         monthlyEquivalent: selection.monthlyEquivalent,
-        pricingVersion: pricingVersion,
+        pricingVersion: selection.pricingVersion,
         customerName: field(FIELD_IDS.name).value.trim(),
         phone: field(FIELD_IDS.phone).value.trim(),
         address: field(FIELD_IDS.address).value.trim(),

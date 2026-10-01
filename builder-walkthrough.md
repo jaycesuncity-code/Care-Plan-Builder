@@ -598,14 +598,35 @@ and a failed request still leaves the hardcoded defaults in place. Expected matc
   (function initLeadModal() {
 ```
 
-## 17. [Required] Send the pricing version with the lead — JS
+## 17. [Required] Carry the pricing version through the selection + lead payload — JS
 
-Expected matches: **1**
+The selection snapshot itself carries the version, and the final lead body copies it from that
+snapshot. Expected matches: **1** for each Find block below.
+
+**Find this**
+
+```js
+      total: total,
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100
+    };
+```
+
+**Replace with**
+
+```js
+      total: total,
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100,
+      pricingVersion: pricingVersion
+    };
+```
+
+Then make the final request body use the selection snapshot:
 
 **Find this**
 
 ```js
         monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: pricingVersion,
         customerName: field(FIELD_IDS.name).value.trim(),
 ```
 
@@ -613,7 +634,7 @@ Expected matches: **1**
 
 ```js
         monthlyEquivalent: selection.monthlyEquivalent,
-        pricingVersion: pricingVersion,
+        pricingVersion: selection.pricingVersion,
         customerName: field(FIELD_IDS.name).value.trim(),
 ```
 

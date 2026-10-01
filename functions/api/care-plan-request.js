@@ -15,7 +15,7 @@
 //   3. field validation            (no I/O; 400 with fieldErrors)
 //   4. rate limit, read-only       (1 D1 read; 429 + Retry-After)
 //   5. Turnstile siteverify        (1 outbound fetch; 403)
-//   6. server-side repricing       (catalog only; client prices are ignored)
+//   6. server-side repricing       (direct D1 pricing read; client prices are ignored)
 //   7. INSERT submission + add-ons (D1 write; 500 on failure)
 //   8. record the rate-limit hit   (only successful submissions count)
 //   9. 201, then n8n notify via waitUntil (never affects the response)
