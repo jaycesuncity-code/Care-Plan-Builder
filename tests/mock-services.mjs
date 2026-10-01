@@ -25,6 +25,23 @@ import { createSign, generateKeyPairSync } from "node:crypto";
 
 const port = Number(process.argv[2] || 8799);
 
+// Cloudflare provides caches.default; plain Node does not. Keep a tiny Map-backed
+// equivalent in the shared test harness so cache-focused tests never get skipped.
+if (!globalThis.caches || !globalThis.caches.default) {
+  const cacheEntries = new Map();
+  globalThis.caches = {
+    default: {
+      async match(request) {
+        const hit = cacheEntries.get(request.url);
+        return hit ? hit.clone() : undefined;
+      },
+      async put(request, response) {
+        cacheEntries.set(request.url, response.clone());
+      },
+    },
+  };
+}
+
 const { privateKey: accessPrivateKey, publicKey: accessPublicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
 });
