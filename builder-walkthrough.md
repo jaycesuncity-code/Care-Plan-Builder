@@ -528,9 +528,9 @@ same public intake project as the submit endpoint. Expected matches: **1**
 
 ## 16. [Required] Load D1 pricing before the first render — JS
 
-Insert the pricing overlay immediately before the lead-modal initializer. It accepts only a
-complete set of sane whole-dollar values; malformed or unknown server data never breaks the
-Builder and leaves the hardcoded defaults in place. Expected matches: **1**
+Insert the pricing overlay immediately before the lead-modal initializer. It applies each
+recognized sane whole-dollar value independently; malformed or unknown entries are ignored,
+and a failed request still leaves the hardcoded defaults in place. Expected matches: **1**
 
 **Find this**
 
@@ -550,25 +550,27 @@ Builder and leaves the hardcoded defaults in place. Expected matches: **1**
   }
 
   function applyPricingPayload(pricing) {
-    if (!pricing || !Number.isInteger(pricing.version) || !pricing.plans || !pricing.addons) return false;
+    if (!pricing || !Number.isInteger(pricing.version) ||
+        !pricing.plans || typeof pricing.plans !== 'object' ||
+        !pricing.addons || typeof pricing.addons !== 'object') return false;
 
-    var planUpdates = [], addonUpdates = [], valid = true;
+    var applied = 0;
     PLANS.forEach(function (p) {
       var value = pricing.plans[p.id];
-      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) { valid = false; return; }
-      planUpdates.push([p, value]);
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) return;
+      p.price = value;
+      applied++;
     });
     ADDON_GROUPS.forEach(function (g) {
       g.items.forEach(function (a) {
         var value = pricing.addons[a.id];
-        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) { valid = false; return; }
-        addonUpdates.push([a, value]);
+        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) return;
+        a.price = value;
+        applied++;
       });
     });
-    if (!valid || planUpdates.length !== PLANS.length || addonUpdates.length !== Object.keys(ADDON_INDEX).length) return false;
 
-    planUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
-    addonUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
+    if (!applied) return false;
     pricingVersion = pricing.version;
     return true;
   }

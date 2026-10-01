@@ -107,3 +107,41 @@ test("the Builder carries pricing version and handles stale price refreshes", ()
   assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
   assert.match(builder, /loadPricingThenRender\(\);/);
 });
+
+test("the Builder applies valid pricing entries while ignoring malformed and unknown values", () => {
+  const start = builder.indexOf("  function applyPricingPayload(pricing) {");
+  const end = builder.indexOf("\n  function loadPricingThenRender()", start);
+  assert.ok(start >= 0 && end > start, "could not isolate applyPricingPayload");
+
+  const functionSource = builder.slice(start, end);
+  const PLANS = [
+    { id: "hvac", price: 260 },
+    { id: "premier", price: 600 },
+  ];
+  const ADDON_GROUPS = [
+    { items: [{ id: "qfc", price: 120 }, { id: "mst", price: 80 }] },
+  ];
+  const ADDON_INDEX = { qfc: ADDON_GROUPS[0].items[0], mst: ADDON_GROUPS[0].items[1] };
+
+  // eslint-disable-next-line no-new-func -- exact Builder function isolated above.
+  const harness = new Function(
+    "PLANS",
+    "ADDON_GROUPS",
+    "ADDON_INDEX",
+    "pricingVersion",
+    functionSource + "\nreturn { applyPricingPayload, getVersion: function () { return pricingVersion; } };"
+  )(PLANS, ADDON_GROUPS, ADDON_INDEX, null);
+
+  const applied = harness.applyPricingPayload({
+    version: 9,
+    plans: { hvac: 300, premier: "bad", unknownPlan: 999 },
+    addons: { qfc: 135, mst: -1, unknownAddon: 777 },
+  });
+
+  assert.equal(applied, true);
+  assert.equal(PLANS[0].price, 300, "valid plan price applied");
+  assert.equal(PLANS[1].price, 600, "malformed plan price ignored");
+  assert.equal(ADDON_INDEX.qfc.price, 135, "valid add-on price applied");
+  assert.equal(ADDON_INDEX.mst.price, 80, "out-of-bounds add-on price ignored");
+  assert.equal(harness.getVersion(), 9, "version advances when at least one valid price applied");
+});
