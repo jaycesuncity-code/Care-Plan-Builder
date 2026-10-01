@@ -1816,11 +1816,67 @@
      public intake project, so this becomes an absolute https:// URL and that origin
      must be listed in the endpoint's ALLOWED_ORIGINS. */
   var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  /* Sandbox: same-origin. At launch swap to the public intake project's absolute URL,
+     exactly like SUBMIT_ENDPOINT. */
+  var PRICING_ENDPOINT = '/api/pricing';
+  var pricingVersion = null;
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with
      the real site key (and add the live hostnames to the widget) at launch. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+
+  function renderCurrentPricing() {
+    buildPlans();
+    syncPlans();
+    renderDetail(false);
+    renderAddons();
+    renderTotal(false);
+  }
+
+  function applyPricingPayload(pricing) {
+    if (!pricing || !Number.isInteger(pricing.version) || !pricing.plans || !pricing.addons) return false;
+
+    var planUpdates = [], addonUpdates = [], valid = true;
+    PLANS.forEach(function (p) {
+      var value = pricing.plans[p.id];
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) { valid = false; return; }
+      planUpdates.push([p, value]);
+    });
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var value = pricing.addons[a.id];
+        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) { valid = false; return; }
+        addonUpdates.push([a, value]);
+      });
+    });
+    if (!valid || planUpdates.length !== PLANS.length || addonUpdates.length !== Object.keys(ADDON_INDEX).length) return false;
+
+    planUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
+    addonUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
+    pricingVersion = pricing.version;
+    return true;
+  }
+
+  function loadPricingThenRender() {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 1500);
+    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
+      .then(function (res) {
+        if (!res.ok) throw new Error('pricing unavailable');
+        return res.json();
+      })
+      .then(function (pricing) {
+        applyPricingPayload(pricing);
+      })
+      .catch(function () {
+        pricingVersion = null; // hardcoded catalog defaults stay in place
+      })
+      .then(function () {
+        clearTimeout(timer);
+        renderCurrentPricing();
+      });
+  }
 
   (function initLeadModal() {
     var ctaBtn = $('cta'); // data-cpb="cta" — the only lookup that can use $()
@@ -2220,6 +2276,7 @@
         addons: selection.addons,
         total: selection.total,
         monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: pricingVersion,
         customerName: field(FIELD_IDS.name).value.trim(),
         phone: field(FIELD_IDS.phone).value.trim(),
         address: field(FIELD_IDS.address).value.trim(),
@@ -2260,6 +2317,16 @@
         resetTurnstile();
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send My Request';
+
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+          if (applyPricingPayload(data.pricing)) {
+            renderCurrentPricing();
+            renderRecap();
+          }
+          formErrorEl.hidden = false;
+          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          return;
+        }
 
         // Field-level messages, next to the inputs they belong to.
         var fieldErrors = data.fieldErrors || {};
@@ -2302,7 +2369,7 @@
     });
   })();
 
-  buildPlans(); syncPlans(); renderDetail(false); renderAddons(); renderTotal(false);
+  loadPricingThenRender();
 })();
 </script>
 </div>

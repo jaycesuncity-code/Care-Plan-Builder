@@ -1,19 +1,18 @@
 # Care Plan Builder — LiveCanvas Find/Replace walkthrough
 
-Fourteen intake/form edits bring the hand-maintained LiveCanvas copy of the Builder in line with
-the sandbox intake flow. A separate Premier policy-sync section below documents the targeted
+Nineteen edits bring the hand-maintained LiveCanvas copy of the Builder in line with the
+sandbox intake and live-pricing flow. A separate Premier policy-sync section below documents the targeted
 pricing/UI corrections added afterward; nothing unrelated in the block changes.
 
 **How to use this:** work top to bottom. Each step has an exact **Find this** block and
 an exact **Replace with** block. Before replacing, search the block for the *Find this*
 text and confirm the match count — every step says what it should be, and it is **1**
-for all fourteen. If a count comes back 0 or 2+, stop and check whether that step was
+for all nineteen. If a count comes back 0 or 2+, stop and check whether that step was
 already applied, rather than guessing.
 
 Steps 1–3 are marked **[Optional]**: they are bug fixes, not part of the intake wiring.
 I'd still take them — 1 and 2 matter more now that the form is taller, and 3 is a
-visible bug on the success screen. Steps 4–14 are **[Required]**: the form will not
-submit without them.
+visible bug on the success screen. Steps 4–19 are **[Required]**: the form/intake and D1 pricing flow depend on them.
 
 Copy the replacement blocks verbatim, including comments and indentation. Indentation is
 two spaces per level, matching the file.
@@ -485,6 +484,174 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 
 ---
 
+## 15. [Required] Add the public pricing endpoint + version — JS
+
+Put the read-only pricing endpoint beside the submit endpoint. At launch both become absolute
+URLs on the public intake project. Expected matches: **1**
+
+**Find this**
+
+```js
+  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+
+  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
+     "always passes, visible widget" TEST key — fine for the sandbox, replace with
+     the real site key (and add the live hostnames to the widget) at launch. */
+  var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+```
+
+**Replace with**
+
+```js
+  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  /* Sandbox: same-origin. At launch swap to the public intake project's absolute URL,
+     exactly like SUBMIT_ENDPOINT. */
+  var PRICING_ENDPOINT = '/api/pricing';
+  var pricingVersion = null;
+
+  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
+     "always passes, visible widget" TEST key — fine for the sandbox, replace with
+     the real site key (and add the live hostnames to the widget) at launch. */
+  var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+```
+
+## 16. [Required] Load D1 pricing before the first render — JS
+
+Insert the pricing overlay immediately before the lead-modal initializer. It accepts only a
+complete set of sane whole-dollar values; malformed or unknown server data never breaks the
+Builder and leaves the hardcoded defaults in place. Expected matches: **1**
+
+**Find this**
+
+```js
+  (function initLeadModal() {
+```
+
+**Replace with**
+
+```js
+  function renderCurrentPricing() {
+    buildPlans();
+    syncPlans();
+    renderDetail(false);
+    renderAddons();
+    renderTotal(false);
+  }
+
+  function applyPricingPayload(pricing) {
+    if (!pricing || !Number.isInteger(pricing.version) || !pricing.plans || !pricing.addons) return false;
+
+    var planUpdates = [], addonUpdates = [], valid = true;
+    PLANS.forEach(function (p) {
+      var value = pricing.plans[p.id];
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) { valid = false; return; }
+      planUpdates.push([p, value]);
+    });
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var value = pricing.addons[a.id];
+        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) { valid = false; return; }
+        addonUpdates.push([a, value]);
+      });
+    });
+    if (!valid || planUpdates.length !== PLANS.length || addonUpdates.length !== Object.keys(ADDON_INDEX).length) return false;
+
+    planUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
+    addonUpdates.forEach(function (entry) { entry[0].price = entry[1]; });
+    pricingVersion = pricing.version;
+    return true;
+  }
+
+  function loadPricingThenRender() {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 1500);
+    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
+      .then(function (res) {
+        if (!res.ok) throw new Error('pricing unavailable');
+        return res.json();
+      })
+      .then(function (pricing) {
+        applyPricingPayload(pricing);
+      })
+      .catch(function () {
+        pricingVersion = null; // hardcoded catalog defaults stay in place
+      })
+      .then(function () {
+        clearTimeout(timer);
+        renderCurrentPricing();
+      });
+  }
+
+  (function initLeadModal() {
+```
+
+## 17. [Required] Send the pricing version with the lead — JS
+
+Expected matches: **1**
+
+**Find this**
+
+```js
+        monthlyEquivalent: selection.monthlyEquivalent,
+        customerName: field(FIELD_IDS.name).value.trim(),
+```
+
+**Replace with**
+
+```js
+        monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: pricingVersion,
+        customerName: field(FIELD_IDS.name).value.trim(),
+```
+
+## 18. [Required] Handle a just-changed price without submitting — JS
+
+Insert this before the field-error handling in the non-2xx response path. The returned D1
+prices are applied, the visible total and recap are re-rendered, and the customer reviews
+the new amount before sending again. Expected matches: **1**
+
+**Find this**
+
+```js
+        // Field-level messages, next to the inputs they belong to.
+```
+
+**Replace with**
+
+```js
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+          if (applyPricingPayload(data.pricing)) {
+            renderCurrentPricing();
+            renderRecap();
+          }
+          formErrorEl.hidden = false;
+          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          return;
+        }
+
+        // Field-level messages, next to the inputs they belong to.
+```
+
+## 19. [Required] Delay the first render until pricing resolves or times out — JS
+
+Expected matches: **1**
+
+**Find this**
+
+```js
+  buildPlans(); syncPlans(); renderDetail(false); renderAddons(); renderTotal(false);
+})();
+```
+
+**Replace with**
+
+```js
+  loadPricingThenRender();
+})();
+```
+
+---
+
 ## What changed overall
 
 - **Turnstile is live instead of a placeholder.** The widget is rendered explicitly when
@@ -500,6 +667,9 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 - **Three pre-existing bugs fixed** (steps 1–3): a modal that couldn't scroll, a card
   that could be clipped, and a form that never actually hid itself after a successful
   send.
+- **Steps 15–19 add live pricing.** The Builder fetches D1 prices with a 1.5-second timeout,
+  keeps its hardcoded catalog as a failure fallback, sends the pricing version, and stops a
+  stale changed-price submission so the customer can review the refreshed total.
 - **Steps 1–14 do not change pricing.** The later Premier policy correction below does make
   targeted changes to `PLANS`, `ADDON_GROUPS`, add-on rendering, and selected-line pricing.
   The server still recomputes every price from `lib/intake/catalog.js`, and catalog-parity
