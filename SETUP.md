@@ -373,7 +373,7 @@ only if the page's origin is in that project's `ALLOWED_ORIGINS`. Both
 keep whichever the site actually serves, and remember the scheme and any `www.` must
 match exactly. No trailing slash.
 
-Apply all 19 walkthrough steps to the LiveCanvas block if you haven't already.
+Apply all 20 walkthrough steps to the LiveCanvas block if you haven't already.
 
 ### 8c. Constants and values to swap, in one list
 

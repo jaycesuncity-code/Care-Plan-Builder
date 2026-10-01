@@ -64,6 +64,7 @@ test("admin auth rejects invalid algorithms, signatures, timing, aud and kid", a
   const badSignature = good.slice(0, -2) + (good.endsWith("aa") ? "bb" : "aa");
   assert.equal((await authenticatePricingEditor(authRequest(badSignature), authEnv)).status, 401);
   assert.equal((await authenticatePricingEditor(authRequest(await token({ expOffset: -300 })), authEnv)).status, 401);
+  assert.equal((await authenticatePricingEditor(authRequest(await token({ nbfOffset: 300 })), authEnv)).status, 401);
   assert.equal((await authenticatePricingEditor(authRequest(await token({ aud: "wrong-aud" })), authEnv)).status, 401);
   assert.equal((await authenticatePricingEditor(authRequest(await token({ kid: "unknown-key" })), authEnv)).status, 401);
 });

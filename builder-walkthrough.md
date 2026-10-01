@@ -1,18 +1,18 @@
 # Care Plan Builder — LiveCanvas Find/Replace walkthrough
 
-Nineteen edits bring the hand-maintained LiveCanvas copy of the Builder in line with the
+Twenty edits bring the hand-maintained LiveCanvas copy of the Builder in line with the
 sandbox intake and live-pricing flow. A separate Premier policy-sync section below documents the targeted
 pricing/UI corrections added afterward; nothing unrelated in the block changes.
 
 **How to use this:** work top to bottom. Each step has an exact **Find this** block and
 an exact **Replace with** block. Before replacing, search the block for the *Find this*
 text and confirm the match count — every step says what it should be, and it is **1**
-for all nineteen. If a count comes back 0 or 2+, stop and check whether that step was
+for all twenty. If a count comes back 0 or 2+, stop and check whether that step was
 already applied, rather than guessing.
 
 Steps 1–3 are marked **[Optional]**: they are bug fixes, not part of the intake wiring.
 I'd still take them — 1 and 2 matter more now that the form is taller, and 3 is a
-visible bug on the success screen. Steps 4–19 are **[Required]**: the form/intake and D1 pricing flow depend on them.
+visible bug on the success screen. Steps 4–20 are **[Required]**: the form/intake and D1 pricing flow depend on them.
 
 Copy the replacement blocks verbatim, including comments and indentation. Indentation is
 two spaces per level, matching the file.
@@ -598,10 +598,9 @@ and a failed request still leaves the hardcoded defaults in place. Expected matc
   (function initLeadModal() {
 ```
 
-## 17. [Required] Carry the pricing version through the selection + lead payload — JS
+## 17. [Required] Carry the pricing version in the selection snapshot — JS
 
-The selection snapshot itself carries the version, and the final lead body copies it from that
-snapshot. Expected matches: **1** for each Find block below.
+The selection snapshot itself carries the version. Expected matches: **1**.
 
 **Find this**
 
@@ -620,7 +619,9 @@ snapshot. Expected matches: **1** for each Find block below.
     };
 ```
 
-Then make the final request body use the selection snapshot:
+## 18. [Required] Copy the pricing version into the lead request — JS
+
+Expected matches: **1**
 
 **Find this**
 
@@ -638,7 +639,7 @@ Then make the final request body use the selection snapshot:
         customerName: field(FIELD_IDS.name).value.trim(),
 ```
 
-## 18. [Required] Handle a just-changed price without submitting — JS
+## 19. [Required] Handle a just-changed price without submitting — JS
 
 Insert this before the field-error handling in the non-2xx response path. The returned D1
 prices are applied, the visible total and recap are re-rendered, and the customer reviews
@@ -666,7 +667,7 @@ the new amount before sending again. Expected matches: **1**
         // Field-level messages, next to the inputs they belong to.
 ```
 
-## 19. [Required] Delay the first render until pricing resolves or times out — JS
+## 20. [Required] Delay the first render until pricing resolves or times out — JS
 
 Expected matches: **1**
 
@@ -701,7 +702,7 @@ Expected matches: **1**
 - **Three pre-existing bugs fixed** (steps 1–3): a modal that couldn't scroll, a card
   that could be clipped, and a form that never actually hid itself after a successful
   send.
-- **Steps 15–19 add live pricing.** The Builder fetches D1 prices with a 1.5-second timeout,
+- **Steps 15–20 add live pricing.** The Builder fetches D1 prices with a 1.5-second timeout,
   keeps its hardcoded catalog as a failure fallback, sends the pricing version, and stops a
   stale changed-price submission so the customer can review the refreshed total.
 - **Steps 1–14 do not change pricing.** The later Premier policy correction below does make

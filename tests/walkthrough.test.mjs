@@ -34,7 +34,7 @@ function parseSteps(md) {
 const steps = parseSteps(walkthrough);
 
 test("the walkthrough parses into the documented number of steps", () => {
-  assert.equal(steps.length, 19, "builder-walkthrough.md should hold 19 Find/Replace steps");
+  assert.equal(steps.length, 20, "builder-walkthrough.md should hold 20 Find/Replace steps");
 });
 
 test("every final replacement is present once unless a later step intentionally edits inside it", () => {
@@ -105,6 +105,7 @@ test("the walkthrough documents the corrected Premier pairing markers in the Bui
 
 test("the Builder carries pricing version and handles stale price refreshes", () => {
   assert.match(builder, /pricingVersion: pricingVersion/);
+  assert.match(builder, /pricingVersion: selection\.pricingVersion/);
   assert.match(builder, /data\.error\.code === 'PRICES_CHANGED'/);
   assert.match(builder, /Our prices were just updated/);
   assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
