@@ -21,8 +21,40 @@
 //   POST /_mock/mode       -> { "mode": "down" } switch webhook behaviour
 
 import { createServer } from "node:http";
+import { createSign, generateKeyPairSync } from "node:crypto";
 
 const port = Number(process.argv[2] || 8799);
+
+const { privateKey: accessPrivateKey, publicKey: accessPublicKey } = generateKeyPairSync("rsa", {
+  modulusLength: 2048,
+});
+const accessJwk = accessPublicKey.export({ format: "jwk" });
+accessJwk.kid = "pricing-test-key";
+accessJwk.alg = "RS256";
+accessJwk.use = "sig";
+
+function b64url(value) {
+  return Buffer.from(typeof value === "string" ? value : JSON.stringify(value)).toString("base64url");
+}
+
+function accessToken(url) {
+  const now = Math.floor(Date.now() / 1000);
+  const alg = url.searchParams.get("alg") || "RS256";
+  const header = { alg, kid: url.searchParams.get("kid") || accessJwk.kid, typ: "JWT" };
+  const payload = {
+    iss: url.searchParams.get("iss") || "https://access.example.com",
+    aud: url.searchParams.get("aud") || "pricing-aud",
+    email: url.searchParams.get("email") || "editor@example.com",
+    exp: now + Number(url.searchParams.get("expOffset") || 3600),
+    nbf: now + Number(url.searchParams.get("nbfOffset") || -60),
+  };
+  const input = b64url(header) + "." + b64url(payload);
+  if (alg !== "RS256") return input + "." + b64url("not-an-rs256-signature");
+  const signer = createSign("RSA-SHA256");
+  signer.update(input);
+  signer.end();
+  return input + "." + signer.sign(accessPrivateKey).toString("base64url");
+}
 
 const state = {
   webhookMode: "ok",
@@ -64,6 +96,15 @@ const server = createServer(async (req, res) => {
       return json(res, 400, { ok: false });
     }
     return json(res, 200, { ok: true, mode: state.webhookMode });
+  }
+
+  // --- Cloudflare Access JWKS + signed test tokens --------------------------
+  if (url.pathname === "/access/jwks" && req.method === "GET") {
+    return json(res, 200, { keys: [accessJwk] });
+  }
+
+  if (url.pathname === "/_mock/access-token" && req.method === "GET") {
+    return json(res, 200, { token: accessToken(url) });
   }
 
   // --- Turnstile siteverify -------------------------------------------------
