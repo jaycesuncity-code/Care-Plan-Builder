@@ -37,10 +37,13 @@ test("the walkthrough parses into the documented number of steps", () => {
   assert.equal(steps.length, 19, "builder-walkthrough.md should hold 19 Find/Replace steps");
 });
 
-test("every step's replacement is present exactly once in the sandbox Builder", () => {
+test("every final replacement is present once unless a later step intentionally edits inside it", () => {
   for (const step of steps) {
+    const laterSteps = steps.slice(step.number);
+    const superseded = laterSteps.some((later) => step.replace.includes(later.find));
+    if (superseded) continue;
     const count = builder.split(step.replace).length - 1;
-    assert.equal(count, 1, `step ${step.number}: its "Replace with" block appears ${count} times in the Builder, expected 1`);
+    assert.equal(count, 1, `step ${step.number}: its final "Replace with" block appears ${count} times in the Builder, expected 1`);
   }
 });
 

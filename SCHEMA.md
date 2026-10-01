@@ -36,7 +36,7 @@ One row per add-on selected on a submission. Many-to-one with `submissions`.
 | `addon_name` | TEXT | e.g. `Quarterly Filter Change` |
 | `addon_price` | INTEGER | **the line total for this row at time of submission**, not a live pricebook lookup and not the unit price — so `SUM(addon_price) = submissions.addon_total` always holds, for a normal add-on (unit x qty) and for the equipment counts alike (only the units above the included count are charged). `0` for included/locked rows. Historical submissions never reprice when the pricebook changes. |
 | `quantity` | INTEGER | default `1`. For a normal add-on this is how many the customer chose. For the two quantity-only equipment counts (`# of HVAC Systems`, `# of Water Heaters`) it is the **total** count at the property, of which `included` (1) comes with the plan. |
-| `included_free` | INTEGER | added by 0004. `1` = complimentary with the selected plan (Premier's softener salt and reverse osmosis). Always `$0`, never counted in `addon_total`. |
+| `included_free` | INTEGER | added by 0004. `1` = complimentary with the selected plan (currently Premier's paired Water Softener Salt). Always `$0`, never counted in `addon_total`. |
 | `locked` | INTEGER | added by 0004. `1` = the customer had selected this under a previous plan and the plan they submitted doesn't cover it. Recorded at `$0` so the office can see what they were interested in; never charged. |
 
 Non-billable rows also carry a suffix in `addon_name` — `" (included with plan)"` or

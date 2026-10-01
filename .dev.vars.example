@@ -3,7 +3,8 @@
 #
 #   cp .dev.vars.example .dev.vars
 #
-# In production these four are SECRETS (encrypted) in the Cloudflare dashboard:
+# In production the intake values below are SECRETS (encrypted) in Cloudflare.
+# The pricing-editor section at the bottom adds three dashboard-only secrets:
 # Pages project -> Settings -> Variables and Secrets. Because this repo has a
 # wrangler.toml, the dashboard can only add/remove *secrets* — plaintext vars
 # must live in wrangler.toml's [vars]. See SETUP.md.

@@ -24,7 +24,8 @@ So:
 | Kind | Where it goes | Why |
 |---|---|---|
 | `DASHBOARD_URL`, `ALLOWED_ORIGINS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | **`wrangler.toml` → `[vars]`** (already committed) | plaintext; dashboard values wouldn't load |
-| `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | secrets must never be in a public repo |
+| `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | intake secrets; copy these four to the public intake project at launch |
+| `PRICING_EDITORS`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | **Gated dashboard → Secrets (encrypted)** | pricing-admin authentication; never copy these to the public intake project |
 | everything, for local dev | **`.dev.vars`** (gitignored) | `wrangler pages dev` reads it |
 
 `N8N_WEBHOOK_URL` is technically not a secret, but it is an unauthenticated-looking
@@ -343,7 +344,10 @@ middleware or reads `context.data.staffEmail`.
    it**. A D1 binding itself cannot be read-only, so the project boundary is what enforces
    public pricing read-only behavior. `ALLOWED_ORIGINS` drops the `pages.dev` entry once
    the sandbox is gone.
-6. Add the same four **secrets** (step 4) to this project, Production and Preview.
+6. Add **only the four intake secrets** to this public project, Production and Preview:
+   `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, and
+   `IP_HASH_SALT`. Do **not** copy `PRICING_EDITORS`, `ACCESS_TEAM_DOMAIN`, or
+   `ACCESS_AUD` to the public intake project.
 7. Deploy, then re-run the step 5 curl against
    `https://care-plan-intake.pages.dev/api/care-plan-request`. Also GET
    `https://care-plan-intake.pages.dev/api/pricing` and confirm it returns only
