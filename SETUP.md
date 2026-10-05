@@ -25,7 +25,8 @@ So:
 |---|---|---|
 | `DASHBOARD_URL`, `ALLOWED_ORIGINS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | **`wrangler.toml` → `[vars]`** (already committed) | plaintext; dashboard values wouldn't load |
 | `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | intake secrets; copy these four to the public intake project at launch |
-| `PRICING_EDITORS`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | **Gated dashboard → Secrets (encrypted)** | pricing-admin authentication; never copy these to the public intake project |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | **Gated dashboard → Secrets (encrypted)** | required pricing-admin JWT verification; never copy these to the public intake project |
+| `PRICING_EDITORS` *(optional)* | **Gated dashboard → Secret (encrypted)** | named editor exceptions outside `@suncitylc.com`; never copy this to the public intake project |
 | everything, for local dev | **`.dev.vars`** (gitignored) | `wrangler pages dev` reads it |
 
 `N8N_WEBHOOK_URL` is technically not a secret, but it is an unauthenticated-looking
@@ -136,7 +137,7 @@ The other documented test pairs, useful for deliberately breaking things:
 Cloudflare dashboard → **Workers & Pages** → **care-plan-builder** → **Settings** →
 **Variables and Secrets**.
 
-For **each** of Production and Preview on the **gated dashboard project**, add these seven as **Secret** (encrypted):
+For **each** of Production and Preview on the **gated dashboard project**, add the six required values below as **Secret** (encrypted). Add `PRICING_EDITORS` only if you intentionally need a named exception outside `@suncitylc.com`:
 
 | Name | Sandbox value | Notes |
 |---|---|---|
@@ -144,7 +145,7 @@ For **each** of Production and Preview on the **gated dashboard project**, add t
 | `N8N_WEBHOOK_URL` | `https://suncityautomation.app.n8n.cloud/webhook/care-plan-request` | see step 6 about test vs production URLs |
 | `N8N_WEBHOOK_SECRET` | any long random string | must match the n8n Header Auth credential exactly |
 | `IP_HASH_SALT` | any long random string | salts the stored IP hashes; rotating it just resets the rate-limit counters |
-| `PRICING_EDITORS` | comma-separated editor emails | server-side allowlist for price changes |
+| `PRICING_EDITORS` | *(optional)* comma-separated emails | named editor exceptions outside `@suncitylc.com`; company-domain staff do not need to be listed |
 | `ACCESS_TEAM_DOMAIN` | your Access team domain | used to verify the Access JWT issuer + fetch JWKS |
 | `ACCESS_AUD` | pricing Access application AUD tag | **must be the pricing-specific app's AUD, not the dashboard app's tag** |
 
@@ -168,7 +169,7 @@ Secrets take effect on the **next deployment** — redeploy after adding them.
 ### Configure the pricing-page passphrase speed bump
 
 The passphrase is not the security boundary; Cloudflare Access and the server-side editor
-allowlist are. The page ships fail-closed with a hash placeholder. Choose an internal
+authorization rule are. The page ships fail-closed with a hash placeholder. Choose an internal
 passphrase, generate its SHA-256 hash locally, and paste **only the hash** into
 `PASSPHRASE_SHA256` in `public/pricing/index.html`:
 
@@ -183,10 +184,12 @@ Never commit the passphrase itself. The salt and hash are visible in page source
 Create a **second Cloudflare Access application** for the dashboard project. Keep the
 existing dashboard Access application as-is, then add a pricing-specific application whose
 paths cover both `/pricing*` and `/api/pricing-admin*`. Its Allow policy should include
-only the pricing-editor identities. Copy that application's AUD tag into the
+company staff whose emails end in `@suncitylc.com`, plus any named outside-domain
+exceptions you intentionally support. Copy that application's AUD tag into the
 `ACCESS_AUD` secret above. A dashboard-app AUD in `ACCESS_AUD` will make every otherwise
-valid pricing editor receive 401. The server then applies `PRICING_EDITORS` as a second,
-case-insensitive allowlist.
+valid pricing editor receive 401. After JWT verification, the server independently
+requires an exact, case-insensitive `@suncitylc.com` email match or membership in the
+optional `PRICING_EDITORS` exception list. Subdomains and lookalike domains do not match.
 
 For local development only, `.dev.vars` may set `DEV_ADMIN_EMAIL`; that bypass is
 accepted only on `localhost` or `127.0.0.1`. `ACCESS_JWKS_URL` is test-only and must

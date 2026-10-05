@@ -4,7 +4,8 @@
 #   cp .dev.vars.example .dev.vars
 #
 # In production the intake values below are SECRETS (encrypted) in Cloudflare.
-# The pricing-editor section at the bottom adds three dashboard-only secrets:
+# The pricing-editor section at the bottom adds two required dashboard-only
+# secrets plus an optional named-exception list:
 # Pages project -> Settings -> Variables and Secrets. Because this repo has a
 # wrangler.toml, the dashboard can only add/remove *secrets* — plaintext vars
 # must live in wrangler.toml's [vars]. See SETUP.md.
@@ -45,10 +46,13 @@ ALLOWED_ORIGINS="http://localhost:8788,http://127.0.0.1:8788"
 
 
 # --- Pricing editor / Cloudflare Access ------------------------------------
-# Production/Preview: add these three to the GATED DASHBOARD project as
-# encrypted Secrets. ACCESS_AUD must be the AUD tag for the pricing-specific
-# Access application protecting /pricing* + /api/pricing-admin*, NOT the
-# dashboard application's AUD.
+# Production/Preview: add ACCESS_TEAM_DOMAIN and ACCESS_AUD to the GATED
+# DASHBOARD project as encrypted Secrets. ACCESS_AUD must be the AUD tag for
+# the pricing-specific Access application protecting /pricing* +
+# /api/pricing-admin*, NOT the dashboard application's AUD.
+#
+# Any verified Access email exactly on @suncitylc.com may edit pricing.
+# PRICING_EDITORS is optional and only for named exceptions outside that domain.
 PRICING_EDITORS="editor@example.com,another-editor@example.com"
 ACCESS_TEAM_DOMAIN="your-team.cloudflareaccess.com"
 ACCESS_AUD="replace-with-pricing-access-application-aud"

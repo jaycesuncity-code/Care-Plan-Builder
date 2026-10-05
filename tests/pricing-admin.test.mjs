@@ -54,6 +54,11 @@ test("admin auth fails closed for missing config and missing JWT", async () => {
   assert.equal(result.status, 503);
   result = await authenticatePricingEditor(authRequest(null), authEnv);
   assert.equal(result.status, 401);
+
+  const domainOnlyEnv = { ...authEnv };
+  delete domainOnlyEnv.PRICING_EDITORS;
+  result = await authenticatePricingEditor(authRequest(null), domainOnlyEnv);
+  assert.equal(result.status, 401);
 });
 
 test("admin auth rejects invalid algorithms, signatures, timing, aud and kid", async () => {
@@ -75,6 +80,35 @@ test("admin auth distinguishes a valid non-editor from an editor", async () => {
   const editor = await authenticatePricingEditor(authRequest(await token({ email: "EDITOR@example.com" })), authEnv);
   assert.equal(editor.ok, true);
   assert.equal(editor.email, "editor@example.com");
+});
+
+test("company-domain emails may edit without being on PRICING_EDITORS", async () => {
+  const env = { ...authEnv };
+  delete env.PRICING_EDITORS;
+  const staff = await authenticatePricingEditor(authRequest(await token({ email: "Anyone.New@SunCityLC.com" })), env);
+  assert.equal(staff.ok, true);
+  assert.equal(staff.email, "anyone.new@suncitylc.com");
+});
+
+test("domain rule is an exact match and rejects lookalikes and subdomains", async () => {
+  for (const email of [
+    "x@evilsuncitylc.com",
+    "x@suncitylc.com.evil.com",
+    "x@mail.suncitylc.com",
+    "x@suncitylc.co",
+    "suncitylc.com@gmail.com",
+    "a@b@suncitylc.com",
+    "@suncitylc.com",
+  ]) {
+    const result = await authenticatePricingEditor(authRequest(await token({ email })), authEnv);
+    assert.equal(result.ok, false, email);
+    assert.equal(result.status, 403, email);
+  }
+});
+
+test("PRICING_EDITORS still allows named outside emails", async () => {
+  const outside = await authenticatePricingEditor(authRequest(await token({ email: "editor@example.com" })), authEnv);
+  assert.equal(outside.ok, true);
 });
 
 test("DEV_ADMIN_EMAIL bypass works only on localhost", async () => {

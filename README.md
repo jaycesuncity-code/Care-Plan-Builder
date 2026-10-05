@@ -175,6 +175,7 @@ D1 directly before every submission. If a customer submits a stale pricing versi
 total changed, the endpoint returns `409 PRICES_CHANGED` before inserting anything.
 
 The staff editor at `/pricing/` writes through `PUT /api/pricing-admin`. It requires
-the pricing-specific Cloudflare Access JWT plus the `PRICING_EDITORS` allowlist, uses
+a valid pricing-specific Cloudflare Access JWT and a verified email exactly on
+`@suncitylc.com` (or an address in the optional `PRICING_EDITORS` exception list), uses
 SQL-guarded optimistic concurrency, and records each real change in `pricing_audit`.
 See `SETUP.md` for Access policy, secrets and the passphrase-hash step.
