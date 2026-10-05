@@ -1,7 +1,7 @@
 // Keeps builder-walkthrough.md honest.
 //
 // The walkthrough is a set of Find/Replace steps for the hand-maintained
-// LiveCanvas copy of the Builder. If someone edits public/memberships/index.html
+// LiveCanvas copy of the Builder. If someone edits public/careplan-builder/index.html
 // without updating the doc, the doc silently starts describing a version that no
 // longer exists — and the WordPress copy drifts. This asserts that every
 // "Replace with" block is present verbatim in the sandbox Builder, and that no
@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const walkthrough = readFileSync(join(here, "..", "builder-walkthrough.md"), "utf8");
-const builder = readFileSync(join(here, "..", "public", "memberships", "index.html"), "utf8");
+const builder = readFileSync(join(here, "..", "public", "careplan-builder", "index.html"), "utf8");
 
 function parseSteps(md) {
   const blocks = [...md.matchAll(/\*\*(Find this|Replace with)\*\*\s*\n\s*```[a-z]*\n([\s\S]*?)\n```/g)].map((m) => ({

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const builder = readFileSync(join(here, "..", "public", "memberships", "index.html"), "utf8");
+const builder = readFileSync(join(here, "..", "public", "careplan-builder", "index.html"), "utf8");
 
 function extractArray(source, declaration) {
   const start = source.indexOf(declaration);

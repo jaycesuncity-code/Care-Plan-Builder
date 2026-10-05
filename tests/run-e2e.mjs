@@ -187,7 +187,7 @@ async function main() {
   await stubTurnstile(page);
 
   group("E2E 1 — the builder loads and prices a selection");
-  await page.goto(`${BASE}/memberships/`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/careplan-builder/`, { waitUntil: "networkidle" });
   check("the builder block rendered", (await page.locator("#sc-cpb").count()) === 1);
 
   // Premier starts with no phantom complimentary lines.

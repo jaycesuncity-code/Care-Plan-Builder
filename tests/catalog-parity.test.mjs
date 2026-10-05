@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { ADDON_GROUPS, MAX_ADDON_QTY, PLANS } from "../lib/intake/catalog.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const BUILDER_PATH = join(here, "..", "public", "memberships", "index.html");
+const BUILDER_PATH = join(here, "..", "public", "careplan-builder", "index.html");
 
 function extractArrayLiteral(source, declaration) {
   const start = source.indexOf(declaration);

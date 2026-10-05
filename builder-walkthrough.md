@@ -715,7 +715,7 @@ Expected matches: **1**
 
 These are targeted Builder changes on top of the fourteen intake edits above. When copying the
 sandbox Builder into LiveCanvas, preserve these rules and the matching code from
-`public/memberships/index.html`:
+`public/careplan-builder/index.html`:
 
 - **Water Softener Service stays paid at $75 each.** Under Premier, selecting quantity `N`
   creates a separate **Water Softener Salt ×N** line marked **Included / $0**.
