@@ -112,7 +112,7 @@ test("the Builder carries pricing version and handles stale price refreshes", ()
   assert.match(builder, /loadPricingThenRender\(\);/);
 });
 
-test("the Builder applies valid pricing entries while ignoring malformed and unknown values", () => {
+test("the Builder rejects malformed known pricing atomically and ignores unknown extras only on valid payloads", () => {
   const start = builder.indexOf("  function applyPricingPayload(pricing) {");
   const end = builder.indexOf("\n  function loadPricingThenRender()", start);
   assert.ok(start >= 0 && end > start, "could not isolate applyPricingPayload");
@@ -136,16 +136,29 @@ test("the Builder applies valid pricing entries while ignoring malformed and unk
     functionSource + "\nreturn { applyPricingPayload, getVersion: function () { return pricingVersion; } };"
   )(PLANS, ADDON_GROUPS, ADDON_INDEX, null);
 
-  const applied = harness.applyPricingPayload({
+  const rejected = harness.applyPricingPayload({
     version: 9,
     plans: { hvac: 300, premier: "bad", unknownPlan: 999 },
-    addons: { qfc: 135, mst: -1, unknownAddon: 777 },
+    addons: { qfc: 135, mst: 95, unknownAddon: 777 },
+  });
+
+  assert.equal(rejected, false);
+  assert.deepEqual(PLANS.map((plan) => plan.price), [260, 600], "no plan price may change");
+  assert.deepEqual(
+    ADDON_GROUPS[0].items.map((addon) => addon.price),
+    [120, 80],
+    "no add-on price may change"
+  );
+  assert.equal(harness.getVersion(), null, "version must not advance on rejection");
+
+  const applied = harness.applyPricingPayload({
+    version: 10,
+    plans: { hvac: 300, premier: 650, unknownPlan: 9999 },
+    addons: { qfc: 135, mst: 95, unknownAddon: 9999 },
   });
 
   assert.equal(applied, true);
-  assert.equal(PLANS[0].price, 300, "valid plan price applied");
-  assert.equal(PLANS[1].price, 600, "malformed plan price ignored");
-  assert.equal(ADDON_INDEX.qfc.price, 135, "valid add-on price applied");
-  assert.equal(ADDON_INDEX.mst.price, 80, "out-of-bounds add-on price ignored");
-  assert.equal(harness.getVersion(), 9, "version advances when at least one valid price applied");
+  assert.deepEqual(PLANS.map((plan) => plan.price), [300, 650]);
+  assert.deepEqual(ADDON_GROUPS[0].items.map((addon) => addon.price), [135, 95]);
+  assert.equal(harness.getVersion(), 10);
 });
