@@ -24,16 +24,16 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 .notice{margin-top:12px;padding:10px 12px;border-radius:6px;background:var(--maroon-tint);color:var(--maroon-dark);font-size:13px}.notice.success{background:#e7f3ec;color:var(--success)}.notice.error{background:#f7e5e8;color:var(--danger)}
 .group{margin-bottom:18px}.group h3{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray-5);margin:0 0 8px}
 .price-grid{display:grid;gap:1px;background:var(--gray-2);border:1px solid var(--gray-2);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-.price-row{background:#fff;display:grid;grid-template-columns:minmax(210px,1fr) 130px 180px 90px;align-items:center;gap:16px;padding:13px 16px;transition:background .12s}.price-row.changed{background:#fff8e8}
+.price-row{background:#fff;display:grid;grid-template-columns:minmax(210px,1fr) 130px 180px;align-items:center;gap:16px;padding:13px 16px;transition:background .12s}.price-row.changed{background:#fff8e8}
 .label{font-weight:600}.current{color:var(--gray-5);font-variant-numeric:tabular-nums}.money-input{position:relative}.money-input span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-5)}
 .money-input input{width:100%;padding:9px 10px 9px 25px;border:1px solid var(--gray-3);border-radius:6px;font:inherit;font-variant-numeric:tabular-nums}.money-input input:focus{outline:2px solid rgba(107,26,44,.18);border-color:var(--maroon)}
-.reset{border:1px solid var(--gray-3);background:#fff;border-radius:6px;padding:8px 10px;font-weight:600;cursor:pointer}.reset:disabled{opacity:.4;cursor:default}
-.actions{display:flex;justify-content:flex-end;gap:10px;margin:18px 0}.btn{border-radius:6px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}.btn-primary{background:var(--maroon);color:#fff}.btn-primary:disabled{opacity:.45;cursor:default}.btn-secondary{background:#fff;border-color:var(--gray-3)}
+.toolbar{display:flex;justify-content:flex-end;gap:10px;margin:0 0 18px;padding:10px 12px;background:#fff;border:1px solid var(--gray-2);border-radius:var(--radius);box-shadow:var(--shadow)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin:18px 0}.btn{border-radius:6px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}.btn:disabled{opacity:.45;cursor:default}.btn-primary{background:var(--maroon);color:#fff}.btn-secondary{background:#fff;border-color:var(--gray-3)}
 .audit{margin-top:24px}.audit table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-2);box-shadow:var(--shadow)}.audit th,.audit td{padding:10px 12px;border-bottom:1px solid var(--gray-2);text-align:left;font-size:13px}.audit th{color:var(--gray-5);background:#fafafa}
 .empty{padding:18px;color:var(--gray-5)}
 .modal-wrap[hidden]{display:none}.modal-wrap{position:fixed;inset:0;z-index:1000;background:rgba(20,20,22,.62);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}.modal{background:#fff;width:min(560px,100%);border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.28);padding:20px;margin:auto}.modal h2{margin:0 0 8px}.modal p{line-height:1.45;color:var(--gray-5)}.modal-list{margin:14px 0;padding-left:22px;max-height:42vh;overflow:auto}.warning{background:#fff2d8;border:1px solid #e5c46a;border-radius:6px;padding:10px 12px;color:#694d07}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .pass-field{display:flex;gap:8px;margin-top:14px}.pass-field input{flex:1;padding:10px;border:1px solid var(--gray-3);border-radius:6px;font:inherit}
-@media(max-width:700px){main{padding:14px}.price-row{grid-template-columns:1fr 110px}.label{grid-column:1}.current{grid-column:2}.money-input{grid-column:1}.reset{grid-column:2}.audit{overflow:auto}.topbar{padding:16px}}
+@media(max-width:700px){main{padding:14px}.price-row{grid-template-columns:1fr 110px}.label{grid-column:1}.current{grid-column:2}.money-input{grid-column:1/-1}.toolbar{padding:10px}.audit{overflow:auto}.topbar{padding:16px}}
 </style>
 </head>
 <body>
@@ -48,9 +48,10 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     <div id="statusNotice" class="notice" hidden role="status"></div>
   </section>
   <div id="editor" hidden>
+    <div class="toolbar" role="toolbar" aria-label="Pricing actions"><button class="btn btn-secondary" id="resetAllBtn" disabled>Reset / Clear</button><button class="btn btn-primary" id="topReviewBtn" disabled>Save Changes</button></div>
     <section class="group"><h3>Plans</h3><div class="price-grid" id="plans"></div></section>
     <section class="group"><h3>Add-ons</h3><div class="price-grid" id="addons"></div></section>
-    <div class="actions"><button class="btn btn-primary" id="reviewBtn" disabled>Review Changes</button></div>
+    <div class="actions"><button class="btn btn-primary" id="reviewBtn" disabled>Save Changes</button></div>
     <section class="audit"><h3>Recent Price Changes</h3><div id="audit"></div></section>
   </div>
 </main>
@@ -71,11 +72,11 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 <div class="modal-wrap" id="reviewModal" hidden role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
   <div class="modal">
     <h2 id="reviewTitle">Review price changes</h2>
-    <p>Confirm these are the prices you intend to publish.</p>
+    <p>Couldn't hurt to double check...</p>
     <ul class="modal-list" id="reviewList"></ul>
     <div class="warning" id="largeWarning" hidden>
-      One or more prices are changing by more than 25%. Confirm that you reviewed the larger change.
-      <label style="display:block;margin-top:8px;font-weight:600"><input type="checkbox" id="largeConfirm"> I reviewed the larger price change</label>
+      Dang, that's a pretty big change in price, you sure about that?
+      <label style="display:block;margin-top:8px;font-weight:600"><input type="checkbox" id="largeConfirm"> I'm sure</label>
     </div>
     <div id="conflictNotice" class="notice error" hidden>Someone else changed prices while you were reviewing. Current prices were reloaded below; your proposed prices were kept so you can review the differences again.</div>
     <div class="modal-actions"><button class="btn btn-secondary" id="reviewCancel">Back</button><button class="btn btn-primary" id="saveBtn">Save Prices</button></div>
@@ -93,6 +94,9 @@ main{max-width:1100px;margin:0 auto;padding:22px}
   var editor = document.getElementById('editor');
   var statusNotice = document.getElementById('statusNotice');
   var reviewBtn = document.getElementById('reviewBtn');
+  var topReviewBtn = document.getElementById('topReviewBtn');
+  var resetAllBtn = document.getElementById('resetAllBtn');
+  var reviewButtons = [topReviewBtn, reviewBtn];
   var reviewModal = document.getElementById('reviewModal');
   var reviewList = document.getElementById('reviewList');
   var largeWarning = document.getElementById('largeWarning');
@@ -115,7 +119,6 @@ main{max-width:1100px;margin:0 auto;padding:22px}
         '<div class="label">'+esc(item.label)+'</div>'+
         '<div class="current">Current: '+money(item.price)+'</div>'+
         '<label class="money-input"><span aria-hidden="true">$</span><input type="number" inputmode="numeric" step="1" min="'+(kind==='plan'?1:0)+'" max="'+(kind==='plan'?5000:2000)+'" aria-label="New price for '+esc(item.label)+'" data-price="'+esc(item.id)+'" value="'+esc(value)+'"></label>'+
-        '<button type="button" class="reset" data-reset="'+esc(item.id)+'" '+(isChanged?'':'disabled')+'>Reset</button>'+
       '</div>';
     }).join('');
   }
@@ -129,9 +132,15 @@ main{max-width:1100px;margin:0 auto;padding:22px}
       '</tbody></table>';
   }
 
+  function updatePendingActions(){
+    var disabled=changed().length===0;
+    reviewButtons.forEach(function(button){button.disabled=disabled;});
+    resetAllBtn.disabled=disabled;
+  }
+
   function render(){
     renderRows('plan','plans');renderRows('addon','addons');renderAudit();
-    reviewBtn.disabled = changed().length===0;
+    updatePendingActions();
   }
 
   function applyData(data, keepProposed){
@@ -156,27 +165,24 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     }catch(err){showStatus('Could not load pricing. Please refresh and try again.','error');}
   }
 
-  function refreshChangedState(id, row, resetButton) {
+  function refreshChangedState(id, row) {
     var item=items.find(function(entry){return entry.id===id;});if(!item)return;
     var isChanged=Number(proposed[id])!==Number(item.price);
     if(row)row.classList.toggle('changed',isChanged);
-    if(resetButton)resetButton.disabled=!isChanged;
-    reviewBtn.disabled=changed().length===0;
+    updatePendingActions();
   }
   document.addEventListener('input',function(e){
     var id=e.target && e.target.getAttribute('data-price');if(!id)return;
     proposed[id]=e.target.value;
     var row=e.target.closest('.price-row');
-    refreshChangedState(id,row,row&&row.querySelector('[data-reset]'));
+    refreshChangedState(id,row);
   });
-  document.addEventListener('click',function(e){
-    var id=e.target && e.target.getAttribute('data-reset');if(!id)return;
-    var item=items.find(function(row){return row.id===id;});if(!item)return;
-    proposed[id]=item.price;
-    var row=e.target.closest('.price-row'), input=row&&row.querySelector('[data-price]');
-    if(input)input.value=item.price;
-    refreshChangedState(id,row,e.target);
-  });
+
+  function resetAllUnsaved(){
+    items.forEach(function(item){proposed[item.id]=item.price;});
+    render();
+  }
+  resetAllBtn.addEventListener('click',resetAllUnsaved);
 
   function openReview(showConflict){
     var changes=changed(), large=false;
@@ -190,7 +196,8 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     document.getElementById('reviewCancel').focus();
   }
   function closeReview(){reviewModal.hidden=true;if(reviewPreviouslyFocused)reviewPreviouslyFocused.focus();}
-  reviewBtn.addEventListener('click',function(){openReview(false);});
+  function beginReview(){openReview(false);}
+  reviewButtons.forEach(function(button){button.addEventListener('click',beginReview);});
   document.getElementById('reviewCancel').addEventListener('click',closeReview);
 
   saveBtn.addEventListener('click',async function(){
