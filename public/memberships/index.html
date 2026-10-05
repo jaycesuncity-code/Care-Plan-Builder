@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memberships | Sun City Plumbing &amp; Heating</title>
+<style>
+  /* Demo page only (not part of the block). Delete this wrapper before pasting into LiveCanvas.
+     The block inherits its fonts from the site theme; this is just a stand-in for the sandbox. */
+  .scp-mem-demo { margin: 0; background: #ffffff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+</style>
+</head>
+<body class="scp-mem-demo">
+
+<!--
+  ============================================================================
+  SUN CITY PLUMBING &amp; HEATING — Memberships landing page (memberships)
+  Paste everything between BEGIN PASTE and END PASTE into one LiveCanvas
+  custom HTML block on the "Memberships" page. Self-contained: no Bootstrap
+  classes, no external fonts, scripts or images. Every class is namespaced
+  "scp-mem-" and the whole page is scoped under the .scp-mem wrapper. The CSS
+  uses class selectors only (no bare element selectors), so theme or
+  Bootstrap typography rules cannot be hit by, or leak into, this block.
+
+  Final URLs this page links to (all root-relative):
+    /careplan-builder/   /hvac-care-plan/   /plumbing-care-plan/
+    /bundled-care-plan/  /premier-care-plan/  /member-rewards-program/
+    /services/commercial
+  No prices or dollar figures appear on this page by design: pricing lives in
+  the Care Plan Builder and the server catalog.
+  ============================================================================
+-->
+
+<!-- ================================ BEGIN PASTE ================================ -->
+<style>
+/* ==========================================================================
+   SUN CITY — MEMBERSHIPS LANDING BLOCK  (LiveCanvas / Bootstrap-safe)
+   --------------------------------------------------------------------------
+   Every rule starts with .scp-mem and every class is prefixed "scp-mem-".
+   Class selectors only. No external fonts, images or scripts are loaded.
+   ========================================================================== */
+
+.scp-mem{
+  /* --- brand ------------------------------------------------------------ */
+  --scp-mem-maroon:#6B1A2C;
+  --scp-mem-maroon-deep:#4E1220;
+  --scp-mem-gold:#C9A84C;        /* accent only: 2.3:1 on white, never used as text */
+  --scp-mem-gold-deep:#8A6A1F;   /* gold for text: 5.0:1 on white */
+
+  /* --- plan colours (same values the Care Plan Builder uses) -------------- */
+  --scp-mem-hvac:#A3102E;
+  --scp-mem-plumbing:#1F5AA6;
+  --scp-mem-bundled:#5B3A8C;
+  --scp-mem-premier:var(--scp-mem-gold-deep);
+
+  --scp-mem-ink:#23201F;
+  --scp-mem-slate:#65605E;
+  --scp-mem-line:#E3E0DD;
+  --scp-mem-white:#FFFFFF;
+  --scp-mem-gray:#F1F0EE;
+  --scp-mem-tint:#FAF5F4;
+  --scp-mem-charcoal:#3D3D3D;
+
+  /* --- type: inherits the site's real fonts ------------------------------- */
+  --scp-mem-font-body:inherit;
+  --scp-mem-font-head:inherit;
+
+  --scp-mem-radius:14px;
+  --scp-mem-pad:clamp(40px, 6vw, 72px);
+
+  font-family:var(--scp-mem-font-body);
+  color:var(--scp-mem-ink);
+  background:var(--scp-mem-white);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* --- local reset: stops theme/Bootstrap typography leaking in ------------ */
+.scp-mem,
+.scp-mem *,
+.scp-mem *::before,
+.scp-mem *::after{box-sizing:border-box;}
+
+/* --- bands + container -------------------------------------------------- */
+.scp-mem .scp-mem-band{padding-block:var(--scp-mem-pad);background:var(--scp-mem-white);position:relative;}
+.scp-mem .scp-mem-band--tint{background:var(--scp-mem-tint);}
+.scp-mem .scp-mem-band--gray{background:var(--scp-mem-gray);}
+.scp-mem .scp-mem-band--tight{padding-block:clamp(32px,4.5vw,52px);}
+.scp-mem .scp-mem-wrap{width:100%;max-width:1080px;margin-inline:auto;padding-inline:clamp(18px,5vw,32px);}
+
+/* --- wave dividers ------------------------------------------------------ */
+.scp-mem .scp-mem-wave{display:block;line-height:0;margin-bottom:-1px;background:var(--scp-mem-from);}
+.scp-mem .scp-mem-wave--tint-gray{--scp-mem-from:var(--scp-mem-tint);--scp-mem-to:var(--scp-mem-gray);}
+.scp-mem .scp-mem-wave--gray-tint{--scp-mem-from:var(--scp-mem-gray);--scp-mem-to:var(--scp-mem-tint);}
+.scp-mem .scp-mem-wave-svg{display:block;width:100%;height:clamp(34px,4.5vw,58px);margin:0;}
+.scp-mem .scp-mem-wave-back{fill:var(--scp-mem-to);opacity:.38;}
+.scp-mem .scp-mem-wave-front{fill:var(--scp-mem-to);}
+
+/* --- hero --------------------------------------------------------------- */
+.scp-mem .scp-mem-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;
+  font-size:11.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;line-height:1.4;
+  color:var(--scp-mem-maroon);
+}
+.scp-mem .scp-mem-eyebrow::before{content:"";width:22px;height:2px;background:var(--scp-mem-gold);border-radius:2px;}
+.scp-mem .scp-mem-title,
+.scp-mem .scp-mem-h2{
+  margin:0;padding:0;
+  font-family:var(--scp-mem-font-head);
+  font-weight:800;line-height:1.15;letter-spacing:-0.01em;text-transform:none;
+  color:var(--scp-mem-ink);
+  text-wrap:balance;
+}
+.scp-mem .scp-mem-title{font-size:clamp(30px,5vw,46px);margin-bottom:14px;}
+.scp-mem .scp-mem-h2{font-size:clamp(23px,3.1vw,30px);margin-bottom:14px;}
+.scp-mem .scp-mem-tagline{
+  margin:0 0 26px;padding:0;
+  font-size:clamp(16px,1.6vw,18.5px);line-height:1.6;color:var(--scp-mem-slate);max-width:52ch;
+}
+
+/* --- Customize Your Plan button (same look as the plan pages' Choose Plan) */
+.scp-mem .scp-mem-cta,
+.scp-mem .scp-mem-cta:link,
+.scp-mem .scp-mem-cta:visited{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-height:48px;
+  background:var(--scp-mem-maroon);color:#FFFFFF;text-decoration:none;
+  font-weight:800;font-size:13.5px;line-height:1.3;letter-spacing:.06em;text-transform:uppercase;
+  padding:14px 26px;border-radius:999px;cursor:pointer;
+  box-shadow:0 8px 20px -12px rgba(35,32,31,.75);
+  transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.scp-mem .scp-mem-cta:hover,
+.scp-mem .scp-mem-cta:focus-visible{
+  transform:translateY(-2px);
+  background:var(--scp-mem-maroon-deep);color:#FFFFFF;text-decoration:none;
+  box-shadow:0 14px 26px -12px rgba(35,32,31,.6);
+}
+.scp-mem .scp-mem-cta:active{transform:translateY(0);}
+.scp-mem .scp-mem-cta:focus-visible{outline:3px solid var(--scp-mem-maroon);outline-offset:3px;}
+.scp-mem .scp-mem-note{margin:12px 0 0;padding:0;font-size:13px;line-height:1.5;color:var(--scp-mem-slate);}
+
+/* --- section cards ------------------------------------------------------ */
+.scp-mem .scp-mem-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;}
+.scp-mem .scp-mem-card{
+  background:var(--scp-mem-white);
+  border:1px solid var(--scp-mem-line);
+  border-top:4px solid var(--scp-mem-card-accent,var(--scp-mem-maroon));
+  border-radius:var(--scp-mem-radius);
+  padding:clamp(22px,3vw,32px);
+  box-shadow:0 14px 34px -26px rgba(35,32,31,.5);
+}
+.scp-mem .scp-mem-card--commercial{--scp-mem-card-accent:var(--scp-mem-charcoal);}
+.scp-mem .scp-mem-p{
+  margin:0;padding:0;
+  font-size:clamp(15px,1.45vw,16.5px);line-height:1.75;color:var(--scp-mem-ink);
+}
+.scp-mem .scp-mem-p + .scp-mem-p{margin-top:14px;}
+
+/* --- split: photo placeholder + text ------------------------------------- */
+.scp-mem .scp-mem-split{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(22px,4vw,40px);align-items:center;
+}
+.scp-mem .scp-mem-split--flip .scp-mem-figure{order:2;}
+
+/* --- photo placeholders (swap each whole <figure> for a real image) ------ */
+.scp-mem .scp-mem-figure{
+  margin:0;position:relative;aspect-ratio:4/3;border-radius:var(--scp-mem-radius);overflow:hidden;
+  border:1px dashed #C6C1BD; /* fallback */
+  border-color:color-mix(in srgb, var(--scp-mem-card-accent,var(--scp-mem-maroon)) 38%, #C9C4C0);
+  background:var(--scp-mem-gray); /* fallback */
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--scp-mem-card-accent,var(--scp-mem-maroon)) 6%, transparent), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(35,32,31,.035) 0 2px, transparent 2px 11px),
+    var(--scp-mem-gray);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:26px;text-align:center;color:var(--scp-mem-slate);
+}
+.scp-mem .scp-mem-fig-ico{width:30px;height:30px;margin:0;opacity:.55;}
+.scp-mem .scp-mem-figcap{margin:0;padding:0;font-size:13px;font-style:italic;line-height:1.5;max-width:30ch;}
+.scp-mem .scp-mem-figtag{
+  position:absolute;top:12px;left:12px;
+  font-size:10px;font-weight:800;letter-spacing:.09em;line-height:1.4;text-transform:uppercase;
+  background:var(--scp-mem-white);color:var(--scp-mem-slate);
+  padding:4px 9px;border-radius:999px;border:1px solid var(--scp-mem-line);
+}
+
+/* --- text links: bold + underline + colour (never colour alone) ---------- */
+.scp-mem .scp-mem-link,
+.scp-mem .scp-mem-link:link,
+.scp-mem .scp-mem-link:visited{
+  color:var(--scp-mem-link);
+  font-weight:800;
+  text-decoration:underline;
+  text-decoration-thickness:2px;
+  text-decoration-color:var(--scp-mem-link-line,var(--scp-mem-link));
+  text-underline-offset:3px;
+}
+.scp-mem .scp-mem-link:hover{text-decoration-thickness:3px;}
+.scp-mem .scp-mem-link:focus-visible{
+  color:var(--scp-mem-link);
+  outline:2px solid var(--scp-mem-link);outline-offset:3px;border-radius:3px;
+}
+.scp-mem .scp-mem-link--hvac{--scp-mem-link:var(--scp-mem-hvac);}
+.scp-mem .scp-mem-link--plumbing{--scp-mem-link:var(--scp-mem-plumbing);}
+.scp-mem .scp-mem-link--bundled{--scp-mem-link:var(--scp-mem-bundled);}
+/* Premier: deep gold text (5.0:1), brand gold as the underline accent */
+.scp-mem .scp-mem-link--premier{--scp-mem-link:var(--scp-mem-premier);--scp-mem-link-line:var(--scp-mem-gold);}
+.scp-mem .scp-mem-link--maroon{--scp-mem-link:var(--scp-mem-maroon);}
+
+/* --- closing ------------------------------------------------------------ */
+.scp-mem .scp-mem-closing{text-align:center;display:flex;flex-direction:column;align-items:center;}
+.scp-mem .scp-mem-closing .scp-mem-note{margin-top:14px;}
+
+/* --- motion + responsive ------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  .scp-mem .scp-mem-cta,
+  .scp-mem .scp-mem-cta:hover,
+  .scp-mem .scp-mem-cta:focus-visible,
+  .scp-mem .scp-mem-cta:active{transition:none;transform:none;}
+}
+@media (max-width:760px){
+  .scp-mem .scp-mem-split{grid-template-columns:minmax(0,1fr);}
+  .scp-mem .scp-mem-split--flip .scp-mem-figure{order:0;}
+  .scp-mem .scp-mem-figure{aspect-ratio:3/2;}
+}
+@media (max-width:480px){
+  .scp-mem .scp-mem-cta,
+  .scp-mem .scp-mem-cta:link,
+  .scp-mem .scp-mem-cta:visited{width:100%;}
+}
+</style>
+
+<div class="scp-mem" data-scp-page="memberships">
+
+  <!-- 1 — HERO ------------------------------------------------------------ -->
+  <section class="scp-mem-band scp-mem-band--tint">
+    <div class="scp-mem-wrap">
+      <p class="scp-mem-eyebrow">Sun City Care Plans</p>
+      <!-- If your LiveCanvas template already prints the page title as an
+           h1, change this h1 to an h2 to keep one h1 per page. -->
+      <h1 class="scp-mem-title">Memberships</h1>
+      <p class="scp-mem-tagline">Our annual Care Plans put preventive maintenance for your home's heating, cooling and plumbing on a regular schedule, so small problems are caught before they become breakdowns.</p>
+      <a class="scp-mem-cta" href="/careplan-builder/">Customize Your Plan</a>
+    </div>
+  </section>
+
+  <div class="scp-mem-wave scp-mem-wave--tint-gray" aria-hidden="true">
+    <svg class="scp-mem-wave-svg" viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+      <path class="scp-mem-wave-back" d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z"/>
+      <path class="scp-mem-wave-front" d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z"/>
+    </svg>
+  </div>
+
+  <!-- 2 — RESIDENTIAL + COMMERCIAL CARDS ---------------------------------- -->
+  <section class="scp-mem-band scp-mem-band--gray">
+    <div class="scp-mem-wrap">
+      <div class="scp-mem-cards">
+
+        <div class="scp-mem-card scp-mem-card--residential">
+          <div class="scp-mem-split">
+            <!-- PHOTO PLACEHOLDER: replace this whole <figure> with a real residential photo -->
+            <figure class="scp-mem-figure">
+              <span class="scp-mem-figtag">Photo placeholder</span>
+              <svg class="scp-mem-fig-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true" focusable="false"><rect x="3" y="6.5" width="18" height="13" rx="2.5"/><path d="M8.5 6.5l1.4-2.5h4.2l1.4 2.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+              <figcaption class="scp-mem-figcap">Sun City technician and a homeowner reviewing a seasonal maintenance visit at a Las Cruces home</figcaption>
+            </figure>
+            <div class="scp-mem-text">
+          <h2 class="scp-mem-h2">Residential Care Plans</h2>
+          <p class="scp-mem-p">Every Care Plan keeps your home's equipment on a maintenance schedule, with preferred scheduling and member savings on repairs and services. The <a class="scp-mem-link scp-mem-link--hvac" href="/hvac-care-plan/" aria-label="HVAC Care Plan">HVAC</a> Care Plan covers two seasonal visits a year, spring and fall, to inspect and maintain your heating and cooling system, with replacement air filters included. The <a class="scp-mem-link scp-mem-link--plumbing" href="/plumbing-care-plan/" aria-label="Plumbing Care Plan">PLUMBING</a> Care Plan covers one annual visit with a water heater flush, water pressure and water quality testing, and an inspection of your accessible plumbing.</p>
+          <p class="scp-mem-p">If you'd like your plumbing and your HVAC system looked after together, the <a class="scp-mem-link scp-mem-link--bundled" href="/bundled-care-plan/" aria-label="Bundled Care Plan">BUNDLED</a> Care Plan brings the <a class="scp-mem-link scp-mem-link--hvac" href="/hvac-care-plan/" aria-label="HVAC Care Plan">HVAC</a> and <a class="scp-mem-link scp-mem-link--plumbing" href="/plumbing-care-plan/" aria-label="Plumbing Care Plan">PLUMBING</a> services into one membership. At the top of the line, the <a class="scp-mem-link scp-mem-link--premier" href="/premier-care-plan/" aria-label="Premier Care Plan">PREMIER</a> Care Plan includes all of that and adds priority scheduling, a reduced dispatch fee, after-hours savings, and complimentary water softener salt and RO filter replacement with your service visits. Both of these plans also include access to our <a class="scp-mem-link scp-mem-link--maroon" href="/member-rewards-program/">Member Rewards Program</a>.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="scp-mem-card scp-mem-card--commercial">
+          <div class="scp-mem-split scp-mem-split--flip">
+            <!-- PHOTO PLACEHOLDER: replace this whole <figure> with a real commercial photo -->
+            <figure class="scp-mem-figure">
+              <span class="scp-mem-figtag">Photo placeholder</span>
+              <svg class="scp-mem-fig-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true" focusable="false"><rect x="3" y="6.5" width="18" height="13" rx="2.5"/><path d="M8.5 6.5l1.4-2.5h4.2l1.4 2.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+              <figcaption class="scp-mem-figcap">Sun City technician servicing a rooftop HVAC unit at a local business</figcaption>
+            </figure>
+            <div class="scp-mem-text">
+          <h2 class="scp-mem-h2">Commercial Services</h2>
+          <p class="scp-mem-p">Sun City also serves commercial customers, with HVAC repairs and installations, plumbing, and preventive maintenance such as preseason tune-ups. Visit our <a class="scp-mem-link scp-mem-link--maroon" href="/services/commercial">commercial services page</a> to see how we can help keep your business running reliably.</p>
+          <p class="scp-mem-p">Our Care Plans and the Care Plan Builder are for residential customers only.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="scp-mem-wave scp-mem-wave--gray-tint" aria-hidden="true">
+    <svg class="scp-mem-wave-svg" viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+      <path class="scp-mem-wave-back" d="M0,30 C230,2 400,56 660,42 C920,28 1140,4 1440,28 L1440,60 L0,60 Z"/>
+      <path class="scp-mem-wave-front" d="M0,42 C190,18 410,62 700,48 C985,35 1190,14 1440,38 L1440,60 L0,60 Z"/>
+    </svg>
+  </div>
+
+  <!-- 3 — CLOSING BUTTON -------------------------------------------------- -->
+  <section class="scp-mem-band scp-mem-band--tint scp-mem-band--tight">
+    <div class="scp-mem-wrap">
+      <div class="scp-mem-closing">
+        <a class="scp-mem-cta" href="/careplan-builder/">Customize Your Plan</a>
+        <p class="scp-mem-note">The Care Plan Builder is for residential customers only.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+<!-- ================================= END PASTE ================================= -->
+
+</body>
+</html>
