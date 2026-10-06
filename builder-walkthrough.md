@@ -138,12 +138,12 @@ on two adjacent lines. Expected matches: **1**
 **Replace with**
 
 ```js
-  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* ================= INTAKE CONFIG ============================================== */
   /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
      youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
      public intake project, so this becomes an absolute https:// URL and that origin
      must be listed in the endpoint's ALLOWED_ORIGINS. */
-  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with
@@ -492,12 +492,12 @@ same public intake project as the submit endpoint. Expected matches: **1**
 **Find this**
 
 ```js
-  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* ================= INTAKE CONFIG ============================================== */
   /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
      youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
      public intake project, so this becomes an absolute https:// URL and that origin
      must be listed in the endpoint's ALLOWED_ORIGINS. */
-  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with
@@ -508,12 +508,12 @@ same public intake project as the submit endpoint. Expected matches: **1**
 **Replace with**
 
 ```js
-  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* ================= INTAKE CONFIG ============================================== */
   /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
      youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
      public intake project, so this becomes an absolute https:// URL and that origin
      must be listed in the endpoint's ALLOWED_ORIGINS. */
-  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with
@@ -828,3 +828,15 @@ open-modal refresh. A valid retry restores prices without changing selections; i
 409 refresh payloads and `503 PRICING_UNAVAILABLE` block sending and show the office phone
 link. There are no automatic retries. Historical dashboard prices use saved amounts,
 with missing amounts labeled Not recorded.
+
+
+## Permanent staff-practice routing
+
+The repository copy at `public/careplan-builder/index.html` is now the permanent staff
+practice Builder. Its `SUBMIT_ENDPOINT` is `/api/test/care-plan-request`, which forces
+`is_test=1` on the server. Do not add a browser test-mode field or toggle.
+
+At the later split, the WordPress/public copy changes its submit URL to the public
+project's `/api/care-plan-request` and its pricing URL to that project's `/api/pricing`,
+with the production Turnstile sitekey. Pricing, validation, and interaction behavior
+otherwise stay aligned with this practice copy.

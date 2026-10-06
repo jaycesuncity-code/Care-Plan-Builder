@@ -29,6 +29,7 @@ import {
   checkEqual,
   d1,
   group,
+  postIntake,
   mockReset,
   resetData,
   sleep,
@@ -291,7 +292,7 @@ async function main() {
   group("E2E 3 — client-side validation runs before any request");
   let requestCount = 0;
   page.on("request", (req) => {
-    if (req.url().includes("/api/care-plan-request") && req.method() === "POST") requestCount++;
+    if (req.url().includes("/api/test/care-plan-request") && req.method() === "POST") requestCount++;
   });
   await page.click("#cpbLeadSubmitBtn");
   await page.waitForTimeout(300);
@@ -347,6 +348,7 @@ async function main() {
   checkEqual("the total matches the builder's on-screen figure", row.total_price, 930);
   checkEqual("'midday' survived as Midday", row.best_time, "Midday");
   checkEqual("the customer's name was stored", row.name, VALID_LEAD.customerName);
+  checkEqual("the practice Builder created a test row", row.is_test, 1);
 
   const addonRows = await d1(
     `SELECT addon_name, addon_price, quantity, included_free, locked FROM submission_addons WHERE submission_id = ${row.id} ORDER BY id`
@@ -387,7 +389,13 @@ async function main() {
   const resetsAfter = (await page.evaluate(() => window.__turnstile)).resets.length;
   check("the spent token was reset after the failure", resetsAfter > resetsBefore, { resetsBefore, resetsAfter });
 
-  group("E2E 7 — the dashboard renders the new submission");
+  group("E2E 7 — the dashboard renders and filters test submissions");
+  const liveForFilter = await postIntake(
+    { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 260, total: 260 },
+    { ip: "203.0.113.250" }
+  );
+  checkEqual("a live control row was created for dashboard filtering", liveForFilter.status, 201);
+
   const dash = await context.newPage();
   const dashErrors = [];
   const dashFailedLocal = [];
@@ -400,11 +408,28 @@ async function main() {
   });
   await dash.goto(`${BASE}/`, { waitUntil: "networkidle" });
   await dash.waitForSelector(`tr[data-id="${row.id}"]`, { timeout: 15000 });
-  check("the new lead appears in the queue", (await dash.locator(`tr[data-id="${row.id}"]`).count()) === 1);
+  check("the new test lead appears in All", (await dash.locator(`tr[data-id="${row.id}"]`).count()) === 1);
+  check("test row has the dedicated row treatment", await dash.locator(`tr[data-id="${row.id}"]`).evaluate(el => el.classList.contains("test-submission-row")));
+  checkEqual("test row shows a TEST badge", await dash.locator(`tr[data-id="${row.id}"] .test-badge`).innerText(), "TEST");
+  checkEqual("All-view operational total excludes tests", await dash.locator("#statGrid .stat-cell .num").first().innerText(), "1");
+
+  await dash.selectOption("#submissionTypeFilter", "live");
+  await dash.waitForTimeout(100);
+  checkEqual("Live filter hides the test row", await dash.locator(`tr[data-id="${row.id}"]`).count(), 0);
+  checkEqual("Live filter keeps the live control row", await dash.locator(`tr[data-id="${liveForFilter.body.submissionId}"]`).count(), 1);
+  checkEqual("live row has no TEST badge", await dash.locator(`tr[data-id="${liveForFilter.body.submissionId}"] .test-badge`).count(), 0);
+
+  await dash.selectOption("#submissionTypeFilter", "test");
+  await dash.waitForTimeout(100);
+  checkEqual("Test filter restores the test row", await dash.locator(`tr[data-id="${row.id}"]`).count(), 1);
+  checkEqual("Test filter hides the live control row", await dash.locator(`tr[data-id="${liveForFilter.body.submissionId}"]`).count(), 0);
+  check("Test view switches KPIs to test submissions", Number(await dash.locator("#statGrid .stat-cell .num").first().innerText()) > 0);
 
   await dash.click(`tr[data-id="${row.id}"]`);
   await dash.waitForTimeout(400);
   checkEqual("the detail modal shows the customer", await dash.locator("#modalName").innerText(), VALID_LEAD.customerName);
+  checkEqual("the detail modal says TEST SUBMISSION", await dash.locator("#modalTestBadge").innerText(), "TEST SUBMISSION");
+  checkEqual("the TEST SUBMISSION indicator is visible", await dash.locator("#modalTestBadge").isVisible(), true);
   checkEqual("it shows the stored call time verbatim", await dash.locator("#modalBestTime").innerText(), "Midday");
   const priceTable = await dash.locator("#modalPriceTable").innerText();
   check("the price table renders the plan base", /Premier Care Plan \(base\)/.test(priceTable), priceTable);

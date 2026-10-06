@@ -12,7 +12,8 @@ dashboard's JSON shape.
 ```
 /functions/api/submissions/index.js   GET  /api/submissions      — list all submissions
 /functions/api/submissions/[id].js    PATCH /api/submissions/:id — update status (+ optional note)
-/functions/api/care-plan-request.js   POST /api/care-plan-request — PUBLIC intake from the Builder
+/functions/api/care-plan-request.js   POST /api/care-plan-request — future PUBLIC/live intake
+/functions/api/test/care-plan-request.js POST /api/test/care-plan-request — permanent staff-practice intake
 /functions/api/pricing.js             GET  /api/pricing — PUBLIC read-only pricing feed
 /functions/api/pricing-admin.js       GET/PUT pricing editor API — gated dashboard only
 /functions/[[path]].js                sandbox-only 404 fallback to the live site
@@ -28,18 +29,31 @@ dashboard's JSON shape.
 /migrations/0002_seed_data.sql        4 sample submissions, for local dev/testing
 /migrations/0004_…, 0005_…            intake schema changes (0003 is intentionally skipped)
 /migrations/0006_pricing.sql           editable pricing + audit + optimistic version
+/migrations/0007_submission_is_test.sql server-controlled Live/Test classification
 /n8n/care-plan-request-notification.json  importable workflow: webhook → Outlook email
 /tests/                               unit, API and browser suites
 /wrangler.toml                        D1 binding (DB), vars, pages_build_output_dir = "public"
 ```
 
-## The public intake endpoint
+## Live vs Test intake
 
-`POST /api/care-plan-request` is what the Care Plan Builder submits to. It is written
-to be **self-contained**: at launch it moves to a separate *public* Pages project with
-no Cloudflare Access, bound to this same D1 database, while this dashboard stays behind
-Access. Nothing in `functions/api/care-plan-request.js` or `lib/intake/*` imports the
-Access middleware or reads `context.data.staffEmail`; every knob comes from `env`.
+The repository intentionally contains both intake routes until the later repo split:
+
+- `POST /api/care-plan-request` is the finished future **live/public** route and always
+  persists `is_test = 0`.
+- `POST /api/test/care-plan-request` is the permanent **staff practice** route and always
+  persists `is_test = 1`.
+
+Both are thin wrappers around `lib/intake/handle-request.js`. The browser never supplies
+the authoritative classification; client fields such as `is_test`, `isTest`, `test`,
+or query-string values cannot change it. The Cloudflare-hosted Builder at
+`/careplan-builder/` uses the test route. Test rows remain normal dashboard records but
+normal n8n/office notification is suppressed.
+
+The live route is written to be **self-contained for the future split**: the public project
+will receive the live wrapper, `/api/pricing`, and the shared `lib/intake/*` modules,
+with no Cloudflare Access dependency. The dashboard/practice side keeps the test wrapper,
+dashboard APIs/UI, migrations, and staff auth. Both projects will bind to the same D1.
 
 Order of checks — cheapest and most private first:
 
@@ -90,7 +104,7 @@ your real Cloudflare D1 database until you explicitly apply migrations `--remote
 
 ```bash
 # Apply schema + seed data to the local D1
-npm run db:migrate:local
+npm run db:migrate:local   # includes additive 0007 is_test migration
 
 # Start the dashboard + API locally
 npm run dev
@@ -187,3 +201,13 @@ a valid pricing-specific Cloudflare Access JWT and a verified email exactly on
 `@suncitylc.com` (or an address in the optional `PRICING_EDITORS` exception list), uses
 SQL-guarded optimistic concurrency, and records each real change in `pricing_audit`.
 See `SETUP.md` for Access policy, secrets and the passphrase-hash step.
+
+
+## Live/Test migration safety
+
+Migration `0007_submission_is_test.sql` uses SQLite/D1 `ALTER TABLE ... ADD COLUMN`;
+it does **not** rebuild `submissions` or touch child foreign keys. Unknown existing rows
+keep the safe default `is_test = 0`. Only the four exact documented seed fixtures from
+`0002_seed_data.sql` are backfilled to `1` by matching their id, name, and phone.
+Never infer test data from an id range. Inspect and back up remote D1 before applying any
+pending remote migration.

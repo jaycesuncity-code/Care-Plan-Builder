@@ -22,6 +22,7 @@ One row per lead.
 | `base_price` | INTEGER | plan price at time of submission |
 | `addon_total` | INTEGER | sum of selected add-on line totals at time of submission |
 | `total_price` | INTEGER | `base_price + addon_total` |
+| `is_test` | INTEGER | server-controlled `0` live / `1` staff practice; NOT NULL DEFAULT 0, CHECK 0/1. Added by 0007. |
 | `status` | TEXT | CHECK in `New`, `Contacted`, `Signed Up`, `Other`; default `New`. `New`/`Contacted` = active, `Signed Up`/`Other` = archived |
 | `submitted_at` | TEXT | ISO timestamp, set on insert |
 | `updated_at` | TEXT | ISO timestamp, bump on any status/note change |
@@ -124,6 +125,7 @@ The front-end (`public/index.html`) expects one object per submission:
     { "name": "Quarterly Filter Change", "price": 120, "quantity": 1, "includedFree": false, "locked": false }
   ],
   "total": 380,
+  "isTest": false,
   "submittedAt": "2026-09-08T09:14:00",
   "status": "Signed Up",
   "notes": [
@@ -134,7 +136,7 @@ The front-end (`public/index.html`) expects one object per submission:
 
 | JSON field | Source |
 |---|---|
-| `id`, `name`, `phone`, `address`, `basePrice`, `submittedAt`, `status` | `submissions` row, direct column mapping (`bestTime` ← `best_time`, `basePrice` ← `base_price`, `submittedAt` ← `submitted_at`) |
+| `id`, `name`, `phone`, `address`, `basePrice`, `submittedAt`, `status`, `isTest` | `submissions` row, direct column mapping (`bestTime` ← `best_time`, `basePrice` ← `base_price`, `submittedAt` ← `submitted_at`) |
 | `plan` | `submissions.plan` |
 | `total` | `submissions.total_price` |
 | `addons` | join on `submission_addons` where `submission_id` matches; addon names only, unchanged |
@@ -160,6 +162,7 @@ Cloudflare Access work. The intake work starts at `0004`.
 | `0004_best_time_and_addon_flags.sql` | widens the `best_time` CHECK (table rebuild), adds `included_free`/`locked` |
 | `0005_intake_rate_limit.sql` | the rate-limit table |
 | `0006_pricing.sql` | editable pricing tables, audit history, version marker, and generated catalog seed |
+| `0007_submission_is_test.sql` | additive `is_test` column, exact seed-fixture backfill, and qbb label correction |
 
 `0004` rebuilds `submissions`, because SQLite cannot ALTER a CHECK constraint. Note
 that `DROP TABLE` on a parent runs an implicit `DELETE FROM`, and that **does** fire
@@ -167,3 +170,13 @@ that `DROP TABLE` on a parent runs an implicit `DELETE FROM`, and that **does** 
 defer_foreign_keys` defers constraint *checking*, it does not stop a cascade action.
 So the migration copies both child tables aside and restores them after the rebuild.
 Verified locally: the 4 seed submissions kept all 5 add-on rows and all 4 notes.
+
+
+### Live/Test classification
+
+`is_test` is not accepted as authority from the browser. The live and practice route
+wrappers pass a trusted boolean to the single shared intake handler, which passes it to
+persistence. Unknown pre-0007 rows remain live by default. The four rows created by the
+documented `0002` seed migration are marked test only when their exact fixture identity
+matches. Test rows are retained and surfaced by the dashboard; they are not identified by
+id ranges.

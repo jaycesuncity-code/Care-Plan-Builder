@@ -139,6 +139,7 @@ async function main() {
     checkEqual("HVAC total_price = base + addons", row.total_price, row.base_price + row.addon_total);
     checkEqual("best_time mapped from 'morning'", row.best_time, "Morning");
     checkEqual("status defaults to New", row.status, "New");
+    checkEqual("live endpoint stores is_test=0", row.is_test, 0);
     let addons = await addonsFor(hvac.body.submissionId);
     checkEqual("HVAC records one add-on row", addons.length, 1);
     checkEqual("add-on row stores the line total", addons[0].addon_price, 240);
@@ -320,6 +321,9 @@ async function main() {
         basePrice: 1, // lying about the base
         addons: [{ id: "qfc", quantity: 1, unitPrice: 0, lineTotal: 0 }], // lying about the line
         total: 1, // lying about the total
+        is_test: 1,
+        isTest: true,
+        test: true,
       },
       { ip: "203.0.113.30" }
     );
@@ -330,6 +334,7 @@ async function main() {
     checkEqual("addon_total recomputed", row.addon_total, 120);
     checkEqual("total_price recomputed", row.total_price, 380);
     checkEqual("the response reports the server's total", tampered.body.total, 380);
+    checkEqual("client test flags cannot turn the live route into a test row", row.is_test, 0);
 
     group("A4b — D1 pricing + stale-price protection");
     await d1("UPDATE pricing_items SET price = 270 WHERE id = 'plan:hvac'");
@@ -453,6 +458,7 @@ async function main() {
     );
     checkEqual("Premier canonical email payload has no phantom included lines", (payload.addons || []).filter((a) => a.includedFree).length, 0);
     checkEqual("submittedAt is server-side ISO", typeof payload.submittedAt, "string");
+    checkEqual("live notification payload is explicitly non-test", payload.isTest, false);
 
     group("A8 — n8n down or slow never fails the customer");
     await mockReset();
@@ -474,7 +480,45 @@ async function main() {
     checkEqual("submission still returns 201 when n8n answers 500", while500.status, 201);
     await mockMode("ok");
 
-    group("A9 — the dashboard API sees the new rows");
+    group("A9 — staff test endpoint forces test classification and suppresses office mail");
+    await mockReset();
+    const practice = await postIntake(
+      {
+        ...VALID_LEAD,
+        planId: "bundled",
+        addons: [{ id: "qfc", quantity: 2 }],
+        basePrice: 1,
+        total: 1,
+        is_test: 0,
+        isTest: false,
+        test: false,
+      },
+      { ip: "203.0.113.44", path: "/api/test/care-plan-request?is_test=0" }
+    );
+    checkEqual("test endpoint returns the normal success status", practice.status, 201);
+    const practiceRow = await rowFor(practice.body.submissionId);
+    checkEqual("test endpoint stores is_test=1", practiceRow.is_test, 1);
+    checkEqual("test endpoint still uses authoritative pricing", practiceRow.total_price, 640);
+    const practiceAddons = await addonsFor(practice.body.submissionId);
+    checkEqual("test endpoint persists add-ons with the same structure", practiceAddons.length, 1);
+    checkEqual("test endpoint stores the server line total", practiceAddons[0].addon_price, 240);
+    await sleep(100);
+    received = await mockReceived();
+    checkEqual("test endpoint sends no normal office webhook", received.received.length, 0);
+
+    const invalidPractice = await postIntake(
+      { ...VALID_LEAD, planId: "not-a-plan", addons: [], is_test: 0 },
+      { ip: "203.0.113.45", path: "/api/test/care-plan-request" }
+    );
+    checkEqual("test endpoint uses the same validation", invalidPractice.status, 400);
+
+    const noTokenPractice = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], turnstileToken: "" },
+      { ip: "203.0.113.46", path: "/api/test/care-plan-request" }
+    );
+    checkEqual("test endpoint requires the same Turnstile token", noTokenPractice.status, 400);
+
+    group("A10 — the dashboard API sees live and test rows");
     const listRes = await fetch(`${BASE}/api/submissions`);
     const list = await listRes.json();
     checkEqual("GET /api/submissions returns 200", listRes.status, 200);
@@ -490,6 +534,7 @@ async function main() {
         "basePrice",
         "bestTime",
         "id",
+        "isTest",
         "name",
         "phone",
         "plan",
@@ -503,12 +548,15 @@ async function main() {
     checkEqual("basePrice comes through", newest.basePrice, 600);
     checkEqual("total comes through", newest.total, 880);
     checkEqual("notes starts empty", newest.notes.length, 0);
+    checkEqual("live list row exposes isTest=false", newest.isTest, false);
+    const practiceFromList = list.find((s) => s.id === practice.body.submissionId);
+    checkEqual("test list row exposes isTest=true", practiceFromList && practiceFromList.isTest, true);
     check(
       "addonDetail carries per-line totals and flags",
       (newest.addonDetail || []).every((a) => typeof a.price === "number" && typeof a.quantity === "number")
     );
 
-    group("A10 — PATCH still works");
+    group("A11 — PATCH/detail response still works");
     const patchRes = await fetch(`${BASE}/api/submissions/${notified.body.submissionId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -520,6 +568,16 @@ async function main() {
     checkEqual("the note is attached", patched.notes.length, 1);
     checkEqual("the note carries the new status", patched.notes[0].status, "Contacted");
     check("PATCH response keeps addonDetail too", Array.isArray(patched.addonDetail));
+    checkEqual("PATCH response preserves live isTest=false", patched.isTest, false);
+
+    const testPatchRes = await fetch(`${BASE}/api/submissions/${practice.body.submissionId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "Contacted" }),
+    });
+    const testPatched = await testPatchRes.json();
+    checkEqual("PATCH on a test row returns 200", testPatchRes.status, 200);
+    checkEqual("PATCH/detail response preserves isTest=true", testPatched.isTest, true);
 
     const badPatch = await fetch(`${BASE}/api/submissions/${notified.body.submissionId}`, {
       method: "PATCH",

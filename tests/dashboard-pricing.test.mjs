@@ -46,9 +46,9 @@ async function saveSelection(pricing) {
             async run() {
               assert.match(sql, /INSERT INTO submissions/);
               const [name, phone, address, best_time, plan, base_price, addon_total,
-                total_price, submitted_at, updated_at] = values;
+                total_price, is_test, submitted_at, updated_at] = values;
               submission = { id: 13, name, phone, address, best_time, plan, base_price,
-                addon_total, total_price, submitted_at, updated_at, status: "New" };
+                addon_total, total_price, is_test, submitted_at, updated_at, status: "New" };
               return { meta: { last_row_id: 13 } };
             },
           };
@@ -68,6 +68,7 @@ async function saveSelection(pricing) {
     customer: { name: "Test", phone: "", address: "", bestTime: "Morning" },
     pricing,
     submittedAt: "2026-10-05T16:39:00Z",
+    isTest: false,
   });
   return shapeSubmission(submission, addons, []);
 }

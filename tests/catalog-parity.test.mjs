@@ -148,8 +148,9 @@ test("the builder's bestTime <select> only offers values the server accepts", as
 });
 
 
-test("0006 seed matches every catalog id, label and default price", () => {
+test("pricing migrations resolve to every catalog id, label and default price", () => {
   const sql = readFileSync(join(here, "..", "migrations", "0006_pricing.sql"), "utf8");
+  const migration0007 = readFileSync(join(here, "..", "migrations", "0007_submission_is_test.sql"), "utf8");
   const rows = [...sql.matchAll(/\('(plan|addon):([^']+)',\s*'(plan|addon)',\s*'((?:''|[^'])*)',\s*(\d+),\s*NULL,\s*NULL\)/g)]
     .map((match) => ({
       id: `${match[1]}:${match[2]}`,
@@ -158,6 +159,12 @@ test("0006 seed matches every catalog id, label and default price", () => {
       price: Number(match[5]),
     }));
 
+  const labelUpdates = Object.fromEntries(
+    [...migration0007.matchAll(/UPDATE pricing_items\s+SET label = '([^']+)'\s+WHERE id = '([^']+)'/g)]
+      .map((match) => [match[2], match[1]])
+  );
+  const finalRows = rows.map((row) => ({ ...row, label: labelUpdates[row.id] || row.label }));
+
   const expected = [
     ...PLANS.map((plan) => ({ id: `plan:${plan.id}`, kind: "plan", label: plan.full, price: plan.price })),
     ...ADDON_GROUPS.flatMap((group) =>
@@ -165,6 +172,6 @@ test("0006 seed matches every catalog id, label and default price", () => {
     ),
   ];
 
-  assert.deepEqual(rows, expected);
-  assert.equal(rows.length, 13, "4 plans + 9 add-ons, including the two counts and Water Softener Salt");
+  assert.deepEqual(finalRows, expected);
+  assert.equal(finalRows.length, 13, "4 plans + 9 add-ons, including the two counts and Water Softener Salt");
 });

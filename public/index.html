@@ -399,6 +399,28 @@ header.topbar .env-tag:hover{
   }
   tbody tr:last-child{ border-bottom:none; }
   tbody tr:hover{ background:var(--maroon-tint); }
+  tbody tr.test-submission-row{ background:var(--maroon-tint); }
+  tbody tr.test-submission-row:hover{ background:#efd9df; }
+  tbody tr.test-submission-row td:first-child{ box-shadow:inset 4px 0 0 var(--maroon); }
+  .test-badge,
+  .test-detail-flag{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--maroon);
+    border-radius:999px;
+    background:#fff;
+    color:var(--maroon);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.7px;
+    line-height:1;
+    padding:4px 7px;
+    text-transform:uppercase;
+  }
+  .test-badge{ margin-right:8px; vertical-align:middle; }
+  .test-detail-flag{ margin-top:7px; }
+  .test-detail-flag[hidden]{ display:none; }
   tbody td{
     padding:12px 12px;
     vertical-align:middle;
@@ -769,6 +791,11 @@ header.topbar .env-tag:hover{
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Search name, phone, or address…">
       </div>
+      <select id="submissionTypeFilter" aria-label="Submission type">
+        <option value="all">All</option>
+        <option value="live">Live</option>
+        <option value="test">Test</option>
+      </select>
       <select id="statusFilter"><!-- options filled by JS, depends on view --></select>
       <select id="planFilter">
         <option value="all">All plans</option>
@@ -816,6 +843,7 @@ header.topbar .env-tag:hover{
       <div>
         <h3 id="modalName">—</h3>
         <div class="modal-sub" id="modalSub">—</div>
+        <div class="test-detail-flag" id="modalTestBadge" hidden>TEST SUBMISSION</div>
       </div>
       <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
     </div>
@@ -911,12 +939,14 @@ let sortDir = "desc"; // "asc" | "desc"
 let searchTerm = "";
 let statusFilter = "all";
 let planFilter = "all";
+let submissionTypeFilter = "all";
 
 const tableBody = document.getElementById("tableBody");
 const resultCount = document.getElementById("resultCount");
 const statGrid = document.getElementById("statGrid");
 const navList = document.getElementById("navList");
 const statusFilterEl = document.getElementById("statusFilter");
+const submissionTypeFilterEl = document.getElementById("submissionTypeFilter");
 const viewTitleEl = document.getElementById("viewTitle");
 const viewSubtitleEl = document.getElementById("viewSubtitle");
 
@@ -946,6 +976,18 @@ function badgeClass(status){
 
 function statusOptionsHtml(selected){
   return STATUS_LIST.map(s => `<option value="${s}" ${s === selected ? "selected" : ""}>${s}</option>`).join("");
+}
+
+function matchesSubmissionType(row){
+  if(submissionTypeFilter === "live") return !row.isTest;
+  if(submissionTypeFilter === "test") return !!row.isTest;
+  return true;
+}
+
+function metricRows(){
+  return submissionTypeFilter === "test"
+    ? SUBMISSIONS.filter(r => !!r.isTest)
+    : SUBMISSIONS.filter(r => !r.isTest);
 }
 
 /* ---------- Loading / error states ---------- */
@@ -999,7 +1041,7 @@ const VIEW_META = {
 function renderNav(){
   navList.innerHTML = Object.keys(VIEW_META).map(view => {
     const meta = VIEW_META[view];
-    const count = SUBMISSIONS.filter(r => VIEW_STATUSES[view].includes(r.status)).length;
+    const count = metricRows().filter(r => VIEW_STATUSES[view].includes(r.status)).length;
     return `
       <li>
         <button type="button" class="${view === currentView ? "active" : ""}" data-view="${view}">
@@ -1044,6 +1086,7 @@ function getFiltered(){
   const viewStatuses = VIEW_STATUSES[currentView];
   return SUBMISSIONS.filter(row => {
     if(!viewStatuses.includes(row.status)) return false;
+    if(!matchesSubmissionType(row)) return false;
     if(statusFilter !== "all" && row.status !== statusFilter) return false;
     if(planFilter !== "all" && row.plan !== planFilter) return false;
     if(term){
@@ -1072,12 +1115,13 @@ function getSorted(rows){
 }
 
 function renderStats(){
-  const total = SUBMISSIONS.length;
+  const scoped = metricRows();
+  const total = scoped.length;
   const counts = { New: 0, Contacted: 0, "Signed Up": 0, Other: 0 };
-  SUBMISSIONS.forEach(r => counts[r.status]++);
+  scoped.forEach(r => counts[r.status]++);
   const archived = counts["Signed Up"] + counts.Other;
   statGrid.innerHTML = `
-    <div class="stat-cell"><div class="num">${total}</div><div class="label">Total submissions</div></div>
+    <div class="stat-cell"><div class="num">${total}</div><div class="label">${submissionTypeFilter === "test" ? "Test submissions" : "Live submissions"}</div></div>
     <div class="stat-cell"><div class="num">${counts.New}</div><div class="label">New</div></div>
     <div class="stat-cell"><div class="num">${counts.Contacted}</div><div class="label">Contacted</div></div>
     <div class="stat-cell"><div class="num">${archived}</div><div class="label">Archived</div></div>
@@ -1092,7 +1136,7 @@ function phoneHref(value){
 
 function renderTable(){
   const rows = getSorted(getFiltered());
-  const totalInView = SUBMISSIONS.filter(r => VIEW_STATUSES[currentView].includes(r.status)).length;
+  const totalInView = SUBMISSIONS.filter(r => VIEW_STATUSES[currentView].includes(r.status) && matchesSubmissionType(r)).length;
   resultCount.textContent = `${rows.length} of ${totalInView} submissions`;
 
   if(rows.length === 0){
@@ -1101,9 +1145,9 @@ function renderTable(){
   }
 
   tableBody.innerHTML = rows.map(row => `
-    <tr data-id="${row.id}">
+    <tr data-id="${row.id}" class="${row.isTest ? "test-submission-row" : ""}">
       <td class="date-cell">${formatDate(row.submittedAt)}</td>
-      <td class="name-cell">${escapeHtml(row.name)}</td>
+      <td class="name-cell">${row.isTest ? '<span class="test-badge">TEST</span>' : ""}${escapeHtml(row.name)}</td>
       <td class="phone-cell"><a class="phone-link" href="tel:${phoneHref(row.phone)}">${escapeHtml(row.phone)}</a></td>
       <td>${escapeHtml(row.plan)}</td>
       <td class="price-cell">$${row.total.toLocaleString()}</td>
@@ -1155,6 +1199,12 @@ document.querySelectorAll("th[data-sort]").forEach(th => {
 /* ---------- Filters ---------- */
 document.getElementById("searchInput").addEventListener("input", e => {
   searchTerm = e.target.value;
+  renderTable();
+});
+submissionTypeFilterEl.addEventListener("change", e => {
+  submissionTypeFilter = e.target.value;
+  renderStats();
+  renderNav();
   renderTable();
 });
 statusFilterEl.addEventListener("change", e => {
@@ -1308,6 +1358,7 @@ function openDetail(id){
 
   document.getElementById("modalName").textContent = row.name;
   document.getElementById("modalSub").textContent = `${row.plan} · Submission #${String(row.id).padStart(4, "0")}`;
+  document.getElementById("modalTestBadge").hidden = !row.isTest;
   document.getElementById("modalPhone").textContent = row.phone;
   document.getElementById("modalBestTime").textContent = row.bestTime;
   document.getElementById("modalAddress").textContent = row.address;

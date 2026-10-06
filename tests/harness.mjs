@@ -263,8 +263,8 @@ export const VALID_LEAD = {
   turnstileToken: "dummy-token",
 };
 
-export async function postIntake(body, { origin, ip, headers } = {}) {
-  const res = await fetch(`${BASE}/api/care-plan-request`, {
+export async function postIntake(body, { origin, ip, headers, path = "/api/care-plan-request" } = {}) {
+  const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

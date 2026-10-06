@@ -58,7 +58,7 @@ test("no step's original text is still in the sandbox Builder", () => {
 });
 
 test("the launch constants the walkthrough promises are really there", () => {
-  assert.match(builder, /var SUBMIT_ENDPOINT = '\/api\/care-plan-request';/);
+  assert.match(builder, /var SUBMIT_ENDPOINT = '\/api\/test\/care-plan-request';/);
   assert.match(builder, /var PRICING_ENDPOINT = '\/api\/pricing';/);
   assert.match(builder, /var pricingVersion = null;/);
   assert.match(builder, /var TURNSTILE_SITEKEY = '1x00000000000000000000AA';/);

@@ -53,7 +53,7 @@ public/{hvac,plumbing,bundled,premier}-care-plan/index.html
 ```bash
 npm install
 cp .dev.vars.example .dev.vars     # already points at the local mocks
-npm run db:migrate:local           # applies 0001, 0002, 0004, 0005, 0006
+npm run db:migrate:local           # applies 0001, 0002, 0004, 0005, 0006, 0007
 ```
 
 Two terminals:
@@ -89,10 +89,16 @@ Cloudflare Access work. Nothing here depends on it, and the numbering gap is fin
 
 ```bash
 npx wrangler d1 migrations list care-plan-builder --remote   # see what's pending
-npx wrangler d1 migrations apply care-plan-builder --remote  # applies pending migrations, including 0006
+npx wrangler d1 migrations apply care-plan-builder --remote  # applies pending migrations, including 0007
 ```
 
-`0006_pricing.sql` is additive: it creates the three pricing tables and seeds them, and does not alter existing tables. Back up the real D1 first anyway, then apply the pending migrations.
+`0006_pricing.sql` is additive: it creates the three pricing tables and seeds them.
+`0007_submission_is_test.sql` is also additive: it adds `submissions.is_test` with
+`NOT NULL DEFAULT 0 CHECK (is_test IN (0,1))`; it does not rebuild `submissions`.
+Unknown existing rows remain live. Only the four exact documented `0002` fixtures are
+backfilled to test by matching id + name + phone. It also updates the already-seeded
+`addon:qbb` label to the preview branch's current "Quarterly Sediment Filter Change".
+Back up and inspect the real D1 before applying pending migrations.
 
 **`0004` rebuilds the `submissions` table** (SQLite can't ALTER a CHECK constraint), so
 read this before running it on real data:
@@ -211,11 +217,15 @@ Push the branch and let the Pages build run, or deploy by hand:
 npm run deploy
 ```
 
-Then confirm the Function is live and its config arrived. This should return **400 with
-field errors** (not 404, not 500):
+Then confirm both intake wrappers are live and config arrived. Each empty POST should
+return **400 with field errors** (not 404, not 500). The routes differ only in the
+server-forced classification:
 
 ```bash
 curl -i -X POST https://care-plan-builder.pages.dev/api/care-plan-request \
+  -H 'Content-Type: application/json' -d '{}'
+
+curl -i -X POST https://care-plan-builder.pages.dev/api/test/care-plan-request \
   -H 'Content-Type: application/json' -d '{}'
 ```
 
@@ -280,8 +290,10 @@ customer's submission.
    at the top of the queue. Open it: **Best time to call** = `Midday`, base $600,
    `Mini-Split Tune-Up` = $80, `# of HVAC Systems × 3` = $250, total **$930**,
    and no phantom salt/RO line.
-8. Check `service@suncitylc.com` for the email: subject
-   `New Care Plan request: Premier Care Plan - <name>`.
+8. This Cloudflare-hosted Builder is the permanent staff-practice Builder, so **no
+   normal office email should be sent**. Confirm the row is visibly marked TEST in the
+   dashboard. Use the live endpoint separately when validating normal notification
+   delivery.
 9. Verify the numbers in the database are the server's, not the browser's:
 
    ```bash
@@ -299,17 +311,22 @@ customer's submission.
       replacement filters are the Premier perk, so no separate free RO line should appear.
 11. Submit six leads in a row. The sixth should be refused with the wait-time message
     (default limit: 5 per 10 minutes per IP).
-12. Delete the test rows when you're done — see part 8.
+12. Keep practice rows as normal test records unless you intentionally want cleanup.
+    They are identified by `is_test = 1`, not by submission id.
 
 ---
 
 ## 8. Launch move
 
-The dashboard goes behind Cloudflare Access + Entra ID; the intake endpoint cannot,
-because customers have no Entra accounts. So the endpoint moves to its own **public**
-Pages project bound to the **same** D1 database. The code is already written for this:
-nothing in `functions/api/care-plan-request.js` or `lib/intake/*` imports the Access
-middleware or reads `context.data.staffEmail`.
+The dashboard/practice side can remain behind Cloudflare Access + Entra ID; the future
+public intake project cannot, because customers have no Entra accounts. **Do not split
+the repo yet.** The current repo deliberately contains both paths until shared development
+is complete.
+
+At the later split, move/copy the live wrapper, public pricing endpoint, and required
+shared `lib/intake/*` modules into a **public** Pages project bound to the **same** D1.
+Keep the test wrapper and staff dashboard here. The shared intake modules do not import
+Access middleware or read `context.data.staffEmail`.
 
 > Note on the Access middleware: the `add-cloudflare-access-auth` branch **does not
 > exist** on `jaycesuncity-code/Care-Plan-Builder` — `main` is the only branch, at
@@ -401,55 +418,63 @@ Apply all 20 walkthrough steps to the LiveCanvas block if you haven't already.
 | Intake project, `N8N_WEBHOOK_URL` | `…/webhook-test/…` | `…/webhook/…` (workflow Active) |
 | Intake project, `ALLOWED_ORIGINS` | includes `pages.dev` | live origins only |
 
-### 8d. Sandbox files to delete
+### 8d. Later split map — do not delete the practice Builder
 
-Once the WordPress pages are the real thing, delete from the dashboard project:
+The previous plan to delete the Cloudflare Builder is superseded. After the future split:
 
+```text
+KEEP IN STAFF/DASHBOARD REPO:
+public/index.html
+public/careplan-builder/index.html
+functions/api/test/care-plan-request.js
+functions/api/submissions/*
+functions/api/pricing-admin.js
+lib/admin/*
+dashboard/practice tests
+migrations/ and D1 schema management
+
+MOVE/COPY TO PUBLIC REPO:
+functions/api/care-plan-request.js
+functions/api/pricing.js
+shared lib/intake/* required by those public endpoints
+public-facing intake/pricing tests
+
+SHARED D1:
+the same care-plan-builder database, including submissions.is_test
+
+CONFIG THAT DIFFERS:
+public CORS origins, public Turnstile sitekey/secret, public Pages project URL,
+production n8n secrets, WordPress SUBMIT_ENDPOINT and PRICING_ENDPOINT
 ```
-public/memberships/index.html        (Memberships landing page — built by a separate branch: feature/memberships-landing-page)
-public/careplan-builder/index.html   (residential Care Plan Builder)
-public/hvac-care-plan/index.html
-public/plumbing-care-plan/index.html
-public/bundled-care-plan/index.html
-public/premier-care-plan/index.html
-public/404.html
-public/_headers                     (only existed to keep the sandbox out of search)
-functions/[[path]].js               (the 404 → live-site redirect)
-LAUNCH-CHECKLIST.md
-tests/run-e2e.mjs                   (optional — it drives the sandbox Builder page)
-```
 
-Keep `functions/api/care-plan-request.js` and `lib/intake/*` in the dashboard project
-only if you want a second copy of the endpoint; otherwise they live in the intake
-project and can be deleted here too. Keep `migrations/`, `tests/` (except the e2e
-suite), `n8n/` and the docs.
+The staff practice Builder remains intentionally available and points to
+`/api/test/care-plan-request`.
 
-`tests/catalog-parity.test.mjs` and `tests/walkthrough.test.mjs` read
-`public/careplan-builder/index.html`. If you delete the sandbox Builder, either point them
-at a copy of the LiveCanvas block or drop them — but then nothing stops the WordPress
-Builder's prices from drifting away from `lib/intake/catalog.js`, which is the one
-piece of drift that quietly mis-bills customers. Keeping a copy of the block in the
-repo purely as a parity fixture is the cheaper option.
+### 8e. Test-data inspection / optional cleanup
 
-### 8e. Test rows to delete
-
-Everything the sandbox and the tests created has an id above 4. The four seed rows are
-ids 1–4.
+Do **not** infer test data from submission ids. Inspect by the durable server-controlled
+classification:
 
 ```bash
-# Look first
 npx wrangler d1 execute care-plan-builder --remote --command \
-  "SELECT id, name, plan, submitted_at FROM submissions WHERE id > 4 ORDER BY id"
-
-# Then delete. submission_addons/submission_notes cascade automatically.
-npx wrangler d1 execute care-plan-builder --remote --command \
-  "DELETE FROM submissions WHERE id > 4"
-
-# Clear the rate-limit counters too
-npx wrangler d1 execute care-plan-builder --remote --command \
-  "DELETE FROM intake_rate_limit"
+  "SELECT id, name, plan, submitted_at FROM submissions WHERE is_test = 1 ORDER BY id"
 ```
 
-If you want the seed rows gone as well (they are obviously fake names), change `> 4` to
-`> 0`. New submissions keep counting up from the highest id ever used, so the first real
-lead won't be `#0001` — that's cosmetic only.
+If you intentionally choose to remove practice data later, delete only rows you have
+reviewed and confirmed as disposable, using `WHERE is_test = 1`. Child add-ons/notes
+cascade automatically. Do not automatically delete test data as part of deployment.
+
+## 9. Live/Test verification after 0007
+
+After applying 0007 locally, submit one request to each route and query:
+
+```sql
+SELECT id, name, is_test, plan, total_price
+FROM submissions
+ORDER BY id DESC;
+```
+
+Expected: `/api/care-plan-request` writes `is_test=0`; `/api/test/care-plan-request`
+writes `is_test=1`. Supplying `is_test`, `isTest`, `test`, or query-string variants
+must not alter that result. The test route should save normally and appear in the
+dashboard without calling the routine n8n office webhook.

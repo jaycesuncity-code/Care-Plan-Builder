@@ -1837,12 +1837,11 @@
     }
   });
 
-  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
-  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
-     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
-     public intake project, so this becomes an absolute https:// URL and that origin
-     must be listed in the endpoint's ALLOWED_ORIGINS. */
-  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+  /* ================= INTAKE CONFIG ============================================== */
+  /* This Cloudflare-hosted copy is the permanent STAFF PRACTICE Builder. Its
+     endpoint forces is_test=1 server-side. The future WordPress/public copy must
+     point to the public project's /api/care-plan-request route instead. */
+  var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
      "always passes, visible widget" TEST key — fine for the sandbox, replace with

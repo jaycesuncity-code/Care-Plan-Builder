@@ -30,9 +30,16 @@ The `/memberships/` landing page is built by a separate branch (`feature/members
    final `</body></html>`).
 3. **Care Plan Builder.** Paste only what is between the BEGIN and END markers.
 4. **Links.** No change needed. Every link is root-relative and matches the WordPress slugs.
-5. **Delete** `functions/[[path]].js` and `public/404.html`. They exist only so unmirrored links work in the sandbox.
-6. **Public endpoints.** This repo contains both `/api/care-plan-request` and
+5. **Do not delete the Cloudflare Care Plan Builder.** It is now the permanent staff-practice Builder and posts to `/api/test/care-plan-request`. Sandbox-only fallback files such as `functions/[[path]].js` and `public/404.html` can still be removed if no longer needed.
+6. **Public endpoints.** This repo contains the live `/api/care-plan-request`, the practice `/api/test/care-plan-request`, and
    `/api/pricing` for sandbox/testing. At launch, copy those public Functions plus
    `lib/intake/*` to the separate `care-plan-intake` Pages project and point the
    WordPress Builder's `SUBMIT_ENDPOINT` and `PRICING_ENDPOINT` at that project. Keep
    `/api/pricing-admin` and `lib/admin/*` only in the gated dashboard project.
+
+
+## Live/Test rule
+
+The future WordPress/public Builder must post to the live endpoint. The Cloudflare-hosted
+staff practice Builder remains in this repo and posts to the test endpoint. Both routes
+share `lib/intake/handle-request.js`; the browser never controls `is_test`.
