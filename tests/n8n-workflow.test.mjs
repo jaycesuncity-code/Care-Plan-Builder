@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { buildNotificationPayload } from "../lib/intake/notify.js";
-import { priceSelection } from "../lib/intake/catalog.js";
+import { priceSelection } from "./pricing-fixture.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workflow = JSON.parse(readFileSync(join(here, "..", "n8n", "care-plan-request-notification.json"), "utf8"));

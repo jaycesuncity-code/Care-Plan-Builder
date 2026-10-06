@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
 import { shapeSubmission } from "../lib/submissions.js";
-import { priceSelection } from "../lib/intake/catalog.js";
+import { priceSelection } from "./pricing-fixture.mjs";
 import { insertSubmission } from "../lib/intake/persist.js";
 
 const dashboard = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
@@ -108,7 +108,7 @@ test("saved zero-dollar, included, and locked lines retain their original meanin
   assert.match(renderDetail(row), /Water Softener Salt \(included with plan\) &times; 3<\/td><td>Included/);
   const locked = await saveSelection(priceSelection("hvac", [{ id: "twf", quantity: 1 }], {}));
   assert.match(renderDetail(locked), /Not charged/);
-  const zero = await saveSelection(priceSelection("hvac", [], { plans: { hvac: 0 }, addons: {} }));
+  const zero = await saveSelection({ ...priceSelection("hvac", []), basePrice: 0, total: 0 });
   assert.match(renderDetail(zero), /HVAC Care Plan \(base\)<\/td><td>\$0/);
 });
 

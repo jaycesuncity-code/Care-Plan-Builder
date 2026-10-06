@@ -7,8 +7,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { INCLUDED_SUFFIX, LOCKED_SUFFIX, MAX_ADDON_QTY, priceSelection } from "../lib/intake/catalog.js";
+import { INCLUDED_SUFFIX, LOCKED_SUFFIX, MAX_ADDON_QTY, priceSelection as authoritativeSelection } from "../lib/intake/catalog.js";
 import { BEST_TIME_MAP, validateIntake } from "../lib/intake/validate.js";
+
+import { priceSelection } from "./pricing-fixture.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -16,7 +18,7 @@ function billable(pricing) {
   return pricing.lines.filter((l) => l.billable);
 }
 
-test("plan base prices are taken from the catalog, not the payload", () => {
+test("plan base prices are taken from an explicit test price map, not the payload", () => {
   assert.equal(priceSelection("hvac", []).basePrice, 260);
   assert.equal(priceSelection("plumbing", []).basePrice, 160);
   assert.equal(priceSelection("bundled", []).basePrice, 400);
@@ -286,17 +288,13 @@ test("D1 price maps override catalog numbers without changing pricing rules", ()
   assert.equal(pricing.total, 850);
 });
 
-test("a missing D1 id falls back to the catalog default", () => {
-  const pricing = priceSelection("hvac", [{ id: "qfc", quantity: 1 }], {
-    plans: { hvac: 300 },
-    addons: {},
-  });
-  assert.equal(pricing.basePrice, 300);
-  assert.equal(pricing.lines[0].unitPrice, 120);
-  assert.equal(pricing.total, 420);
+test("missing or invalid runtime prices never use catalog seeds", () => {
+  for (const prices of [undefined, {}, { plans: { hvac: 300 }, addons: {} }]) {
+    assert.throws(() => authoritativeSelection("hvac", [{ id: "qfc", quantity: 1 }], prices), /pricing unavailable/);
+  }
 });
 
-test("pricingVersion is optional integer-or-null", () => {
+test("field validation accepts integer-or-null pricingVersion; intake separately rejects missing pricing", () => {
   assert.equal(validateIntake({ ...VALID, pricingVersion: 8 }).value.pricingVersion, 8);
   assert.equal(validateIntake({ ...VALID, pricingVersion: null }).value.pricingVersion, null);
   assert.equal(validateIntake({ ...VALID }).value.pricingVersion, null);

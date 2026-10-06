@@ -255,6 +255,7 @@ export function summary() {
 // --- request helpers --------------------------------------------------------
 
 export const VALID_LEAD = {
+  pricingVersion: 1,
   customerName: "Sandbox Tester",
   phone: "(575) 555-0142",
   address: "100 Sandbox Ln, Las Cruces, NM 88001",

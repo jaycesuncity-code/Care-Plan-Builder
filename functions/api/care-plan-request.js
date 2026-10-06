@@ -119,12 +119,22 @@ export async function onRequestPost(context) {
   }
   const input = validated.value;
 
+  // A request without a successfully loaded pricing version must be reviewed first.
+  if (!Number.isSafeInteger(input.pricingVersion) || input.pricingVersion < 1) {
+    return errorResponse({
+      status: 503,
+      code: "PRICING_UNAVAILABLE",
+      message: "Current pricing is unavailable.",
+      originInfo,
+    });
+  }
+
   if (!env.DB) {
     console.error("care-plan-request: DB binding missing");
     return errorResponse({
-      status: 500,
-      code: "SERVER_ERROR",
-      message: "We could not save your request. Please try again or call us.",
+      status: 503,
+      code: "PRICING_UNAVAILABLE",
+      message: "Current pricing is unavailable.",
       originInfo,
     });
   }
@@ -181,9 +191,9 @@ export async function onRequestPost(context) {
   } catch (err) {
     console.error("care-plan-request: pricing load/reprice failed");
     return errorResponse({
-      status: 500,
-      code: "SERVER_ERROR",
-      message: "We could not confirm current pricing. Please try again or call us at 575-526-9758.",
+      status: 503,
+      code: "PRICING_UNAVAILABLE",
+      message: "Current pricing is unavailable.",
       originInfo,
     });
   }

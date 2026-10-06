@@ -108,7 +108,7 @@ test("the Builder carries pricing version and handles stale price refreshes", ()
   assert.match(builder, /pricingVersion: selection\.pricingVersion/);
   assert.match(builder, /data\.error\.code === 'PRICES_CHANGED'/);
   assert.match(builder, /Our prices were just updated/);
-  assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
+  assert.match(builder, /controller\.abort\(\); reject\(new Error\('pricing timeout'\)\)/);
   assert.match(builder, /loadPricingThenRender\(\);/);
 });
 

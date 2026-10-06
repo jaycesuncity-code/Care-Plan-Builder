@@ -439,7 +439,7 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
         // The token was spent on this attempt, pass or fail — get a fresh one
         // before the customer can retry.
         resetTurnstile();
-        submitBtn.disabled = false;
+        submitBtn.disabled = pricingStatus !== 'ready';
         submitBtn.textContent = 'Send My Request';
 
         // Field-level messages, next to the inputs they belong to.
@@ -477,7 +477,7 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
         resetTurnstile();
         formErrorEl.hidden = false;
         formErrorEl.textContent = 'Something went wrong sending your request. Please try again, or call us directly at 575-526-9758.';
-        submitBtn.disabled = false;
+        submitBtn.disabled = pricingStatus !== 'ready';
         submitBtn.textContent = 'Send My Request';
       });
 ```
@@ -524,6 +524,27 @@ same public intake project as the submit endpoint. Expected matches: **1**
      absolute /api/pricing URL too. */
   var PRICING_ENDPOINT = '/api/pricing';
   var pricingVersion = null;
+  var pricingStatus = 'loading';
+  var pricingLoad = null;
+
+  function unavailablePricingHTML() {
+    return 'Current pricing is unavailable. Please call our office at ' +
+      '<a href="tel:5755269758">575-526-9758</a> for current pricing and help choosing your Care Plan.';
+  }
+
+  function setPricingState(status) {
+    pricingStatus = status;
+    if (status !== 'ready') pricingVersion = null;
+    root.setAttribute('data-pricing', status);
+    $('pricing-status').innerHTML = status === 'unavailable' ? unavailablePricingHTML() :
+      (status === 'loading' ? 'Loading current pricing…' : '');
+    $('pricing-retry').hidden = status === 'loading';
+    $('pricing-retry').textContent = status === 'ready' ? 'Refresh pricing' : 'Retry pricing';
+    $('cta').disabled = status !== 'ready';
+    renderCurrentPricing();
+    if (status !== 'ready') addonModalPrice.textContent = '—';
+    root.dispatchEvent(new CustomEvent('cpb-pricing-state'));
+  }
 ```
 
 ## 16. [Required] Load D1 pricing before the first render — JS
@@ -531,7 +552,7 @@ same public intake project as the submit endpoint. Expected matches: **1**
 Insert the pricing overlay immediately before the lead-modal initializer. It validates the
 complete known plan and add-on catalog before changing any live price. Unknown extra IDs are
 ignored, but any missing, malformed, or out-of-range known price rejects the entire payload
-and leaves the hardcoded defaults in place. Expected matches: **1**
+and disables requests without displaying catalog seed prices. Expected matches: **1**
 
 **Find this**
 
@@ -552,7 +573,7 @@ and leaves the hardcoded defaults in place. Expected matches: **1**
 
   function applyPricingPayload(pricing) {
     if (!pricing || typeof pricing !== 'object' || Array.isArray(pricing) ||
-        !Number.isInteger(pricing.version) ||
+        !Number.isSafeInteger(pricing.version) || pricing.version < 1 ||
         !pricing.plans || typeof pricing.plans !== 'object' || Array.isArray(pricing.plans) ||
         !pricing.addons || typeof pricing.addons !== 'object' || Array.isArray(pricing.addons)) return false;
 
@@ -591,24 +612,34 @@ and leaves the hardcoded defaults in place. Expected matches: **1**
   }
 
   function loadPricingThenRender() {
+    if (pricingLoad) return pricingLoad;
+    setPricingState('loading');
     var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, 1500);
-    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
-      .then(function (res) {
-        if (!res.ok) throw new Error('pricing unavailable');
-        return res.json();
-      })
-      .then(function (pricing) {
-        applyPricingPayload(pricing);
-      })
-      .catch(function () {
-        pricingVersion = null; // hardcoded catalog defaults stay in place
-      })
-      .then(function () {
-        clearTimeout(timer);
-        renderCurrentPricing();
-      });
+    var timer;
+    var deadline = new Promise(function (_, reject) {
+      timer = setTimeout(function () { controller.abort(); reject(new Error('pricing timeout')); }, 1500);
+    });
+    // The deadline covers both the request and JSON body, even if either stalls.
+    pricingLoad = Promise.race([
+      fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('pricing unavailable');
+          return res.json();
+        }),
+      deadline
+    ]).then(function (pricing) {
+      if (!applyPricingPayload(pricing)) throw new Error('invalid pricing');
+      setPricingState('ready');
+    }).catch(function () {
+      setPricingState('unavailable');
+    }).then(function () {
+      clearTimeout(timer);
+      pricingLoad = null;
+    });
+    return pricingLoad;
   }
+
+  $('pricing-retry').addEventListener('click', loadPricingThenRender);
 
   (function initLeadModal() {
 ```
@@ -669,13 +700,19 @@ the new amount before sending again. Expected matches: **1**
 **Replace with**
 
 ```js
-        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+        if (data.code === 'PRICING_UNAVAILABLE' || (data.error && data.error.code === 'PRICING_UNAVAILABLE')) {
+          setPricingState('unavailable');
+          return;
+        }
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED') {
           if (applyPricingPayload(data.pricing)) {
-            renderCurrentPricing();
+            setPricingState('ready');
             renderRecap();
+            formErrorEl.hidden = false;
+            formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          } else {
+            setPricingState('unavailable');
           }
-          formErrorEl.hidden = false;
-          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
           return;
         }
 
@@ -718,7 +755,7 @@ Expected matches: **1**
   that could be clipped, and a form that never actually hid itself after a successful
   send.
 - **Steps 15–20 add live pricing.** The Builder fetches D1 prices with a 1.5-second timeout,
-  keeps its hardcoded catalog as a failure fallback, sends the pricing version, and stops a
+  displays an unavailable state on failure, preserves selections, sends the pricing version, and stops a
   stale changed-price submission so the customer can review the refreshed total.
 - **Steps 1–14 do not change pricing.** The later Premier policy correction below does make
   targeted changes to `PLANS`, `ADDON_GROUPS`, add-on rendering, and selected-line pricing.
@@ -778,3 +815,16 @@ confirmation screen. Specifically:
    The sixth should be refused with the wait-time message, not a generic failure.
 6. **Delete the test rows** from the dashboard once you're happy, and remember the first
    real submission number will follow your test ones.
+
+
+## Pricing unavailable repair — LiveCanvas synchronization
+
+Use the current `public/careplan-builder/index.html` wrapper as the source for the LiveCanvas
+copy. In addition to the pricing-loader replacement above, copy its pricing-status/retry
+markup and scoped CSS, disabled initial request buttons, guarded `money`, `moneyCents`,
+`buildSelectionPayload`, and `renderTotal` changes, and the modal's `cpb-pricing-state`
+listener and empty-selection recap guard. These prevent old prices from surviving an
+open-modal refresh. A valid retry restores prices without changing selections; invalid
+409 refresh payloads and `503 PRICING_UNAVAILABLE` block sending and show the office phone
+link. There are no automatic retries. Historical dashboard prices use saved amounts,
+with missing amounts labeled Not recorded.
