@@ -352,7 +352,8 @@ header.topbar .env-tag:hover{
     box-shadow:var(--shadow);
     overflow-x:auto;
   }
-  table{
+  /* Keep the list's wide, fixed columns out of the modal price breakdown. */
+  .table-wrap > table{
     width:100%;
     border-collapse:collapse;
     font-size:14px;
