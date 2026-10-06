@@ -885,25 +885,6 @@ header.topbar .env-tag:hover{
    of resetting to hardcoded mock rows.
    ====================================================================== */
 
-const ADDON_CATALOG = {
-  "Quarterly Filter Change": 120,
-  "Additional HVAC System": 125,
-  "Mini-Split Tune-Up": 80,
-  "Water Softener Salt": 68,
-  "Water Softener Service": 75,
-  "Reverse Osmosis Service": 50,
-  "Tankless Water Heater Flush": 40,
-  "Additional Water Heater": 50,
-  "Quarterly BigBlue Filter Change": 180
-};
-
-const PLAN_BASE_PRICE = {
-  "HVAC Care Plan": 260,
-  "Plumbing Care Plan": 160,
-  "Bundled Care Plan": 400,
-  "Premier Care Plan": 600
-};
-
 // The four statuses a submission can carry. "Signed Up" and "Other" are
 // considered closed-out and live in the Archives view; "New" and
 // "Contacted" are active and live in the main queue.
@@ -1314,6 +1295,12 @@ async function applyStatusChange(id, newStatus, noteText, selectEl, previousStat
 const modalBackdrop = document.getElementById("modalBackdrop");
 let modalOpenId = null;
 
+function formatSubmissionPrice(price){
+  return typeof price === "number" && Number.isFinite(price)
+    ? `$${price.toLocaleString()}`
+    : "Not recorded";
+}
+
 function openDetail(id){
   const row = SUBMISSIONS.find(r => r.id === id);
   if(!row) return;
@@ -1332,18 +1319,15 @@ function openDetail(id){
   });
 
   const priceRows = [`
-    <tr><td>${row.plan} (base)</td><td>$${PLAN_BASE_PRICE[row.plan].toLocaleString()}</td></tr>
+    <tr><td>${row.plan} (base)</td><td>${formatSubmissionPrice(row.basePrice)}</td></tr>
   `];
 
-  /* Prefer addonDetail (per-line total, quantity, included/locked flags) from the
-     API; fall back to the names-only `addons` array + ADDON_CATALOG for rows that
-     predate it. The fallback lookup is guarded: the intake endpoint records add-on
-     names straight from the Builder's catalog — including "# of HVAC Systems" and
-     the "(included with plan)" / "(not covered by selected plan)" lines — and a
-     name that isn't in ADDON_CATALOG used to throw here and blank the modal. */
+  /* Only display the accepted prices stored with this submission. Add-on prices
+     are saved line totals, so quantities must not multiply them again. A legacy
+     names-only line has no recorded price; never guess one from a catalog. */
   const addonLines = Array.isArray(row.addonDetail) && row.addonDetail.length
     ? row.addonDetail
-    : row.addons.map(name => ({ name, price: ADDON_CATALOG[name], quantity: 1, includedFree: false, locked: false }));
+    : (row.addons || []).map(name => ({ name, price: null, quantity: 1, includedFree: false, locked: false }));
 
   if(addonLines.length === 0){
     priceRows.push(`<tr><td class="addon-empty" colspan="2">No add-ons selected</td></tr>`);
@@ -1352,7 +1336,7 @@ function openDetail(id){
       const qtyLabel = line.quantity > 1 ? ` &times; ${line.quantity}` : "";
       const priceCell = line.includedFree ? "Included"
         : line.locked ? "Not charged"
-        : (line.price != null ? `$${line.price.toLocaleString()}` : "&mdash;");
+        : formatSubmissionPrice(line.price);
       priceRows.push(`<tr><td>${line.name}${qtyLabel}</td><td>${priceCell}</td></tr>`);
     });
   }
