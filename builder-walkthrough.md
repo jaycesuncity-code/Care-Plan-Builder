@@ -528,9 +528,10 @@ same public intake project as the submit endpoint. Expected matches: **1**
 
 ## 16. [Required] Load D1 pricing before the first render — JS
 
-Insert the pricing overlay immediately before the lead-modal initializer. It applies each
-recognized sane whole-dollar value independently; malformed or unknown entries are ignored,
-and a failed request still leaves the hardcoded defaults in place. Expected matches: **1**
+Insert the pricing overlay immediately before the lead-modal initializer. It validates the
+complete known plan and add-on catalog before changing any live price. Unknown extra IDs are
+ignored, but any missing, malformed, or out-of-range known price rejects the entire payload
+and leaves the hardcoded defaults in place. Expected matches: **1**
 
 **Find this**
 
@@ -550,27 +551,41 @@ and a failed request still leaves the hardcoded defaults in place. Expected matc
   }
 
   function applyPricingPayload(pricing) {
-    if (!pricing || !Number.isInteger(pricing.version) ||
-        !pricing.plans || typeof pricing.plans !== 'object' ||
-        !pricing.addons || typeof pricing.addons !== 'object') return false;
+    if (!pricing || typeof pricing !== 'object' || Array.isArray(pricing) ||
+        !Number.isInteger(pricing.version) ||
+        !pricing.plans || typeof pricing.plans !== 'object' || Array.isArray(pricing.plans) ||
+        !pricing.addons || typeof pricing.addons !== 'object' || Array.isArray(pricing.addons)) return false;
 
-    var applied = 0;
+    var nextPlanPrices = {};
+    for (var i = 0; i < PLANS.length; i++) {
+      var plan = PLANS[i];
+      if (!Object.prototype.hasOwnProperty.call(pricing.plans, plan.id)) return false;
+      var planValue = pricing.plans[plan.id];
+      if (!Number.isFinite(planValue) || !Number.isInteger(planValue) || planValue < 1 || planValue > 5000) return false;
+      nextPlanPrices[plan.id] = planValue;
+    }
+
+    var nextAddonPrices = {};
+    for (var g = 0; g < ADDON_GROUPS.length; g++) {
+      var items = ADDON_GROUPS[g].items;
+      for (var a = 0; a < items.length; a++) {
+        var addon = items[a];
+        if (!Object.prototype.hasOwnProperty.call(pricing.addons, addon.id)) return false;
+        var addonValue = pricing.addons[addon.id];
+        if (!Number.isFinite(addonValue) || !Number.isInteger(addonValue) || addonValue < 0 || addonValue > 2000) return false;
+        nextAddonPrices[addon.id] = addonValue;
+      }
+    }
+
     PLANS.forEach(function (p) {
-      var value = pricing.plans[p.id];
-      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) return;
-      p.price = value;
-      applied++;
+      p.price = nextPlanPrices[p.id];
     });
-    ADDON_GROUPS.forEach(function (g) {
-      g.items.forEach(function (a) {
-        var value = pricing.addons[a.id];
-        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) return;
-        a.price = value;
-        applied++;
+    ADDON_GROUPS.forEach(function (group) {
+      group.items.forEach(function (addon) {
+        addon.price = nextAddonPrices[addon.id];
       });
     });
 
-    if (!applied) return false;
     pricingVersion = pricing.version;
     return true;
   }
@@ -715,7 +730,7 @@ Expected matches: **1**
 
 These are targeted Builder changes on top of the fourteen intake edits above. When copying the
 sandbox Builder into LiveCanvas, preserve these rules and the matching code from
-`public/memberships/index.html`:
+`public/careplan-builder/index.html`:
 
 - **Water Softener Service stays paid at $75 each.** Under Premier, selecting quantity `N`
   creates a separate **Water Softener Salt ×N** line marked **Included / $0**.

@@ -235,6 +235,20 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+#sc-cpb .cpb-masthead-audience {
+  margin: 9px 0 0;
+  max-width: 460px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: #5B6470;
+}
+#sc-cpb .cpb-masthead-audience a {
+  color: var(--cpb-maroon);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 
 /* ---------- Plan selector (segmented bar) ---------- */
@@ -903,6 +917,7 @@
   #sc-cpb .cpb-masthead-copy { width: auto; max-width: 100%; margin: 0; }
   #sc-cpb .cpb-masthead-title { font-size: 25px; white-space: normal; }
   #sc-cpb .cpb-masthead-tagline { margin-top: 5px; font-size: 8.5px; letter-spacing: .09em; white-space: normal; }
+  #sc-cpb .cpb-masthead-audience { margin-top: 7px; max-width: 330px; font-size: 10.5px; line-height: 1.3; }
   #sc-cpb .cpb-masthead-building { width: 82%; top: -42px; right: -116px; opacity: .45; }
   #sc-cpb .cpb-masthead::before { background: linear-gradient(90deg, #fff 0%, #fff 55%, rgba(255,255,255,.82) 68%, rgba(255,255,255,.15) 92%, transparent 100%); }
   #sc-cpb .cpb-masthead-swoosh { height: 75px; }
@@ -948,6 +963,7 @@
       <div class="cpb-masthead-copy">
         <h2 class="cpb-masthead-title">Service Care Plan Builder</h2>
         <p class="cpb-masthead-tagline">Choose the plan that's right for your home</p>
+        <p class="cpb-masthead-audience">Care Plans are for residential customers. Looking for commercial service? <a href="/services/commercial">See commercial services</a>.</p>
       </div>
     </div>
   </header>
@@ -1837,27 +1853,41 @@
   }
 
   function applyPricingPayload(pricing) {
-    if (!pricing || !Number.isInteger(pricing.version) ||
-        !pricing.plans || typeof pricing.plans !== 'object' ||
-        !pricing.addons || typeof pricing.addons !== 'object') return false;
+    if (!pricing || typeof pricing !== 'object' || Array.isArray(pricing) ||
+        !Number.isInteger(pricing.version) ||
+        !pricing.plans || typeof pricing.plans !== 'object' || Array.isArray(pricing.plans) ||
+        !pricing.addons || typeof pricing.addons !== 'object' || Array.isArray(pricing.addons)) return false;
 
-    var applied = 0;
+    var nextPlanPrices = {};
+    for (var i = 0; i < PLANS.length; i++) {
+      var plan = PLANS[i];
+      if (!Object.prototype.hasOwnProperty.call(pricing.plans, plan.id)) return false;
+      var planValue = pricing.plans[plan.id];
+      if (!Number.isFinite(planValue) || !Number.isInteger(planValue) || planValue < 1 || planValue > 5000) return false;
+      nextPlanPrices[plan.id] = planValue;
+    }
+
+    var nextAddonPrices = {};
+    for (var g = 0; g < ADDON_GROUPS.length; g++) {
+      var items = ADDON_GROUPS[g].items;
+      for (var a = 0; a < items.length; a++) {
+        var addon = items[a];
+        if (!Object.prototype.hasOwnProperty.call(pricing.addons, addon.id)) return false;
+        var addonValue = pricing.addons[addon.id];
+        if (!Number.isFinite(addonValue) || !Number.isInteger(addonValue) || addonValue < 0 || addonValue > 2000) return false;
+        nextAddonPrices[addon.id] = addonValue;
+      }
+    }
+
     PLANS.forEach(function (p) {
-      var value = pricing.plans[p.id];
-      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) return;
-      p.price = value;
-      applied++;
+      p.price = nextPlanPrices[p.id];
     });
-    ADDON_GROUPS.forEach(function (g) {
-      g.items.forEach(function (a) {
-        var value = pricing.addons[a.id];
-        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) return;
-        a.price = value;
-        applied++;
+    ADDON_GROUPS.forEach(function (group) {
+      group.items.forEach(function (addon) {
+        addon.price = nextAddonPrices[addon.id];
       });
     });
 
-    if (!applied) return false;
     pricingVersion = pricing.version;
     return true;
   }

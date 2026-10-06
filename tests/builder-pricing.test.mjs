@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const builder = readFileSync(join(here, "..", "public", "memberships", "index.html"), "utf8");
+const builder = readFileSync(join(here, "..", "public", "careplan-builder", "index.html"), "utf8");
 
 function extractArray(source, declaration) {
   const start = source.indexOf(declaration);
@@ -73,27 +73,133 @@ function fullPayload(h, version = 9) {
   return { version, updatedAt: null, plans, addons };
 }
 
-test("Builder applies a complete sane pricing payload and records its version", () => {
+function snapshotCatalog(h) {
+  return {
+    plans: Object.fromEntries(h.plans.map((plan) => [plan.id, plan.price])),
+    addons: Object.fromEntries(
+      h.groups.flatMap((group) => group.items.map((addon) => [addon.id, addon.price]))
+    ),
+    version: h.version(),
+  };
+}
+
+function assertCatalogUnchanged(h, before) {
+  assert.deepEqual(snapshotCatalog(h), before);
+}
+
+test("Builder applies a complete sane pricing payload atomically and ignores unknown extras", () => {
   const h = harness();
   const payload = fullPayload(h, 9);
   payload.plans.unknown = 9999;
   payload.addons.unknown = 9999;
+
   assert.equal(h.apply(payload), true);
   assert.equal(h.version(), 9);
-  assert.equal(h.plans.find((plan) => plan.id === "hvac").price, 270);
-  const qfc = h.groups.flatMap((group) => group.items).find((addon) => addon.id === "qfc");
-  assert.equal(qfc.price, 125);
+
+  h.plans.forEach((plan) => {
+    assert.equal(plan.price, payload.plans[plan.id], `plan ${plan.id} did not update`);
+  });
+  h.groups.forEach((group) => group.items.forEach((addon) => {
+    assert.equal(addon.price, payload.addons[addon.id], `add-on ${addon.id} did not update`);
+  }));
   assert.equal(h.plans.some((plan) => plan.id === "unknown"), false);
 });
 
-test("Builder rejects malformed known pricing without partially changing defaults", () => {
+test("Builder rejects a malformed known plan without changing any prices or version", () => {
   const h = harness();
-  const before = h.plans.map((plan) => plan.price);
+  const before = snapshotCatalog(h);
   const payload = fullPayload(h, 10);
-  payload.addons.qfc = "120";
+  payload.plans.premier = null;
+
   assert.equal(h.apply(payload), false);
-  assert.equal(h.version(), null);
-  assert.deepEqual(h.plans.map((plan) => plan.price), before);
+  assertCatalogUnchanged(h, before);
+});
+
+test("Builder rejects a malformed known add-on without changing any prices or version", () => {
+  const h = harness();
+  const before = snapshotCatalog(h);
+  const payload = fullPayload(h, 10);
+  payload.addons.qfc = "125";
+
+  assert.equal(h.apply(payload), false);
+  assertCatalogUnchanged(h, before);
+});
+
+test("Builder rejects a missing known plan without changing any prices or version", () => {
+  const h = harness();
+  const before = snapshotCatalog(h);
+  const payload = fullPayload(h, 10);
+  delete payload.plans.bundled;
+
+  assert.equal(h.apply(payload), false);
+  assertCatalogUnchanged(h, before);
+});
+
+test("Builder rejects a missing known add-on without changing any prices or version", () => {
+  const h = harness();
+  const before = snapshotCatalog(h);
+  const payload = fullPayload(h, 10);
+  delete payload.addons.mst;
+
+  assert.equal(h.apply(payload), false);
+  assertCatalogUnchanged(h, before);
+});
+
+test("Builder rejects out-of-range known prices atomically", () => {
+  const cases = [
+    { label: "plan below minimum", mutate: (payload) => { payload.plans.hvac = 0; } },
+    { label: "plan above maximum", mutate: (payload) => { payload.plans.hvac = 5001; } },
+    { label: "add-on below minimum", mutate: (payload) => { payload.addons.qfc = -1; } },
+    { label: "add-on above maximum", mutate: (payload) => { payload.addons.qfc = 2001; } },
+  ];
+
+  for (const entry of cases) {
+    const h = harness();
+    const before = snapshotCatalog(h);
+    const payload = fullPayload(h, 11);
+    entry.mutate(payload);
+
+    assert.equal(h.apply(payload), false, entry.label);
+    assertCatalogUnchanged(h, before);
+  }
+});
+
+test("Builder validates the full catalog before mutating earlier valid entries", () => {
+  const h = harness();
+  const before = snapshotCatalog(h);
+  const payload = fullPayload(h, 12);
+  const addons = h.groups.flatMap((group) => group.items);
+  const lastAddon = addons[addons.length - 1];
+
+  payload.addons[lastAddon.id] = "bad";
+
+  assert.equal(h.apply(payload), false);
+  assertCatalogUnchanged(h, before);
+});
+
+test("Builder keeps the previous pricing version and catalog when a later payload is invalid", () => {
+  const h = harness();
+  assert.equal(h.apply(fullPayload(h, 8)), true);
+  const before = snapshotCatalog(h);
+
+  const rejected = fullPayload(h, 9);
+  rejected.addons.mst = "bad";
+
+  assert.equal(h.apply(rejected), false);
+  assertCatalogUnchanged(h, before);
+  assert.equal(h.version(), 8);
+});
+
+test("Builder rejects structurally invalid plan/add-on collections", () => {
+  for (const badKey of ["plans", "addons"]) {
+    const h = harness();
+    const before = snapshotCatalog(h);
+    const payload = fullPayload(h, 13);
+    payload[badKey] = [];
+
+    assert.equal(h.apply(payload), false, `${badKey} array should be rejected`);
+    assertCatalogUnchanged(h, before);
+  }
 });
 
 test("Builder hardcodes a 1500ms timeout and fallback leaves pricingVersion null", () => {

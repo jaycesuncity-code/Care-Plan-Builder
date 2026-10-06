@@ -21,7 +21,8 @@ dashboard's JSON shape.
 /lib/admin/                           Access JWT verification; gated dashboard only
 /public/pricing/index.html             staff price editor (Access + passphrase speed bump)
 /public/index.html                    the dashboard itself (Pages build output dir)
-/public/memberships/index.html        SANDBOX mirror of the WordPress Care Plan Builder
+/public/memberships/index.html        NEW Memberships landing page — built by a separate branch (feature/memberships-landing-page)
+/public/careplan-builder/index.html    SANDBOX mirror of the residential WordPress Care Plan Builder
 /public/{hvac,plumbing,bundled,premier}-care-plan/  sandbox mirrors of the plan pages
 /migrations/0001_init_schema.sql      D1 schema
 /migrations/0002_seed_data.sql        4 sample submissions, for local dev/testing
@@ -139,9 +140,7 @@ GitHub repo exists (Pages project → Settings → Builds & deployments → conn
   `POST /api/care-plan-request` only.
 - **No `POST /api/submissions`.** Still true, and still intentional: creating a
   submission is `POST /api/care-plan-request`'s job.
-- **The sandbox pages are in this project.** `public/memberships/` and the four
-  `*-care-plan/` directories are mirrors of the WordPress pages, and
-  `functions/[[path]].js` + `public/404.html` exist only to keep sandbox links alive.
+- **The sandbox pages are in this project.** `public/careplan-builder/` is the residential Builder mirror; `public/memberships/` is the new landing page built by a separate branch (`feature/memberships-landing-page`); and the four `*-care-plan/` directories mirror the WordPress plan pages. `functions/[[path]].js` + `public/404.html` exist only to keep sandbox links alive.
   All of it is listed for deletion in `SETUP.md`'s launch section.
 - `migrations/0002_seed_data.sql` is 4 rows of realistic test data — useful for local
   dev, not meant to ship into the real database more than once. Re-running it will

@@ -42,6 +42,14 @@ environments, so there is nothing to restate today.
 
 ## 1. Local sandbox
 
+### Repo layout
+
+```text
+public/memberships/index.html        Memberships landing page — built by a separate branch (feature/memberships-landing-page)
+public/careplan-builder/index.html   residential Care Plan Builder
+public/{hvac,plumbing,bundled,premier}-care-plan/index.html
+```
+
 ```bash
 npm install
 cp .dev.vars.example .dev.vars     # already points at the local mocks
@@ -58,7 +66,7 @@ npm run dev                        # dashboard + both APIs, port 8788
 Then:
 
 - dashboard → <http://localhost:8788/>
-- the Builder → <http://localhost:8788/memberships/>
+- the Builder → <http://localhost:8788/careplan-builder/>
 
 Images: the Builder references `/img/*`, which lives in the WordPress media library,
 not this repo. The pages work without them (broken image icons only). The e2e suite
@@ -257,7 +265,7 @@ customer's submission.
 
 ## 7. Smoke test (sandbox, end to end)
 
-1. Open <https://care-plan-builder.pages.dev/memberships/>.
+1. Open <https://care-plan-builder.pages.dev/careplan-builder/>.
 2. Pick **Premier**, tick **Mini-Split Tune-Up**, raise **# of HVAC Systems** to 3.
    Sidebar total should read **$930/yr** (600 + 80 + 2 × 125).
 3. Confirm that this canonical selection shows **no** Water Softener Salt line and
@@ -396,7 +404,8 @@ Apply all 20 walkthrough steps to the LiveCanvas block if you haven't already.
 Once the WordPress pages are the real thing, delete from the dashboard project:
 
 ```
-public/memberships/index.html
+public/memberships/index.html        (Memberships landing page — built by a separate branch: feature/memberships-landing-page)
+public/careplan-builder/index.html   (residential Care Plan Builder)
 public/hvac-care-plan/index.html
 public/plumbing-care-plan/index.html
 public/bundled-care-plan/index.html
@@ -414,7 +423,7 @@ project and can be deleted here too. Keep `migrations/`, `tests/` (except the e2
 suite), `n8n/` and the docs.
 
 `tests/catalog-parity.test.mjs` and `tests/walkthrough.test.mjs` read
-`public/memberships/index.html`. If you delete the sandbox Builder, either point them
+`public/careplan-builder/index.html`. If you delete the sandbox Builder, either point them
 at a copy of the LiveCanvas block or drop them — but then nothing stops the WordPress
 Builder's prices from drifting away from `lib/intake/catalog.js`, which is the one
 piece of drift that quietly mis-bills customers. Keeping a copy of the block in the

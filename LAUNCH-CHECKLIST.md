@@ -5,7 +5,8 @@ Not part of the deploy. Keep this file out of `public/`.
 ## Repo layout (drag `public` and `functions` into the repo)
 
 ```
-public/memberships/index.html         Care Plan Builder (assumed slug, rename the folder if it differs)
+public/memberships/index.html         Memberships landing page — built by a separate branch (feature/memberships-landing-page)
+public/careplan-builder/index.html    Care Plan Builder
 public/hvac-care-plan/index.html
 public/plumbing-care-plan/index.html
 public/bundled-care-plan/index.html
@@ -17,6 +18,8 @@ functions/[[path]].js                 sandbox only: unmirrored links go to the l
 ```
 
 ## Before launch
+
+The `/memberships/` landing page is built by a separate branch (`feature/memberships-landing-page`); this checklist does not add separate launch steps for it.
 
 1. **Images.** Only the Care Plan Builder uses images (15 references, all start with `/img/`).
    Upload them to the WordPress media library, then find `/img/` and replace it with the
