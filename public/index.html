@@ -1103,9 +1103,9 @@ function renderTable(){
   tableBody.innerHTML = rows.map(row => `
     <tr data-id="${row.id}">
       <td class="date-cell">${formatDate(row.submittedAt)}</td>
-      <td class="name-cell">${row.name}</td>
-      <td class="phone-cell"><a class="phone-link" href="tel:${phoneHref(row.phone)}">${row.phone}</a></td>
-      <td>${row.plan}</td>
+      <td class="name-cell">${escapeHtml(row.name)}</td>
+      <td class="phone-cell"><a class="phone-link" href="tel:${phoneHref(row.phone)}">${escapeHtml(row.phone)}</a></td>
+      <td>${escapeHtml(row.plan)}</td>
       <td class="price-cell">$${row.total.toLocaleString()}</td>
       <td class="status-cell">
         <select class="status-select status-${statusClass(row.status)}" data-id="${row.id}">
@@ -1319,7 +1319,7 @@ function openDetail(id){
   });
 
   const priceRows = [`
-    <tr><td>${row.plan} (base)</td><td>${formatSubmissionPrice(row.basePrice)}</td></tr>
+    <tr><td>${escapeHtml(row.plan)} (base)</td><td>${formatSubmissionPrice(row.basePrice)}</td></tr>
   `];
 
   /* Only display the accepted prices stored with this submission. Add-on prices
@@ -1337,7 +1337,7 @@ function openDetail(id){
       const priceCell = line.includedFree ? "Included"
         : line.locked ? "Not charged"
         : formatSubmissionPrice(line.price);
-      priceRows.push(`<tr><td>${line.name}${qtyLabel}</td><td>${priceCell}</td></tr>`);
+      priceRows.push(`<tr><td>${escapeHtml(line.name)}${qtyLabel}</td><td>${priceCell}</td></tr>`);
     });
   }
 
