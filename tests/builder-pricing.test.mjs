@@ -1,3 +1,4 @@
+import { fixturePricing } from "./pricing-fixture.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -70,7 +71,7 @@ function fullPayload(h, version = 9) {
   const plans = {}, addons = {};
   h.plans.forEach((plan) => { plans[plan.id] = plan.price + 10; });
   h.groups.forEach((group) => group.items.forEach((addon) => { addons[addon.id] = addon.price + 5; }));
-  return { version, updatedAt: null, plans, addons };
+  return { version, updatedAt: null, plans, addons, text: fixturePricing().text };
 }
 
 function snapshotCatalog(h) {

@@ -509,10 +509,9 @@ same public intake project as the submit endpoint. Expected matches: **1**
 
 ```js
   /* ================= INTAKE CONFIG ============================================== */
-  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
-     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
-     public intake project, so this becomes an absolute https:// URL and that origin
-     must be listed in the endpoint's ALLOWED_ORIGINS. */
+  /* This Cloudflare-hosted copy is the permanent STAFF PRACTICE Builder. Its
+     endpoint forces is_test=1 server-side. The future WordPress/public copy must
+     point to the public project's /api/care-plan-request route instead. */
   var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
   /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
@@ -520,9 +519,9 @@ same public intake project as the submit endpoint. Expected matches: **1**
      the real site key (and add the live hostnames to the widget) at launch. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
 
-  /* Same public intake project as SUBMIT_ENDPOINT. At launch swap this to its
-     absolute /api/pricing URL too. */
-  var PRICING_ENDPOINT = '/api/pricing';
+  /* Staff: live D1 via /api/pricing. WordPress: use the public project's
+     absolute https://<public-host>/catalog.json static URL. */
+  var CATALOG_ENDPOINT = '/api/pricing';
   var pricingVersion = null;
   var pricingStatus = 'loading';
   var pricingLoad = null;
@@ -538,8 +537,6 @@ same public intake project as the submit endpoint. Expected matches: **1**
     root.setAttribute('data-pricing', status);
     $('pricing-status').innerHTML = status === 'unavailable' ? unavailablePricingHTML() :
       (status === 'loading' ? 'Loading current pricing…' : '');
-    $('pricing-retry').hidden = status === 'loading';
-    $('pricing-retry').textContent = status === 'ready' ? 'Refresh pricing' : 'Retry pricing';
     $('cta').disabled = status !== 'ready';
     renderCurrentPricing();
     if (status !== 'ready') addonModalPrice.textContent = '—';
@@ -598,12 +595,38 @@ and disables requests without displaying catalog seed prices. Expected matches: 
       }
     }
 
+    // Validate every text field before changing any price or name.
+    function cleanText(value, max) {
+      if (typeof value !== 'string' || /[<>\p{Cc}\p{Cf}\u2028\u2029]/u.test(value)) throw new Error('invalid catalog text');
+      var trimmed = value.trim();
+      if (!trimmed || trimmed.length > max) throw new Error('invalid catalog text');
+      return trimmed;
+    }
+    var nextText = { plans: {}, addons: {} };
+    try {
+      ['plans', 'addons'].forEach(function (key) {
+        if (!pricing.text || !pricing.text[key] || typeof pricing.text[key] !== 'object' || Array.isArray(pricing.text[key])) throw new Error('missing text');
+      });
+      PLANS.forEach(function (p) {
+        var t = pricing.text.plans[p.id];
+        if (!Object.prototype.hasOwnProperty.call(pricing.text.plans, p.id) || !t || Array.isArray(t)) throw new Error('missing text');
+        nextText.plans[p.id] = { full: cleanText(t.full, 60), name: cleanText(t.name, 20), tagline: cleanText(t.tagline, 400) };
+      });
+      ADDON_GROUPS.forEach(function (group) { group.items.forEach(function (a) {
+        var t = pricing.text.addons[a.id];
+        if (!Object.prototype.hasOwnProperty.call(pricing.text.addons, a.id) || !t || Array.isArray(t)) throw new Error('missing text');
+        nextText.addons[a.id] = { name: cleanText(t.name, 60), desc: cleanText(t.desc, 600) };
+      }); });
+    } catch (err) { return false; }
+
     PLANS.forEach(function (p) {
       p.price = nextPlanPrices[p.id];
+      Object.assign(p, nextText.plans[p.id]);
     });
     ADDON_GROUPS.forEach(function (group) {
       group.items.forEach(function (addon) {
         addon.price = nextAddonPrices[addon.id];
+        Object.assign(addon, nextText.addons[addon.id]);
       });
     });
 
@@ -621,7 +644,7 @@ and disables requests without displaying catalog seed prices. Expected matches: 
     });
     // The deadline covers both the request and JSON body, even if either stalls.
     pricingLoad = Promise.race([
-      fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
+      fetch(CATALOG_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
         .then(function (res) {
           if (!res.ok) throw new Error('pricing unavailable');
           return res.json();
@@ -638,8 +661,6 @@ and disables requests without displaying catalog seed prices. Expected matches: 
     });
     return pricingLoad;
   }
-
-  $('pricing-retry').addEventListener('click', loadPricingThenRender);
 
   (function initLeadModal() {
 ```

@@ -25,7 +25,7 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 .group{margin-bottom:18px}.group h3{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray-5);margin:0 0 8px}
 .price-grid{display:grid;gap:1px;background:var(--gray-2);border:1px solid var(--gray-2);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .price-row{background:#fff;display:grid;grid-template-columns:minmax(210px,1fr) 130px 180px;align-items:center;gap:16px;padding:13px 16px;transition:background .12s}.price-row.changed{background:#fff8e8}
-.label{font-weight:600}.current{color:var(--gray-5);font-variant-numeric:tabular-nums}.money-input{position:relative}.money-input span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-5)}
+.label{font-weight:600}.current{color:var(--gray-5);font-variant-numeric:tabular-nums}.money-input{position:relative}.money-input > span:not(.field-error){position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-5)}
 .money-input input{width:100%;padding:9px 10px 9px 25px;border:1px solid var(--gray-3);border-radius:6px;font:inherit;font-variant-numeric:tabular-nums}.money-input input:focus{outline:2px solid rgba(107,26,44,.18);border-color:var(--maroon)}
 .actions{display:flex;justify-content:flex-end;gap:10px;margin:18px 0}.btn{border-radius:6px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}.btn:disabled{opacity:.45;cursor:default}.btn-primary{background:var(--maroon);color:#fff}.btn-secondary{background:#fff;border-color:var(--gray-3)}
 .audit{margin-top:24px}.audit table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-2);box-shadow:var(--shadow)}.audit th,.audit td{padding:10px 12px;border-bottom:1px solid var(--gray-2);text-align:left;font-size:13px}.audit th{color:var(--gray-5);background:#fafafa}
@@ -33,6 +33,7 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 .modal-wrap[hidden]{display:none}.modal-wrap{position:fixed;inset:0;z-index:1000;background:rgba(20,20,22,.62);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}.modal{background:#fff;width:min(560px,100%);border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.28);padding:20px;margin:auto}.modal h2{margin:0 0 8px}.modal p{line-height:1.45;color:var(--gray-5)}.modal-list{margin:14px 0;padding-left:22px;max-height:42vh;overflow:auto}.warning{background:#fff2d8;border:1px solid #e5c46a;border-radius:6px;padding:10px 12px;color:#694d07}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .pass-field{display:flex;gap:8px;margin-top:14px}.pass-field input{flex:1;padding:10px;border:1px solid var(--gray-3);border-radius:6px;font:inherit}
 @media(max-width:700px){main{padding:14px}.intro-top{align-items:flex-start;flex-direction:column}.intro-actions{align-self:flex-end;flex-wrap:wrap}.price-row{grid-template-columns:1fr 110px}.label{grid-column:1}.current{grid-column:2}.money-input{grid-column:1/-1}.audit{overflow:auto}.topbar{padding:16px}}
+ .catalog-fields{grid-column:1/-1;display:grid;gap:10px;grid-template-columns:1fr 180px}.catalog-field{display:grid;gap:4px;font-size:13px;color:var(--gray-5)}.catalog-field input,.catalog-field textarea{width:100%;padding:9px;border:1px solid var(--gray-3);border-radius:6px;font:inherit;color:var(--gray-6)}.catalog-description{grid-column:1/-1}.catalog-field textarea{resize:vertical;min-height:65px}.counter{text-align:right;font-size:12px}.field-error{color:var(--danger)}[aria-invalid="true"]{border-color:var(--danger)!important}.modal-list li{overflow-wrap:anywhere;margin-bottom:8px}@media(max-width:700px){.catalog-fields{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -45,7 +46,7 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     <div class="intro-top">
       <div class="intro-copy">
         <h2>Pricing Editor</h2>
-        <p>Adjust the prices for care plans and add on&#39;s here, don&#39;t forget to save your changes.</p>
+        <p>Edit care plan and add-on names, descriptions and prices, then save your changes.</p>
       </div>
       <div class="intro-actions" role="toolbar" aria-label="Pricing actions"><button class="btn btn-secondary" id="resetAllBtn" disabled>Reset / Clear</button><button class="btn btn-primary" id="topReviewBtn" disabled>Save Changes</button></div>
     </div>
@@ -55,7 +56,7 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     <section class="group"><h3>Plans</h3><div class="price-grid" id="plans"></div></section>
     <section class="group"><h3>Add-ons</h3><div class="price-grid" id="addons"></div></section>
     <div class="actions"><button class="btn btn-primary" id="reviewBtn" disabled>Save Changes</button></div>
-    <section class="audit"><h3>Recent Price Changes</h3><div id="audit"></div></section>
+    <section class="audit"><h3>Recent Catalog Changes</h3><div id="audit"></div></section>
   </div>
 </main>
 
@@ -74,15 +75,15 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 
 <div class="modal-wrap" id="reviewModal" hidden role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
   <div class="modal">
-    <h2 id="reviewTitle">Review price changes</h2>
+    <h2 id="reviewTitle">Review catalog changes</h2>
     <p>Couldn't hurt to double check...</p>
     <ul class="modal-list" id="reviewList"></ul>
     <div class="warning" id="largeWarning" hidden>
       Dang, that's a pretty big change in price, you sure about that?
       <label style="display:block;margin-top:8px;font-weight:600"><input type="checkbox" id="largeConfirm"> I'm sure</label>
     </div>
-    <div id="conflictNotice" class="notice error" hidden>Someone else changed prices while you were reviewing. Current prices were reloaded below; your proposed prices were kept so you can review the differences again.</div>
-    <div class="modal-actions"><button class="btn btn-secondary" id="reviewCancel">Back</button><button class="btn btn-primary" id="saveBtn">Save Prices</button></div>
+    <div id="conflictNotice" class="notice error" hidden>Someone else changed the catalog while you were reviewing. Current values were reloaded; your proposed changes were kept for another review.</div>
+    <div class="modal-actions"><button class="btn btn-secondary" id="reviewCancel">Back</button><button class="btn btn-primary" id="saveBtn">Save Catalog</button></div>
   </div>
 </div>
 
@@ -94,6 +95,12 @@ main{max-width:1100px;margin:0 auto;padding:22px}
   var PASSPHRASE_SHA256 = 'de2ee0df2b6225cb6befb068ca9808177c2a9341741448f5c6e6489a934da382';
 
   var items = [], version = null, audit = [], proposed = {};
+  var publicCatalogUrl = '', publishConfigured = false, planNamesEditable = false, pollGeneration = 0;
+  function editableFields(item){return item.kind==='plan'?['price','label','shortLabel','description']:['price','label','description'];}
+  function currentValue(item,key){return key==='shortLabel'?item.short_label:item[key];}
+  function fieldLabel(key){return {price:'Price',label:'Name',shortLabel:'Short label',description:'Description'}[key];}
+  function fieldChanges(item){return editableFields(item).filter(function(key){return proposed[item.id][key]!==currentValue(item,key);});}
+
   var editor = document.getElementById('editor');
   var statusNotice = document.getElementById('statusNotice');
   var reviewBtn = document.getElementById('reviewBtn');
@@ -111,27 +118,29 @@ main{max-width:1100px;margin:0 auto;padding:22px}
   function esc(value){return String(value).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
   function money(n){return '$' + Number(n).toLocaleString('en-US');}
   function showStatus(message, kind){statusNotice.hidden=false;statusNotice.className='notice'+(kind?' '+kind:'');statusNotice.textContent=message;}
-  function changed(){return items.filter(function(item){return Number(proposed[item.id]) !== Number(item.price);});}
-
-  function renderRows(kind, targetId){
-    var rows = items.filter(function(item){return item.kind===kind;});
-    document.getElementById(targetId).innerHTML = rows.map(function(item){
-      var value = proposed[item.id] == null ? item.price : proposed[item.id];
-      var isChanged = Number(value) !== Number(item.price);
-      return '<div class="price-row'+(isChanged?' changed':'')+'" data-id="'+esc(item.id)+'">'+
-        '<div class="label">'+esc(item.label)+'</div>'+
-        '<div class="current">Current: '+money(item.price)+'</div>'+
-        '<label class="money-input"><span aria-hidden="true">$</span><input type="number" inputmode="numeric" step="1" min="'+(kind==='plan'?1:0)+'" max="'+(kind==='plan'?5000:2000)+'" aria-label="New price for '+esc(item.label)+'" data-price="'+esc(item.id)+'" value="'+esc(value)+'"></label>'+
-      '</div>';
+  function changed(){return items.filter(function(item){return fieldChanges(item).length>0;});}
+  function textField(item,key,max,textarea){
+    var value=proposed[item.id][key] || '', label=key==='label'&&item.kind==='plan'?'Full name':fieldLabel(key);
+    var attrs=(key==='label' && item.kind==='plan' && !planNamesEditable?' readonly title="Full plan renames need the pending database schema update."':'')+' data-field="'+key+'" data-item="'+esc(item.id)+'" maxlength="'+max+'" aria-label="'+esc(label+' for '+item.label)+'"';
+    return '<label class="catalog-field'+(textarea?' catalog-description':'')+'"><span>'+esc(label)+(key==='label' && item.kind==='plan' && !planNamesEditable?' (schema update pending)':'')+'</span>'+
+      (textarea?'<textarea'+attrs+' rows="2">'+esc(value)+'</textarea><span class="counter">'+value.length+' / '+max+'</span>':'<input'+attrs+' type="text" value="'+esc(value)+'">')+
+      '<span class="field-error"></span></label>';
+  }
+  function renderRows(kind,targetId){
+    document.getElementById(targetId).innerHTML=items.filter(function(item){return item.kind===kind;}).map(function(item){
+      return '<div class="price-row'+(fieldChanges(item).length?' changed':'')+'" data-id="'+esc(item.id)+'">'+
+        '<div class="label">'+esc(item.label)+'</div><div class="current">Current: '+money(item.price)+'</div>'+
+        '<label class="money-input"><span aria-hidden="true">$</span><input data-field="price" data-item="'+esc(item.id)+'" type="number" step="1" min="'+(kind==='plan'?1:0)+'" max="'+(kind==='plan'?5000:2000)+'" aria-label="New price for '+esc(item.label)+'" value="'+esc(proposed[item.id].price)+'"><span class="field-error"></span></label>'+
+        '<div class="catalog-fields">'+textField(item,'label',60,false)+(kind==='plan'?textField(item,'shortLabel',20,false):'')+textField(item,'description',kind==='plan'?400:600,true)+'</div></div>';
     }).join('');
   }
 
   function renderAudit(){
     var byId={};items.forEach(function(item){byId[item.id]=item;});
     var host=document.getElementById('audit');
-    if(!audit.length){host.innerHTML='<div class="card empty">No price changes have been recorded yet.</div>';return;}
+    if(!audit.length){host.innerHTML='<div class="card empty">No catalog changes have been recorded yet.</div>';return;}
     host.innerHTML='<table><thead><tr><th>When</th><th>Item</th><th>Change</th><th>Changed by</th></tr></thead><tbody>'+
-      audit.map(function(row){var item=byId[row.item_id];return '<tr><td>'+esc(new Date(row.changed_at).toLocaleString())+'</td><td>'+esc(item?item.label:row.item_id)+'</td><td>'+money(row.old_price)+' → '+money(row.new_price)+'</td><td>'+esc(row.changed_by)+'</td></tr>';}).join('')+
+      audit.map(function(row){var item=byId[row.item_id];return '<tr><td>'+esc(new Date(row.changed_at).toLocaleString())+'</td><td>'+esc(item?item.label:row.item_id)+'</td><td>'+esc(!row.field || row.field==='price' ? money(row.old_price)+' → '+money(row.new_price) : row.field==='description' ? 'Description updated' : (row.field==='short_label'?'Short label: ':'Name: ')+(row.old_value || '')+' → '+(row.new_value || ''))+'</td><td>'+esc(row.changed_by)+'</td></tr>';}).join('')+
       '</tbody></table>';
   }
 
@@ -151,8 +160,15 @@ main{max-width:1100px;margin:0 auto;padding:22px}
     items = Array.isArray(data.items)?data.items:[];
     audit = Array.isArray(data.audit)?data.audit:[];
     version = data.version;
+    planNamesEditable = data.planNamesEditable === true;
+    if(typeof data.publicCatalogUrl==='string')publicCatalogUrl=data.publicCatalogUrl;
+    if(typeof data.publishConfigured==='boolean')publishConfigured=data.publishConfigured;
     proposed = {};
-    items.forEach(function(item){proposed[item.id] = keepProposed && oldProposed[item.id] != null ? oldProposed[item.id] : item.price;});
+    items.forEach(function(item){
+      proposed[item.id]={};editableFields(item).forEach(function(key){
+        proposed[item.id][key]=keepProposed && oldProposed[item.id] && Object.prototype.hasOwnProperty.call(oldProposed[item.id],key)?oldProposed[item.id][key]:currentValue(item,key);
+      });
+    });
     editor.hidden=false;render();
   }
 
@@ -170,30 +186,34 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 
   function refreshChangedState(id, row) {
     var item=items.find(function(entry){return entry.id===id;});if(!item)return;
-    var isChanged=Number(proposed[id])!==Number(item.price);
+    var isChanged=fieldChanges(item).length>0;
     if(row)row.classList.toggle('changed',isChanged);
     updatePendingActions();
   }
   document.addEventListener('input',function(e){
-    var id=e.target && e.target.getAttribute('data-price');if(!id)return;
-    proposed[id]=e.target.value;
-    var row=e.target.closest('.price-row');
-    refreshChangedState(id,row);
+    var id=e.target && e.target.getAttribute('data-item'), key=e.target && e.target.getAttribute('data-field');if(!id||!key)return;
+    proposed[id][key]=key==='price'?(e.target.value===''?null:Number(e.target.value)):e.target.value;
+    e.target.removeAttribute('aria-invalid');
+    var label=e.target.closest('label'), error=label.querySelector('.field-error');if(error)error.textContent='';
+    var counter=label.querySelector('.counter');if(counter)counter.textContent=e.target.value.length+' / '+e.target.maxLength;
+    refreshChangedState(id,e.target.closest('.price-row'));
   });
 
   function resetAllUnsaved(){
-    items.forEach(function(item){proposed[item.id]=item.price;});
-    render();
+    items.forEach(function(item){editableFields(item).forEach(function(key){proposed[item.id][key]=currentValue(item,key);});});render();
   }
   resetAllBtn.addEventListener('click',resetAllUnsaved);
 
   function openReview(showConflict){
     var changes=changed(), large=false;
-    reviewList.innerHTML=changes.map(function(item){
-      var next=Number(proposed[item.id]), pct=item.price===0?(next===0?0:Infinity):Math.abs(next-item.price)/item.price;
-      if(pct>.25)large=true;
-      return '<li><strong>'+esc(item.label)+':</strong> '+money(item.price)+' → '+money(next)+'</li>';
-    }).join('');
+    reviewList.innerHTML=changes.map(function(item){return fieldChanges(item).map(function(key){
+      var before=currentValue(item,key), next=proposed[item.id][key];
+      if(key==='price'){
+        var pct=item.price===0?(next===0?0:Infinity):Math.abs(next-item.price)/item.price;if(pct>.25)large=true;
+        before=money(before);next=money(next);
+      }
+      return '<li><strong>'+esc(item.label)+' — '+esc(fieldLabel(key))+':</strong> '+esc(before)+' → '+esc(next)+'</li>';
+    }).join('');}).join('');
     largeWarning.hidden=!large;largeConfirm.checked=false;conflictNotice.hidden=!showConflict;
     reviewPreviouslyFocused=document.activeElement;reviewModal.hidden=false;
     document.getElementById('reviewCancel').focus();
@@ -211,17 +231,50 @@ main{max-width:1100px;margin:0 auto;padding:22px}
       var res=await fetch('/api/pricing-admin',{
         method:'PUT',
         headers:{'Content-Type':'application/json','X-Requested-With':'pricing-admin'},
-        body:JSON.stringify({expectedVersion:version,changes:changes.map(function(item){return {id:item.id,price:Number(proposed[item.id])};})})
+        body:JSON.stringify({expectedVersion:version,changes:changes.map(function(item){var change={id:item.id};fieldChanges(item).forEach(function(key){change[key]=proposed[item.id][key];});return change;})})
       });
       var data=await res.json().catch(function(){return {};});
       if(res.status===409){
-        applyData(data,true);saveBtn.disabled=false;saveBtn.textContent='Save Prices';openReview(true);return;
+        applyData(data,true);saveBtn.disabled=false;saveBtn.textContent='Save Catalog';openReview(true);return;
       }
-      if(!res.ok)throw new Error('Save failed');
-      closeReview();applyData(data,false);showStatus('Saved. Visitors will see the new prices within about 5 minutes.','success');
+      if(!res.ok){
+        Object.keys(data.fieldErrors || {}).forEach(function(path){
+          var match=path.match(/^changes\.(\d+)\.(\w+)$/), item=match && changes[Number(match[1])];if(!item)return;
+          var input=Array.from(editor.querySelectorAll('[data-field]')).find(function(el){return el.getAttribute('data-item')===item.id && el.getAttribute('data-field')===match[2];});
+          if(input){input.setAttribute('aria-invalid','true');input.closest('label').querySelector('.field-error').textContent=data.fieldErrors[path];}
+        });
+        closeReview();throw new Error('Save failed');
+      }
+      closeReview();applyData(data,false);publicationStatus(data);
     }catch(err){showStatus('Could not save pricing. Review your changes and try again.','error');}
-    finally{saveBtn.disabled=false;saveBtn.textContent='Save Prices';}
+    finally{saveBtn.disabled=false;saveBtn.textContent='Save Catalog';}
   });
+
+  function publicationStatus(data){
+    var generation=++pollGeneration;
+    if(data.publish && data.publish.status==='failed'){
+      showStatus('Saved, but the website update could not be started. Contact Jayce.','error');return;
+    }
+    if(!data.publish || data.publish.status==='not_configured' || !publicCatalogUrl){
+      showStatus("Saved. (Website publishing isn't set up yet.)",'success');return;
+    }
+    showStatus('Saved. The website will update in about 2 minutes.','success');
+    var deadline=Date.now()+300000, target=data.version, url=publicCatalogUrl;
+    async function poll(){
+      if(generation!==pollGeneration)return;
+      var controller=new AbortController(), timer=setTimeout(function(){controller.abort();},5000);
+      try{
+        var response=await fetch(url,{cache:'no-store',signal:controller.signal});
+        var value=await response.json();
+        if(generation!==pollGeneration)return;
+        if(response.ok && Number.isSafeInteger(value.version) && value.version>=target){showStatus('Live on the website ✓','success');return;}
+      }catch(err){}finally{clearTimeout(timer);}
+      if(generation!==pollGeneration)return;
+      if(Date.now()>=deadline){showStatus("Saved, but the website hasn't updated yet. Try saving again in a few minutes or contact Jayce.",'error');return;}
+      setTimeout(poll,Math.min(10000,deadline-Date.now()));
+    }
+    setTimeout(poll,10000);
+  }
 
   reviewModal.addEventListener('keydown',function(e){
     if(e.key==='Escape'){e.preventDefault();closeReview();}

@@ -11,13 +11,15 @@
     "db:query:local": "wrangler d1 execute care-plan-builder --local --command",
     "mock:n8n": "node tests/mock-services.mjs",
     "test": "npm run test:unit && npm run test:api",
-    "test:unit": "node --test tests/builder-pricing-state.test.mjs tests/intake-pricing-unavailable.test.mjs tests/pricing.test.mjs tests/pricing-endpoint.test.mjs tests/pricing-admin.test.mjs tests/builder-pricing.test.mjs tests/catalog-parity.test.mjs tests/n8n-workflow.test.mjs tests/walkthrough.test.mjs tests/dashboard-pricing.test.mjs tests/test-submissions.test.mjs",
+    "test:unit": "node --test tests/builder-pricing-state.test.mjs tests/intake-pricing-unavailable.test.mjs tests/pricing.test.mjs tests/pricing-endpoint.test.mjs tests/pricing-admin.test.mjs tests/builder-pricing.test.mjs tests/catalog-parity.test.mjs tests/n8n-workflow.test.mjs tests/walkthrough.test.mjs tests/dashboard-pricing.test.mjs tests/test-submissions.test.mjs tests/catalog-text.test.mjs tests/catalog-hydration.test.mjs tests/catalog-editor.test.mjs",
     "test:api": "node tests/run-integration.mjs",
     "test:e2e": "node tests/run-e2e.mjs",
-    "test:all": "npm run test:unit && npm run test:api && npm run test:e2e"
+    "test:all": "npm run test:unit && npm run test:api && npm run test:e2e",
+    "build:catalog": "node scripts/build-catalog.mjs"
   },
   "devDependencies": {
     "happy-dom": "^20.14.5",
     "wrangler": "^4.0.0"
-  }
+  },
+  "type": "module"
 }

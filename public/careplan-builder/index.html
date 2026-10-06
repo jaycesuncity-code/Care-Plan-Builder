@@ -1269,7 +1269,7 @@
   }
   function money(n) { if (pricingStatus !== 'ready') return '—'; return '$' + n.toLocaleString('en-US'); }
   function moneyCents(n) { if (pricingStatus !== 'ready') return '—'; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function normalizedQty(value, min, fallback, max) {
     if (String(value).trim() === '') return fallback;
     var n = Number(value);
@@ -1316,7 +1316,7 @@
     el.innerHTML =
       '<div class="cpb-detail-top">' +
         '<div>' +
-        '<h3 class="cpb-detail-name"><span class="cpb-name-accent">' + esc(p.name) + '</span> Care Plan</h3>' +
+        '<h3 class="cpb-detail-name"><span class="cpb-name-accent">' + esc(p.full) + '</span></h3>' +
         '<p class="cpb-detail-tagline">' + esc(p.tagline) + '</p></div>' +
       '</div>' +
       '<div class="cpb-section-label">' +
@@ -1848,9 +1848,9 @@
      the real site key (and add the live hostnames to the widget) at launch. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
 
-  /* Same public intake project as SUBMIT_ENDPOINT. At launch swap this to its
-     absolute /api/pricing URL too. */
-  var PRICING_ENDPOINT = '/api/pricing';
+  /* Staff: live D1 via /api/pricing. WordPress: use the public project's
+     absolute https://<public-host>/catalog.json static URL. */
+  var CATALOG_ENDPOINT = '/api/pricing';
   var pricingVersion = null;
   var pricingStatus = 'loading';
   var pricingLoad = null;
@@ -1907,12 +1907,38 @@
       }
     }
 
+    // Validate every text field before changing any price or name.
+    function cleanText(value, max) {
+      if (typeof value !== 'string' || /[<>\p{Cc}\p{Cf}\u2028\u2029]/u.test(value)) throw new Error('invalid catalog text');
+      var trimmed = value.trim();
+      if (!trimmed || trimmed.length > max) throw new Error('invalid catalog text');
+      return trimmed;
+    }
+    var nextText = { plans: {}, addons: {} };
+    try {
+      ['plans', 'addons'].forEach(function (key) {
+        if (!pricing.text || !pricing.text[key] || typeof pricing.text[key] !== 'object' || Array.isArray(pricing.text[key])) throw new Error('missing text');
+      });
+      PLANS.forEach(function (p) {
+        var t = pricing.text.plans[p.id];
+        if (!Object.prototype.hasOwnProperty.call(pricing.text.plans, p.id) || !t || Array.isArray(t)) throw new Error('missing text');
+        nextText.plans[p.id] = { full: cleanText(t.full, 60), name: cleanText(t.name, 20), tagline: cleanText(t.tagline, 400) };
+      });
+      ADDON_GROUPS.forEach(function (group) { group.items.forEach(function (a) {
+        var t = pricing.text.addons[a.id];
+        if (!Object.prototype.hasOwnProperty.call(pricing.text.addons, a.id) || !t || Array.isArray(t)) throw new Error('missing text');
+        nextText.addons[a.id] = { name: cleanText(t.name, 60), desc: cleanText(t.desc, 600) };
+      }); });
+    } catch (err) { return false; }
+
     PLANS.forEach(function (p) {
       p.price = nextPlanPrices[p.id];
+      Object.assign(p, nextText.plans[p.id]);
     });
     ADDON_GROUPS.forEach(function (group) {
       group.items.forEach(function (addon) {
         addon.price = nextAddonPrices[addon.id];
+        Object.assign(addon, nextText.addons[addon.id]);
       });
     });
 
@@ -1930,7 +1956,7 @@
     });
     // The deadline covers both the request and JSON body, even if either stalls.
     pricingLoad = Promise.race([
-      fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
+      fetch(CATALOG_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
         .then(function (res) {
           if (!res.ok) throw new Error('pricing unavailable');
           return res.json();

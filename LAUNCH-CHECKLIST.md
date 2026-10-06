@@ -43,3 +43,17 @@ The `/memberships/` landing page is built by a separate branch (`feature/members
 The future WordPress/public Builder must post to the live endpoint. The Cloudflare-hosted
 staff practice Builder remains in this repo and posts to the test endpoint. Both routes
 share `lib/intake/handle-request.js`; the browser never controls `is_test`.
+
+## Static catalog before public launch
+
+- [ ] Back up and inspect D1; apply additive 0008 only after checking pending migrations.
+- [ ] Back up and compare remote columns/indexes/triggers before applying approved `migrations/0009_submission_plan_names.sql`. It rebuilds submissions while preserving children/history/IDs. The editor safely blocks full-name changes until it is applied.
+- [ ] Each catalog-serving Pages project: build `node scripts/build-catalog.mjs`, output `public`, set the three D1-read build variables in SETUP.md.
+- [ ] Retain `public/_routes.json`'s `/catalog.json` exclusion and the static `_headers` block.
+- [ ] Create deploy hooks for the correct branches; store their comma-separated URLs only in the gated project's `CATALOG_DEPLOY_HOOK_URLS` secret.
+- [ ] Set gated `wrangler.toml [vars] PUBLIC_CATALOG_URL` to the public absolute `/catalog.json` URL.
+- [ ] Paste a fresh WordPress Builder, with `CATALOG_ENDPOINT = 'https://<public-host>/catalog.json'`, `SUBMIT_ENDPOINT = 'https://<public-host>/api/care-plan-request'`, and the real Turnstile sitekey. Staff copy keeps `/api/pricing` and `/api/test/care-plan-request`.
+- [ ] In all four pasted plan-page blocks, replace `CATALOG_URL` with the same public absolute `/catalog.json` URL. Keep root-relative navigation links and original wrappers.
+- [ ] Public repo: include the build script, `lib/intake/*`, static routes/headers, public assets and live intake wrapper; omit pricing-admin, lib/admin, staff pricing editor, dashboard/test routes and Access/deploy-hook secrets.
+- [ ] Confirm the public catalog is accessible without sign-in, has CORS `*`, and the version advances after an editor save. The gated project may remain fully protected by Access.
+- [ ] Verify a stale changed-price request returns 409 for review and a catalog outage blocks Builder submission. Marketing-page outages should retain their original content.

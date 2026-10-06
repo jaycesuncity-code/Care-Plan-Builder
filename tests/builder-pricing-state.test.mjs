@@ -17,7 +17,7 @@ function harness(fetchImpl) {
   // Execute the entire real Builder script against a DOM, not a copy of its handlers.
   w.eval(script);
   const q = selector => w.document.querySelector(selector);
-  return { w, q, root: q('#sc-cpb'), cta: q('[data-cpb="cta"]'), retry: q('[data-cpb="pricing-retry"]'),
+  return { w, q, root: q('#sc-cpb'), cta: q('[data-cpb="cta"]'),
     modal: q('#cpbLeadModal'), submit: q('#cpbLeadSubmitBtn'), close: () => w.happyDOM.close() };
 }
 function unavailable(h) {
@@ -79,42 +79,6 @@ for (const issue of ['network', 'http', 'json', 'malformed', 'missing-plan', 'mi
   });
 }
 
-test('failed refresh blocks an already-open modal; explicit retry restores prices and selections', async () => {
-  let mode = 'valid', posts = 0;
-  const h = harness(async url => {
-    if (String(url).includes('care-plan-request')) { posts++; return { ok: true, json: async () => ({}) }; }
-    if (mode === 'fail') throw new Error('offline');
-    return { ok: true, json: async () => fixturePricing({ plans: { premier: mode === 'retry' ? 650 : 600 } }) };
-  });
-  try {
-    await tick(); await tick();
-    h.q('[data-plan="premier"]').click();
-    h.q('[data-addon="wsv"]').click();
-    h.q('[data-addon="ros"]').click();
-    h.q('[data-coverage-qty="hvacSystems"] [data-qty-plus="hvacSystems"]').click();
-    const before = JSON.parse(h.root.getAttribute('data-selection'));
-    h.cta.click();
-    assert.equal(h.modal.hidden, false);
-    mode = 'fail'; h.retry.click();
-    assert.equal(h.submit.disabled, true);
-    assert.doesNotMatch(h.q('#cpbLeadRecap').textContent, /\$\d/);
-    await tick(); await tick();
-    unavailable(h);
-    assert.equal(h.q('#cpbLeadRecap a').getAttribute('href'), 'tel:5755269758');
-    h.q('#cpbLeadForm').dispatchEvent(new h.w.Event('submit', { bubbles: true, cancelable: true }));
-    assert.equal(posts, 0);
-    mode = 'retry'; h.retry.click(); await tick(); await tick();
-    assert.equal(h.root.getAttribute('data-pricing'), 'ready');
-    assert.equal(h.cta.disabled, false);
-    assert.equal(h.submit.disabled, false);
-    const after = JSON.parse(h.root.getAttribute('data-selection'));
-    assert.equal(after.planId, before.planId);
-    assert.deepEqual(after.addons, before.addons);
-    assert.equal(after.total, before.total + 50);
-    assert.match(h.q('#cpbLeadRecap').textContent, new RegExp('\\$' + after.total));
-  } finally { await h.close(); }
-});
-
 for (const responseType of ['unavailable', 'invalid-conflict', 'valid-conflict']) {
   test(`intake ${responseType} response blocks acceptance or requires fresh review`, async () => {
     let posts = 0;
@@ -143,3 +107,22 @@ for (const responseType of ['unavailable', 'invalid-conflict', 'valid-conflict']
     } finally { await h.close(); }
   });
 }
+
+test('409 refresh preserves the selected plan and quantities while requiring another review', async () => {
+  let posts=0;
+  const h=harness(async url=>{
+    if(!String(url).includes('care-plan-request'))return {ok:true,json:async()=>fixturePricing()};
+    posts++;const pricing=fixturePricing({plans:{premier:650}});pricing.version=2;
+    return {ok:false,status:409,json:async()=>({error:{code:'PRICES_CHANGED'},pricing})};
+  });
+  try{
+    await tick();await tick();h.q('[data-plan="premier"]').click();h.q('[data-addon="wsv"]').click();
+    h.q('[data-coverage-qty="hvacSystems"] [data-qty-plus="hvacSystems"]').click();
+    const before=JSON.parse(h.root.getAttribute('data-selection'));
+    h.cta.click();h.q('#cpbLeadName').value='Test';h.q('#cpbLeadPhone').value='5755550142';h.q('#cpbLeadAddress').value='1 St';h.q('#cpbLeadAck').checked=true;
+    h.q('#cpbLeadForm').dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
+    const after=JSON.parse(h.root.getAttribute('data-selection'));
+    assert.equal(posts,1);assert.equal(after.planId,before.planId);assert.deepEqual(after.addons,before.addons);assert.equal(after.total,before.total+50);
+    assert.equal(h.q('#cpbLeadConfirm').hidden,true);assert.match(h.q('#cpbLeadFormError').textContent,/review your updated total/);
+  }finally{await h.close();}
+});

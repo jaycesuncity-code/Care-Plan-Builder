@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestPost } from '../functions/api/care-plan-request.js';
-import { fixturePricing } from './pricing-fixture.mjs';
+import { fixturePricing, fixtureRows } from './pricing-fixture.mjs';
 
 const lead = { planId: 'premier', addons: [{ id: 'wsv', quantity: 2 }, { id: 'ros', quantity: 1 }],
   customerName: 'Test', phone: '5755550142', address: '1 Test St', turnstileToken: 'test',
@@ -22,8 +22,7 @@ function database(issue) {
       if (issue === 'down') throw new Error('D1 unavailable');
       if (statements.some(s => /INSERT/.test(s.sql))) { db.writes++; return []; }
       return [{ results: [{ version: issue === 'invalid-version' ? null : 2 }] }, {
-        results: Object.entries(prices.plans).map(([id, price]) => ({ id: 'plan:' + id, kind: 'plan', price }))
-          .concat(Object.entries(prices.addons).map(([id, price]) => ({ id: 'addon:' + id, kind: 'addon', price })))
+        results: fixtureRows(prices)
       }];
     }
   };

@@ -64,3 +64,12 @@ DEV_ADMIN_EMAIL="local-editor@example.com"
 # TEST ONLY — lets automated tests point JWT verification at a local JWKS.
 # Leave unset in production so https://<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs is used.
 # ACCESS_JWKS_URL="http://127.0.0.1:8799/access/jwks"
+
+# --- Catalog publishing (gated dashboard only; leave blank locally) ---------
+CATALOG_DEPLOY_HOOK_URLS=""
+PUBLIC_CATALOG_URL=""
+# BUILD environment only, on each Pages project generating catalog.json.
+# Set through the Pages build environment; .dev.vars is not read by the Node build.
+# CLOUDFLARE_API_TOKEN="replace-with-D1-read-only-token"
+# CLOUDFLARE_ACCOUNT_ID="replace-with-account-id"
+# D1_DATABASE_ID="2c79b253-9f8d-4441-b2ca-6666ac23196a"

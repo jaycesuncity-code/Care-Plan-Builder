@@ -1,13 +1,8 @@
-// GET /api/pricing — public, read-only price feed for the Care Plan Builder.
-// Cache API entries are per Cloudflare data center and cannot be purged globally,
-// so an admin edit can take up to this TTL to become visible at every edge.
+// GET /api/pricing — live D1 catalog for the gated staff Builder.
+// WordPress uses static /catalog.json instead; intake always reads D1 directly.
 
 import { classifyOrigin, errorResponse } from "../../lib/intake/http.js";
-import { assertPriceMap } from "../../lib/intake/catalog.js";
-import { loadPricing } from "../../lib/intake/pricing.js";
-
-export const PRICING_CACHE_SECONDS = 300;
-const PRICING_CACHE_KEY = "https://pricing-cache.invalid/care-plan-pricing-v2";
+import { loadCatalog } from "../../lib/intake/pricing.js";
 
 function publicCors(originInfo) {
   const headers = { Vary: "Origin" };
@@ -20,7 +15,7 @@ function pricingResponse(body, originInfo, { status = 200, cacheControl } = {}) 
     status,
     headers: {
       "content-type": "application/json",
-      "cache-control": cacheControl || "public, max-age=60, s-maxage=300",
+      "cache-control": cacheControl || "no-store",
       ...publicCors(originInfo),
     },
   });
@@ -70,22 +65,8 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const cache = caches.default;
-    const cacheKey = new Request(PRICING_CACHE_KEY);
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      const body = await cached.text();
-      const pricing = JSON.parse(body);
-      assertPriceMap(pricing);
-      if (!Number.isSafeInteger(pricing.version) || pricing.version < 1) throw new Error("pricing unavailable");
-      return pricingResponse(body, originInfo);
-    }
-
-    const pricing = await loadPricing(env.DB);
-    const body = JSON.stringify(pricing);
-    const cacheable = pricingResponse(body, { kind: "none", origin: null });
-    await cache.put(cacheKey, cacheable.clone());
-    return pricingResponse(body, originInfo);
+    const catalog = await loadCatalog(env.DB);
+    return pricingResponse(JSON.stringify(catalog), originInfo);
   } catch {
     return pricingResponse(
       JSON.stringify({ ok: false, code: "PRICING_UNAVAILABLE", error: "Current pricing is unavailable." }),

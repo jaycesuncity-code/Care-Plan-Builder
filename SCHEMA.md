@@ -180,3 +180,38 @@ persistence. Unknown pre-0007 rows remain live by default. The four rows created
 documented `0002` seed migration are marked test only when their exact fixture identity
 matches. Test rows are retained and surfaced by the dashboard; they are not identified by
 id ranges.
+
+## 0008 — editor-managed catalog text
+
+`0008_catalog_text.sql` is additive and never touches submissions or child tables.
+It backfills the current Builder strings character for character; it does not change prices.
+
+| Table | New column | Meaning |
+|---|---|---|
+| pricing_items | short_label TEXT | Plan tab label; NULL for add-ons |
+| pricing_items | description TEXT | Plan tagline or add-on description |
+| pricing_audit | field TEXT NOT NULL DEFAULT 'price' | price, label, short_label or description |
+| pricing_audit | old_value TEXT / new_value TEXT | Per-field history, including price changes |
+
+`label` remains the plan full name or add-on name. Price audits retain old_price/new_price;
+text audits set those two columns to NULL. One accepted save changes the catalog version once.
+`loadCatalog` returns the existing price maps plus `text.plans[id].{full,name,tagline}` and
+`text.addons[id].{name,desc}`. Missing or invalid required fields make the catalog unavailable.
+
+## 0009 — approved full plan-name correction
+
+The original `submissions.plan` CHECK accepts only four literal names. Approved migration
+`migrations/0009_submission_plan_names.sql` replaces that restriction with a bounded
+plain-text CHECK (1–60 characters, nonempty after trim, no angle brackets). Intake still
+validates names through the complete live D1 catalog; pricing rules remain based on IDs.
+
+SQLite cannot ALTER a CHECK, so 0009 rebuilds `submissions`. It preserves historical values,
+all child rows and their flags, submission classification, indexes, IDs and the AUTOINCREMENT
+high-water mark. Existing names are not rewritten. The remaining best_time/status/is_test
+checks remain intact. Isolated tests and the local D1 integration suite verify the migration.
+
+Compare remote columns, indexes and triggers with the repository before applying it; any
+extra columns or auth-related schema require an adapted migration. Back up first and pause
+intake writes during the operation. The editor keeps full names read-only and rejects
+unsupported renames before writing until the updated CHECK is detected. Do not rewrite
+already-applied migrations.

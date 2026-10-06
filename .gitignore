@@ -13,3 +13,6 @@ node_modules/
 tests/.tmp/
 *.log
 .DS_Store
+
+/public/catalog.json
+/public/catalog.json.tmp

@@ -7,6 +7,7 @@
 // "Replace with" block is present verbatim in the sandbox Builder, and that no
 // "Find this" block still is (which would mean a step was never applied here).
 
+import { fixturePricing } from "./pricing-fixture.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -59,7 +60,7 @@ test("no step's original text is still in the sandbox Builder", () => {
 
 test("the launch constants the walkthrough promises are really there", () => {
   assert.match(builder, /var SUBMIT_ENDPOINT = '\/api\/test\/care-plan-request';/);
-  assert.match(builder, /var PRICING_ENDPOINT = '\/api\/pricing';/);
+  assert.match(builder, /var CATALOG_ENDPOINT = '\/api\/pricing';/);
   assert.match(builder, /var pricingVersion = null;/);
   assert.match(builder, /var TURNSTILE_SITEKEY = '1x00000000000000000000AA';/);
   // And they are adjacent, which is the whole point of step 5.
@@ -153,6 +154,7 @@ test("the Builder rejects malformed known pricing atomically and ignores unknown
 
   const applied = harness.applyPricingPayload({
     version: 10,
+    text: fixturePricing().text,
     plans: { hvac: 300, premier: 650, unknownPlan: 9999 },
     addons: { qfc: 135, mst: 95, unknownAddon: 9999 },
   });

@@ -799,10 +799,6 @@ header.topbar .env-tag:hover{
       <select id="statusFilter"><!-- options filled by JS, depends on view --></select>
       <select id="planFilter">
         <option value="all">All plans</option>
-        <option value="HVAC Care Plan">HVAC Care Plan</option>
-        <option value="Plumbing Care Plan">Plumbing Care Plan</option>
-        <option value="Bundled Care Plan">Bundled Care Plan</option>
-        <option value="Premier Care Plan">Premier Care Plan</option>
       </select>
       <span class="result-count" id="resultCount"></span>
     </div>
@@ -1007,12 +1003,22 @@ function showErrorState(err){
   if(retryBtn) retryBtn.addEventListener("click", loadSubmissions);
 }
 
+function refreshPlanOptions() {
+  const select = document.getElementById("planFilter");
+  const names = [...new Set(SUBMISSIONS.map(row => row.plan).filter(name => typeof name === "string" && name))].sort();
+  const option = (label, value) => { const el = document.createElement("option"); el.textContent = label; el.value = value; return el; };
+  select.replaceChildren(option("All plans", "all"), ...names.map(name => option(name, name)));
+  if (!names.includes(planFilter)) planFilter = "all";
+  select.value = planFilter;
+}
+
 async function loadSubmissions(){
   showLoadingState();
   try {
     const res = await fetch("/api/submissions");
     if(!res.ok) throw new Error(`Request failed (${res.status})`);
     SUBMISSIONS = await res.json();
+    refreshPlanOptions();
     renderStatusFilterOptions();
     renderNav();
     renderStats();

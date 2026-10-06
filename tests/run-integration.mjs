@@ -64,7 +64,7 @@ async function main() {
   await resetData();
 
   // =========================================================================
-  await withPages({}, async () => {
+  await withPages({ DEV_ADMIN_EMAIL: "local-editor@example.com" }, async () => {
     group("A1 — CORS");
     await mockReset();
 
@@ -367,6 +367,48 @@ async function main() {
 
     await d1("UPDATE pricing_items SET price = 260 WHERE id = 'plan:hvac'");
     await d1("UPDATE pricing_meta SET version = 1, updated_at = datetime('now') WHERE id = 1");
+
+    group("A4c — catalog editor text fields and live feed");
+    const adminUrl = `${BASE}/api/pricing-admin`;
+    const adminBefore = await (await fetch(adminUrl)).json();
+    const originalItem = adminBefore.items.find(item => item.id === 'plan:hvac');
+    check("admin GET includes plan short label", typeof originalItem.short_label === 'string');
+    check("admin GET includes description", typeof originalItem.description === 'string');
+    checkEqual("publishing is unconfigured locally", adminBefore.publishConfigured, false);
+    async function catalogPut(changes, expectedVersion) {
+      return fetch(adminUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'pricing-admin' }, body: JSON.stringify({ changes, expectedVersion }) });
+    }
+    const catalogSave = await catalogPut([{ id: 'plan:hvac', label: 'Renamed HVAC Plan', shortLabel: 'Comfort', description: 'Updated catalog description' }], adminBefore.version);
+    const catalogSaved = await catalogSave.json();
+    checkEqual("text-only catalog save succeeds", catalogSave.status, 200);
+    checkEqual("text-only save bumps once", catalogSaved.version, adminBefore.version + 1);
+    checkEqual("catalog save returns publication status", catalogSaved.publish.status, 'not_configured');
+    const catalogFeed = await (await fetch(`${BASE}/api/pricing`)).json();
+    checkEqual("live pricing includes edited full name", catalogFeed.text.plans.hvac.full, 'Renamed HVAC Plan');
+    checkEqual("live pricing includes edited short label", catalogFeed.text.plans.hvac.name, 'Comfort');
+    checkEqual("live pricing includes edited description", catalogFeed.text.plans.hvac.tagline, 'Updated catalog description');
+    checkEqual("text-only save keeps base price", catalogFeed.plans.hvac, 260);
+    const fieldAudits = catalogSaved.audit.filter(row => row.item_id === 'plan:hvac');
+    checkEqual("catalog audit records three changed fields", fieldAudits.length, 3);
+    checkEqual("catalog audit field values", fieldAudits.map(row => row.field).sort(), ['description','label','short_label']);
+    const addonLabel = await catalogPut([{id:'addon:qfc',shortLabel:'Bad'}], catalogSaved.version);
+    checkEqual("API rejects short labels on add-ons", addonLabel.status, 400);
+    const unsafeText = await catalogPut([{id:'plan:hvac',description:'line one\nline two'}], catalogSaved.version);
+    checkEqual("API rejects description controls", unsafeText.status, 400);
+    const staleText = await catalogPut([{id:'plan:hvac',description:'Should not save'}], adminBefore.version);
+    checkEqual("catalog text edits enforce expectedVersion", staleText.status, 409);
+    checkEqual("0009 enables full plan-name editing", catalogSaved.planNamesEditable, true);
+    await mockReset();
+    const renamedSubmission = await postIntake({ ...VALID_LEAD, planId:'hvac',addons:[],basePrice:260,total:260,pricingVersion:catalogSaved.version }, {ip:'203.0.113.34'});
+    checkEqual("renamed plan intake succeeds", renamedSubmission.status, 201);
+    const renamedRow = await rowFor(renamedSubmission.body.submissionId);
+    checkEqual("intake persists the D1 plan name", renamedRow.plan, 'Renamed HVAC Plan');
+    await sleep(250);
+    const renamedEmail = await mockReceived();
+    checkEqual("office notification uses D1 plan name", renamedEmail.received[0]?.payload?.plan?.name, 'Renamed HVAC Plan');
+    const catalogRestore = await catalogPut([{id:'plan:hvac',label:originalItem.label,shortLabel:originalItem.short_label,description:originalItem.description}], catalogSaved.version);
+    checkEqual("catalog fixture restores successfully", catalogRestore.status, 200);
+    await d1("UPDATE pricing_meta SET version = 1 WHERE id = 1; DELETE FROM pricing_audit;");
 
     group("A5 — validation");
     const before = (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c;

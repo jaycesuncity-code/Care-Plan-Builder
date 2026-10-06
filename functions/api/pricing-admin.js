@@ -1,6 +1,7 @@
 // Authenticated pricing editor API. This file belongs only in the gated dashboard
 // project; the public intake project must never contain pricing write code.
 
+import { validateCatalogString, PLANS } from "../../lib/intake/catalog.js";
 import { authenticatePricingEditor } from "../../lib/admin/access.js";
 
 export const PLAN_PRICE_MIN = 1;
@@ -23,14 +24,15 @@ function error(status, code, message, fieldErrors) {
 }
 
 async function loadAdminData(db) {
-  const [metaResult, itemsResult, auditResult] = await db.batch([
+  const [metaResult, itemsResult, auditResult, schemaResult] = await db.batch([
     db.prepare("SELECT version, updated_at FROM pricing_meta WHERE id = 1"),
     db.prepare(
-      "SELECT id, kind, label, price, updated_at, updated_by FROM pricing_items ORDER BY kind DESC, label, id"
+      "SELECT id, kind, label, short_label, description, price, updated_at, updated_by FROM pricing_items ORDER BY kind DESC, label, id"
     ),
     db.prepare(
-      "SELECT id, item_id, old_price, new_price, changed_by, changed_at FROM pricing_audit ORDER BY id DESC LIMIT 25"
+      "SELECT id, item_id, field, old_value, new_value, old_price, new_price, changed_by, changed_at FROM pricing_audit ORDER BY id DESC LIMIT 25"
     ),
+    db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'submissions'"),
   ]);
   const meta = (metaResult.results || [])[0];
   if (!meta) throw new Error("pricing metadata missing");
@@ -39,6 +41,8 @@ async function loadAdminData(db) {
     updatedAt: meta.updated_at || null,
     items: itemsResult.results || [],
     audit: auditResult.results || [],
+    // SQLite cannot ALTER a CHECK. Fail closed until the separately reviewed schema change exists.
+    planNamesEditable: Boolean(schemaResult?.results?.[0]?.sql) && !/CHECK\s*\(\s*plan\s+IN\s*\(/i.test(schemaResult.results[0].sql),
   };
 }
 
@@ -63,11 +67,11 @@ function validateChanges(body, data) {
 
   const changes = body.changes;
   if (!Array.isArray(changes) || changes.length === 0) {
-    fieldErrors.changes = "Choose at least one price to change.";
+    fieldErrors.changes = "Choose at least one catalog field to change.";
     return { ok: false, fieldErrors };
   }
   if (changes.length > MAX_CHANGES) {
-    fieldErrors.changes = `No more than ${MAX_CHANGES} prices can be changed at once.`;
+    fieldErrors.changes = `No more than ${MAX_CHANGES} items can be changed at once.`;
     return { ok: false, fieldErrors };
   }
 
@@ -91,19 +95,38 @@ function validateChanges(body, data) {
     }
     seen.add(id);
 
-    if (typeof change.price !== "number" || !Number.isInteger(change.price)) {
-      fieldErrors[`${prefix}.price`] = "Price must be a whole-number dollar amount.";
-      return;
-    }
-
     const item = items.get(id);
-    const min = item.kind === "plan" ? PLAN_PRICE_MIN : ADDON_PRICE_MIN;
-    const max = item.kind === "plan" ? PLAN_PRICE_MAX : ADDON_PRICE_MAX;
-    if (change.price < min || change.price > max) {
-      fieldErrors[`${prefix}.price`] = `Price must be between $${min} and $${max}.`;
-      return;
+    const fields = [];
+    for (const key of Object.keys(change)) {
+      if (!["id", "price", "label", "shortLabel", "description"].includes(key)) fieldErrors[`${prefix}.${key}`] = "Unknown catalog field.";
     }
-    valid.push({ id, price: change.price, currentPrice: Number(item.price) });
+    for (const [key, field] of [["price", "price"], ["label", "label"], ["shortLabel", "short_label"], ["description", "description"]]) {
+      if (!Object.hasOwn(change, key)) continue;
+      let value = change[key];
+      if (key === "price") {
+        const min = item.kind === "plan" ? PLAN_PRICE_MIN : ADDON_PRICE_MIN;
+        const max = item.kind === "plan" ? PLAN_PRICE_MAX : ADDON_PRICE_MAX;
+        if (!Number.isInteger(value) || value < min || value > max) {
+          fieldErrors[`${prefix}.${key}`] = `Price must be a whole dollar amount between $${min} and $${max}.`;
+          continue;
+        }
+      } else {
+        if (key === "shortLabel" && item.kind !== "plan") {
+          fieldErrors[`${prefix}.${key}`] = "Short labels are only allowed for plans.";
+          continue;
+        }
+        const max = key === "label" ? 60 : key === "shortLabel" ? 20 : item.kind === "plan" ? 400 : 600;
+        try { value = validateCatalogString(value, max); }
+        catch { fieldErrors[`${prefix}.${key}`] = `Enter plain text of 1–${max} characters without markup or control characters.`; continue; }
+      }
+      if (key === "label" && item.kind === "plan" && !data.planNamesEditable && !PLANS.some(plan => plan.full === value)) {
+        fieldErrors[`${prefix}.${key}`] = "Full plan renames need the pending database schema update. Contact Jayce; this change was not saved.";
+        continue;
+      }
+      fields.push({ field, value, current: item[field] });
+    }
+    if (!fields.length && !Object.keys(fieldErrors).some(key => key.startsWith(prefix + "."))) fieldErrors[prefix] = "Include at least one catalog field.";
+    valid.push({ id, fields });
   });
 
   return Object.keys(fieldErrors).length ? { ok: false, fieldErrors } : { ok: true, changes: valid };
@@ -120,13 +143,35 @@ async function currentConflict(db) {
   );
 }
 
+function publishConfig(env) {
+  return { publicCatalogUrl: String(env.PUBLIC_CATALOG_URL || "").trim(),
+    publishConfigured: Boolean(String(env.CATALOG_DEPLOY_HOOK_URLS || "").trim()) };
+}
+
+async function triggerPublish(env) {
+  const urls = String(env.CATALOG_DEPLOY_HOOK_URLS || "").split(",").map(url => url.trim()).filter(Boolean);
+  if (!urls.length) return { status: "not_configured" };
+  const results = await Promise.all(urls.map(async url => {
+    const controller = new AbortController();
+    let timer;
+    try {
+      const timeout = new Promise(resolve => { timer = setTimeout(() => { controller.abort(); resolve(false); }, 5000); });
+      return await Promise.race([
+        fetch(url, { method: "POST", signal: controller.signal, redirect: "error" }).then(response => response.ok, () => false), timeout,
+      ]);
+    } catch { return false; }
+    finally { clearTimeout(timer); }
+  }));
+  return { status: results.every(Boolean) ? "triggered" : "failed" };
+}
+
 export async function onRequestGet({ request, env }) {
   const auth = await authorize(request, env);
   if (auth.response) return auth.response;
   if (!env.DB) return error(503, "PRICING_UNAVAILABLE", "Pricing is temporarily unavailable.");
 
   try {
-    return json(await loadAdminData(env.DB));
+    return json({ ...await loadAdminData(env.DB), ...publishConfig(env) });
   } catch {
     return error(503, "PRICING_UNAVAILABLE", "Pricing is temporarily unavailable.");
   }
@@ -156,27 +201,28 @@ export async function onRequestPut({ request, env }) {
   if (!validated.ok) return error(400, "VALIDATION_FAILED", "Check the highlighted pricing changes.", validated.fieldErrors);
   if (body.expectedVersion !== data.version) return currentConflict(env.DB);
 
-  const changed = validated.changes.filter((change) => change.price !== change.currentPrice);
-  if (!changed.length) return json(data);
+  const changed = validated.changes.flatMap(change => change.fields
+    .filter(entry => entry.value !== entry.current).map(entry => ({ id: change.id, ...entry })));
+  // A reviewed no-op save can retrigger a previously failed publication without an audit/version bump.
+  if (!changed.length) return json({ ...data, ...publishConfig(env), publish: await triggerPublish(env) });
 
   const statements = [];
   for (const change of changed) {
-    statements.push(
-      env.DB.prepare(
-        `INSERT INTO pricing_audit (item_id, old_price, new_price, changed_by, changed_at)
-         SELECT id, price, ?, ?, datetime('now') FROM pricing_items
-          WHERE id = ? AND price <> ?
-            AND (SELECT version FROM pricing_meta WHERE id = 1) = ?`
-      ).bind(change.price, auth.email, change.id, change.price, body.expectedVersion)
-    );
-    statements.push(
-      env.DB.prepare(
-        `UPDATE pricing_items
-            SET price = ?, updated_at = datetime('now'), updated_by = ?
-          WHERE id = ? AND price <> ?
-            AND (SELECT version FROM pricing_meta WHERE id = 1) = ?`
-      ).bind(change.price, auth.email, change.id, change.price, body.expectedVersion)
-    );
+    // Column names are fixed by validateChanges; never interpolate request keys.
+    const column = change.field;
+    statements.push(env.DB.prepare(
+      `INSERT INTO pricing_audit (item_id, field, old_value, new_value, old_price, new_price, changed_by, changed_at)
+       SELECT id, ?, CAST(${column} AS TEXT), ?,
+              CASE WHEN ? = 'price' THEN price ELSE NULL END,
+              CASE WHEN ? = 'price' THEN ? ELSE NULL END, ?, datetime('now')
+         FROM pricing_items WHERE id = ? AND ${column} IS NOT ?
+           AND (SELECT version FROM pricing_meta WHERE id = 1) = ?`
+    ).bind(column, String(change.value), column, column, change.value, auth.email, change.id, change.value, body.expectedVersion));
+    statements.push(env.DB.prepare(
+      `UPDATE pricing_items SET ${column} = ?, updated_at = datetime('now'), updated_by = ?
+        WHERE id = ? AND ${column} IS NOT ?
+          AND (SELECT version FROM pricing_meta WHERE id = 1) = ?`
+    ).bind(change.value, auth.email, change.id, change.value, body.expectedVersion));
   }
   statements.push(
     env.DB.prepare(
@@ -201,8 +247,9 @@ export async function onRequestPut({ request, env }) {
   }
 
   console.log(`pricing-admin: updated count=${changed.length} ids=${changed.map((change) => change.id).join(",")}`);
+  const publish = await triggerPublish(env);
   try {
-    return json(await loadAdminData(env.DB));
+    return json({ ...await loadAdminData(env.DB), ...publishConfig(env), publish });
   } catch {
     return error(503, "PRICING_UNAVAILABLE", "Pricing was saved, but the latest values could not be reloaded.");
   }

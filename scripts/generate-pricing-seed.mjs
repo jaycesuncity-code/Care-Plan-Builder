@@ -1,10 +1,21 @@
 // Prints the pricing_items seed block for migrations/0006_pricing.sql.
 // Prices and labels come from the catalog so they are never retyped here.
 
+import { readBuilderSeed } from "./catalog-seed.mjs";
 import { ADDON_GROUPS, PLANS } from "../lib/intake/catalog.js";
 
 function sqlString(value) {
   return "'" + String(value).replace(/'/g, "''") + "'";
+}
+
+if (process.argv.includes("--catalog-text")) {
+  const seed = readBuilderSeed();
+  const statements = [
+    ...seed.plans.map(p => `UPDATE pricing_items SET label = ${sqlString(p.full)}, short_label = ${sqlString(p.name)}, description = ${sqlString(p.tagline)} WHERE id = ${sqlString('plan:' + p.id)};`),
+    ...seed.addons.map(a => `UPDATE pricing_items SET label = ${sqlString(a.name)}, short_label = NULL, description = ${sqlString(a.desc)} WHERE id = ${sqlString('addon:' + a.id)};`),
+  ];
+  process.stdout.write(["-- BEGIN GENERATED CATALOG TEXT", ...statements, "-- END GENERATED CATALOG TEXT", ""].join("\n"));
+  process.exit(0);
 }
 
 const rows = [

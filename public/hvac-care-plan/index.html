@@ -449,7 +449,7 @@
 
           <!-- If your LiveCanvas template already prints the page title as an
                h1, change this h1 to an h2 to keep one h1 per page. -->
-          <h1 class="scp-care-title">HVAC Care Plan</h1>
+          <h1 class="scp-care-title" data-cpb-full="plan:hvac">HVAC Care Plan</h1>
           <p class="scp-care-tagline">Keep your home's heating and cooling maintenance on schedule with seasonal service visits designed to keep your system up and running year round.</p>
           <div class="scp-care-facts">
             <span class="scp-care-fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M16 3v4M8 3v4M3.5 10h17" stroke-linecap="round"/></svg>2 visits per year</span>
@@ -458,7 +458,7 @@
           </div>
         </div>
         <div class="scp-care-pricecard">
-          <span class="scp-care-price">$260 Per Year</span>
+          <span class="scp-care-price" data-cpb-price="plan:hvac">$260 Per Year</span>
           <span class="scp-care-priceunit">Base Plan- Includes 1 system</span>
           <div class="scp-care-pricerule"></div>
           <a class="scp-care-cta" href="/careplan-builder/">Choose Plan</a>
@@ -601,8 +601,8 @@
       <div class="scp-care-addons" data-scp-reveal>
             <div class="scp-care-addon" data-scp-open="false">
               <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-hvac-addon-filter">
-                <span class="scp-care-addon-name">Quarterly Filter Change</span>
-                <span class="scp-care-addon-price">+$120/yr</span>
+                <span class="scp-care-addon-name" data-cpb-name="addon:qfc">Quarterly Filter Change</span>
+                <span class="scp-care-addon-price" data-cpb-price="addon:qfc">+$120/yr</span>
                 <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <div class="scp-care-addon-panel" id="scp-hvac-addon-filter" aria-hidden="true">
@@ -611,8 +611,8 @@
             </div>
             <div class="scp-care-addon" data-scp-open="false">
               <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-hvac-addon-hvac2">
-                <span class="scp-care-addon-name">Additional HVAC System</span>
-                <span class="scp-care-addon-price">+$125/yr</span>
+                <span class="scp-care-addon-name" data-cpb-name="addon:hvacSystems">Additional HVAC System</span>
+                <span class="scp-care-addon-price" data-cpb-price="addon:hvacSystems">+$125/yr</span>
                 <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <div class="scp-care-addon-panel" id="scp-hvac-addon-hvac2" aria-hidden="true">
@@ -621,8 +621,8 @@
             </div>
             <div class="scp-care-addon" data-scp-open="false">
               <button class="scp-care-addon-btn" type="button" aria-expanded="false" aria-controls="scp-hvac-addon-minisplit">
-                <span class="scp-care-addon-name">Mini-Split Tune-Up</span>
-                <span class="scp-care-addon-price">+$80/yr</span>
+                <span class="scp-care-addon-name" data-cpb-name="addon:mst">Mini-Split Tune-Up</span>
+                <span class="scp-care-addon-price" data-cpb-price="addon:mst">+$80/yr</span>
                 <svg class="scp-care-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false"><path d="M6 9.5l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <div class="scp-care-addon-panel" id="scp-hvac-addon-minisplit" aria-hidden="true">
@@ -658,6 +658,58 @@
   </section>
 
 </div>
+
+<script>
+(function () {
+  'use strict';
+  // WordPress: replace with https://<public-host>/catalog.json.
+  var CATALOG_URL = '/catalog.json';
+  var root = document.querySelector('.scp-care[data-scp-plan="hvac"]');
+  if (!root) return;
+  var controller = new AbortController(), timer;
+  function validate(catalog) {
+    if (!catalog || !Number.isSafeInteger(catalog.version) || catalog.version < 1) throw new Error('invalid catalog');
+    var normalized = { plans: {}, addons: {} };
+    function text(value,max) {
+      if (typeof value !== 'string' || /[<>\p{Cc}\p{Cf}\u2028\u2029]/u.test(value)) throw new Error('invalid text');
+      value=value.trim();if(!value || value.length>max)throw new Error('invalid text');return value;
+    }
+    [['plans',['hvac','plumbing','bundled','premier'],1,5000,{full:60,name:20,tagline:400}],
+     ['addons',['hvacSystems','qfc','mst','waterHeaters','wsv','wss','ros','twf','qbb'],0,2000,{name:60,desc:600}]].forEach(function(spec){
+      var key=spec[0], values=catalog[key], texts=catalog.text && catalog.text[key];
+      if(!values || typeof values!=='object' || Array.isArray(values) || !texts || typeof texts!=='object' || Array.isArray(texts))throw new Error('invalid catalog');
+      spec[1].forEach(function(id){
+        if(!Object.prototype.hasOwnProperty.call(values,id) || !Number.isSafeInteger(values[id]) || values[id]<spec[2] || values[id]>spec[3])throw new Error('invalid price');
+        var entry=texts[id];if(!Object.prototype.hasOwnProperty.call(texts,id) || !entry || typeof entry!=='object' || Array.isArray(entry))throw new Error('invalid text');
+        normalized[key][id]={};Object.keys(spec[4]).forEach(function(field){normalized[key][id][field]=text(entry[field],spec[4][field]);});
+      });
+    });
+    return normalized;
+  }
+  var deadline=new Promise(function(_,reject){timer=setTimeout(function(){controller.abort();reject(new Error('catalog timeout'));},2000);});
+  Promise.race([fetch(CATALOG_URL,{signal:controller.signal,cache:'no-cache'}).then(function(res){if(!res.ok)throw new Error('catalog unavailable');return res.json();}),deadline])
+    .then(function(catalog){
+      var texts=validate(catalog), updates=[];
+      root.querySelectorAll('[data-cpb-price],[data-cpb-name],[data-cpb-full],[data-cpb-desc]').forEach(function(el){
+        ['price','name','full','desc'].forEach(function(field){
+          var key=el.getAttribute('data-cpb-'+field);if(!key)return;
+          var parts=key.split(':'), kind=parts[0]==='plan'?'plans':'addons', id=parts[1], value;
+          if(field==='price'){
+            var amount=catalog[kind][id];if(!Number.isSafeInteger(amount))throw new Error('unknown marked price');
+            var original=el.textContent;
+            value=/\$[\d,]+/.test(original)?original.replace(/\$[\d,]+/,'$'+amount.toLocaleString('en-US')):'+$'+amount.toLocaleString('en-US')+'/yr';
+          }else{
+            value=texts[kind][id][field==='desc'&&kind==='plans'?'tagline':field];
+            if(typeof value!=='string')throw new Error('unknown marked text');
+          }
+          updates.push([el,value]);
+        });
+      });
+      updates.forEach(function(update){update[0].textContent=update[1];});
+    }).catch(function(){ /* Marketing HTML remains intact when the catalog is unavailable. */ })
+    .finally(function(){clearTimeout(timer);});
+})();
+</script>
 
 <script>
 /* ==========================================================================

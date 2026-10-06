@@ -478,3 +478,184 @@ Expected: `/api/care-plan-request` writes `is_test=0`; `/api/test/care-plan-requ
 writes `is_test=1`. Supplying `is_test`, `isTest`, `test`, or query-string variants
 must not alter that result. The test route should save normally and appear in the
 dashboard without calling the routine n8n office webhook.
+
+## 9. Static catalog publishing — dashboard and future public project
+
+Complete these settings before enabling the new Pages build command. No real token,
+deploy hook, remote migration, production request or WordPress edit was made as part of
+this implementation. Cloudflare UI wording may show **Environment variables** or
+**Variables and Secrets** for the same settings panel.
+
+### 9.1 Back up and apply approved 0008 and 0009 safely
+
+The user approved including 0009 and pushing the completed implementation to main. Remote migration application remains a separate deployment step.
+The commands below are manual operational instructions; they were not run remotely here.
+
+1. In a local checkout, select `feature/static-catalog`, then run `npm ci`.
+2. Run `npx wrangler login` with the account holding `care-plan-builder`.
+3. Run `npx wrangler d1 migrations list care-plan-builder --remote`.
+4. Inspect the remote schema and row counts:
+
+   ```bash
+   npx wrangler d1 execute care-plan-builder --remote --command "PRAGMA table_info(pricing_items); PRAGMA table_info(pricing_audit); SELECT version FROM pricing_meta WHERE id=1; SELECT count(*) AS submissions FROM submissions; SELECT count(*) AS addons FROM submission_addons; SELECT count(*) AS notes FROM submission_notes;"
+   ```
+
+5. Stop if earlier migrations are pending unexpectedly, the binding points to another
+   database, or 0008's new columns already exist without its migration record. Do not
+   blindly apply all pending migrations in that situation.
+6. Take a full export and verify that the resulting file is nonempty and contains the
+   expected schema and rows; retain it securely outside the public repo:
+
+   ```bash
+   npx wrangler d1 export care-plan-builder --remote --output backup-before-0008-0009.sql
+   ```
+
+7. With 0008/0009 confirmed as the only pending approved migrations (or just 0009 if 0008 is already applied), and after the schema review below, run:
+
+   ```bash
+   npx wrangler d1 migrations apply care-plan-builder --remote
+   ```
+
+8. Compare the same submission/add-on/note counts with step 4, confirm all 13 catalog
+   items have populated descriptions and the four plans have short labels, and confirm
+   the migration list records 0008 and 0009. Catalog prices and historical submissions should
+   be unchanged.
+
+**Approved full-name constraint correction:** 0008 is additive and does not change
+submissions. Approved `migrations/0009_submission_plan_names.sql` replaces the original
+`plan IN (...)` CHECK, which otherwise rejects manager-defined full names. The user explicitly
+authorized including 0009 and pushing the completed work to main on October 6, 2026.
+No remote migration was authorized or run as part of that push.
+
+0009 rebuilds `submissions` while preserving children, historical values, classification,
+indexes, IDs and the AUTOINCREMENT high-water mark. Before running the migration command:
+
+1. Compare `PRAGMA table_info(submissions)`, `PRAGMA table_info(submission_addons)`,
+   `PRAGMA table_info(submission_notes)` and the relevant `sqlite_master` indexes/triggers
+   with the repository. Stop and adapt 0009 if the remote has additional columns or
+   auth-related schema that this repository does not contain.
+2. Export the full database as in step 6; verify the backup and retain it securely.
+3. Pause live/practice intake writes for the operation so the preservation/count checks
+   have a stable baseline. Record complete historical/child data and row counts.
+4. Apply the approved pending migrations with Wrangler's migration command, as in step 7.
+   Never rewrite prior migrations or run the rebuild manually in fragmented commands.
+5. Compare every original row/child value, flags, indexes and IDs, check
+   `PRAGMA foreign_key_check`, confirm the migration list and resume intake.
+6. Confirm full-name inputs are editable only after 0009 is applied, and test a renamed
+   plan through the intended non-production intake/notification environment.
+
+The editor rejects unsupported full-name changes before any catalog write until 0009's
+schema is detected; this prevents a code deployment from enabling renames prematurely.
+
+### 9.2 Create the minimum-permission D1 read token
+
+1. Open the Cloudflare dashboard, choose your profile menu, then **My Profile → API Tokens**.
+2. Click **Create Token**, then **Create Custom Token / Get started**.
+3. Name it `Care Plan catalog build — D1 read`.
+4. Under **Permissions**, select **Account → D1 → Read** only. Do not grant D1 Write,
+   Pages Edit or account-wide Edit permissions.
+5. Under **Account Resources**, select **Include → Specific account**, then choose the
+   account holding the database. This token is scoped to that account's D1 read access;
+   the token UI does not make it a single-database token.
+6. Click **Continue to summary**, verify the single permission and account, then
+   **Create Token**. Copy the token to your secure credential store; never paste it into git.
+7. Record the **Account ID** from the account dashboard and the **Database ID** from
+   **Workers & Pages / Storage & databases → D1 → care-plan-builder → Details/Settings**.
+   The repository currently binds to `2c79b253-9f8d-4441-b2ca-6666ac23196a`; confirm it
+   matches rather than assuming a newly split project uses the correct binding.
+
+### 9.3 Set build variables on each catalog-serving Pages project
+
+Repeat for the gated project and, after the split, the public project that serves catalog.json.
+Use each project's **Production** and **Preview** settings intentionally; preview hooks
+must build preview branches, and preview tests must not trigger production hooks.
+
+1. **Workers & Pages → select the Pages project → Settings → Environment variables**
+   (or **Variables and Secrets**).
+2. Select the relevant **Production** or **Preview** environment and add these names
+   to the environment available to the **Pages build process**:
+
+   | Name | Value | Treatment |
+   |---|---|---|
+   | CLOUDFLARE_API_TOKEN | token from 9.2 | Encrypt/Secret |
+   | CLOUDFLARE_ACCOUNT_ID | confirmed account ID | build value; encrypted is also acceptable |
+   | D1_DATABASE_ID | confirmed D1 UUID | build value; encrypted is also acceptable |
+   | NODE_VERSION | 22.13.1 or a supported newer Node 22/24 release | build runtime |
+
+3. Save each setting. If Wrangler-managed runtime vars restrict dashboard plaintext
+   entries, use encrypted values for the three D1 build variables. They must reach
+   `process.env` during the Node build; `[vars]` and `.dev.vars` alone do not configure it.
+4. **Settings → Builds → Build configurations → Edit**: choose no framework preset,
+   set **Build command** to `node scripts/build-catalog.mjs`, **Build output directory**
+   to `public`, and repository **Root directory** to the repository root. Save.
+5. Repeat for the other intended environment/project. The generator itself supports
+   Node 18+; dependencies and the local SQLite test suite need Node 22.13+.
+6. Before using a hook, confirm that a reviewed deployment successfully generates
+   `catalog.json`. A missing variable, D1 HTTP error or invalid catalog must fail the
+   build and keep the previous successful deployment. Do not substitute seed data.
+
+Build credentials belong only in the build environment; the public intake Function does
+not need a Cloudflare API token. Preserve the D1 `DB` binding and existing intake secrets.
+
+### 9.4 Create deploy hook(s) and the dashboard-only publishing secret
+
+1. **Workers & Pages → gated Pages project → Settings → Builds → Deploy hooks**.
+2. Click **Add deploy hook**. Name it `Catalog refresh — staff` and choose the branch
+   that actually contains the reviewed catalog build. While testing, use
+   `feature/static-catalog`; choose the production branch only after approved release.
+3. Save and copy the generated hook URL into your secure credential store. Possession
+   of that URL authorizes a build; do not put it into docs, browser code or commit messages.
+4. After the split, repeat on the **public Pages project** with a name such as
+   `Catalog refresh — public`, selecting that project's correct branch.
+5. Return to the **gated project → Settings → Variables and Secrets**, select the correct
+   environment, and add an encrypted **Secret** named `CATALOG_DEPLOY_HOOK_URLS`.
+6. Its value is the gated hook URL and public hook URL separated by a comma. Before the
+   split, use only the gated hook if that is the only configured catalog build.
+7. Never add this secret to the public project. Maintain distinct Preview/Production
+   values if those environments build different branches. Save.
+8. Set gated `wrangler.toml [vars] PUBLIC_CATALOG_URL` to
+   `https://<public-host>/catalog.json` after the public project exists. It may stay empty
+   before the split. If creating environment-specific `[vars]` blocks, restate all vars.
+9. A hook failure still saves D1 and is shown to the manager. A successful hook means
+   the build started, not that it finished. The editor polls the configured static
+   URL until its version reaches the saved version; it reports a timeout after five minutes.
+
+### 9.5 Public project and WordPress endpoints
+
+1. The future public repo includes `scripts/build-catalog.mjs`, `lib/intake/*`,
+   `package.json` with `type: module`, public `_headers` and `_routes.json`, the public
+   assets and live intake wrapper. It must exclude `functions/api/pricing-admin.js`,
+   `lib/admin/`, `public/pricing/`, staff dashboard APIs/pages, practice intake routes,
+   and the deploy-hook/Access secrets. The staff project retains `/api/pricing`.
+2. Preserve `_routes.json`'s `/catalog.json` exclusion; the current catch-all Function
+   would otherwise intercept catalog requests. The static CORS header is `*` and uses
+   no credentials. The public host must serve this file without a Cloudflare Access
+   sign-in wall. The gated project may remain fully protected by Access.
+3. Paste the fresh Builder block into WordPress and replace:
+
+   ```js
+   var CATALOG_ENDPOINT = 'https://<public-host>/catalog.json';
+   var SUBMIT_ENDPOINT = 'https://<public-host>/api/care-plan-request';
+   ```
+
+4. In each of the four fresh plan-page blocks, set:
+
+   ```js
+   var CATALOG_URL = 'https://<public-host>/catalog.json';
+   ```
+
+5. Keep page navigation root-relative and retain paste-region wrappers. Install the
+   actual Turnstile sitekey and preserve the exact origin allowlist, including both
+   WordPress hostnames. The staff copy keeps `/api/pricing` and the test intake route.
+6. After configuration/release, verify one small catalog save in the intended environment:
+   D1 audit fields and version, deploy-hook build source, static version advance, Builder
+   labels/prices, all four pages, and the office's stored/emailed names. Full plan renames
+   remain blocked until approved 0009 is applied.
+
+Official references checked for this guide:
+
+- [D1 query API: accepts D1 Read and multiple SQL statements](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/)
+- [Create API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+- [Pages deploy hooks](https://developers.cloudflare.com/pages/configuration/deploy-hooks/)
+- [Pages build configuration and environment variables](https://developers.cloudflare.com/pages/configuration/build-configuration/)
+- [Pages Functions invocation route exclusions](https://developers.cloudflare.com/pages/functions/routing/)

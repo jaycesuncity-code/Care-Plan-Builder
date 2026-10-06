@@ -14,7 +14,7 @@ dashboard's JSON shape.
 /functions/api/submissions/[id].js    PATCH /api/submissions/:id — update status (+ optional note)
 /functions/api/care-plan-request.js   POST /api/care-plan-request — future PUBLIC/live intake
 /functions/api/test/care-plan-request.js POST /api/test/care-plan-request — permanent staff-practice intake
-/functions/api/pricing.js             GET  /api/pricing — PUBLIC read-only pricing feed
+/functions/api/pricing.js             GET  /api/pricing — live staff catalog feed
 /functions/api/pricing-admin.js       GET/PUT pricing editor API — gated dashboard only
 /functions/[[path]].js                sandbox-only 404 fallback to the live site
 /lib/submissions.js                   shared helpers (row → JSON shaping, used by both)
@@ -52,7 +52,7 @@ normal n8n/office notification is suppressed.
 
 The live route is written to be **self-contained for the future split**: the public project
 will receive the live wrapper, `/api/pricing`, and the shared `lib/intake/*` modules,
-with no Cloudflare Access dependency. The dashboard/practice side keeps the test wrapper,
+with no Cloudflare Access dependency. Public reads use static `/catalog.json`; `/api/pricing` is retained on the staff side. The dashboard/practice side keeps the test wrapper,
 dashboard APIs/UI, migrations, and staff auth. Both projects will bind to the same D1.
 
 Order of checks — cheapest and most private first:
@@ -87,7 +87,7 @@ siteverify mock if you want to poke at the endpoint by hand.
 
 ## Prerequisites
 
-- Node.js
+- Node.js 22.13+ for the local test suites (`node:sqlite`); the catalog build supports Node 18+
 - A Cloudflare account with the `care-plan-builder` D1 database already created
   (done — see `SCHEMA.md` for its id)
 - `wrangler login` (run once, opens a browser to authenticate)
@@ -180,27 +180,43 @@ GitHub repo exists (Pages project → Settings → Builds & deployments → conn
   YET" tag and a footer note about the auth gap. No other visual/layout changes.
 
 
-## Editable pricing
+## Editable catalog and static public feed
 
-Prices are stored in D1 `pricing_items`; coverage, included quantities and all pricing
-rules remain in `lib/intake/catalog.js`. The public Builder reads
-`GET /api/pricing` (edge-cached for up to five minutes), while the intake endpoint reads
-D1 directly before every submission. If a customer submits a stale pricing version whose
-total changed, the endpoint returns `409 PRICES_CHANGED` before inserting anything.
+Managers use `/pricing/` to edit prices, full plan names, short plan labels, descriptions
+and add-on names. Approved migration `0009_submission_plan_names.sql` replaces the original
+four-name submission CHECK while preserving historical rows, children, flags and IDs.
+Apply it after a verified backup and remote-schema review (see `SETUP.md` section 9).
+Until 0009 is applied, full plan names remain read-only and the API safely rejects unsupported
+renames; the other catalog fields remain editable.
 
-The Builder shows a loading state until the complete pricing payload is validated.
-A failed request, timeout, malformed payload, or missing required price clears displayed
-amounts and disables requests, including submission from an open modal. Selections remain
-in place; an explicit retry can restore pricing. It displays **Current pricing is unavailable.**
-and a clickable office number (575-526-9758). There are no background retries or default-price
-fallbacks. Intake requires a loaded pricing version and complete authoritative D1 prices;
-`503 PRICING_UNAVAILABLE` saves no submission and sends no office notification.
+D1 remains authoritative. `loadCatalog` shapes and validates prices and plain text for the
+live staff feed (`GET /api/pricing`, no-store) and static build (`public/catalog.json`).
+`loadPricing` uses that same live D1 loader at intake; missing/invalid data fail closed.
+The original `409 PRICES_CHANGED` behavior is retained. Historical submissions retain their
+accepted names and amounts. A text-only edit with an identical total does not trigger 409;
+the office still receives current D1 names, as required by the existing repricing behavior.
 
-The staff editor at `/pricing/` writes through `PUT /api/pricing-admin`. It requires
-a valid pricing-specific Cloudflare Access JWT and a verified email exactly on
-`@suncitylc.com` (or an address in the optional `PRICING_EDITORS` exception list), uses
-SQL-guarded optimistic concurrency, and records each real change in `pricing_audit`.
-See `SETUP.md` for Access policy, secrets and the passphrase-hash step.
+After an authorized catalog save commits, the API awaits each configured Pages deploy hook
+in parallel (five-second bounds). Hook failures never roll back D1. The editor shows the
+publication status and polls the public static file's version for up to five minutes.
+A reviewed no-op API save can retry publication without changing audit/version values.
+
+Any Pages project serving the public catalog builds with `node scripts/build-catalog.mjs`,
+output `public`. The build reads D1 through its REST API using a D1-read token, shares the
+live loader's shaping/validation and fails rather than publishing incomplete data.
+`catalog.json` is ignored by git. `public/_routes.json` explicitly excludes it from the
+catch-all Function so public catalog reads are static requests. `_headers` supplies CORS `*`
+and a 60-second cache policy. Build failures retain the previous successful deployment.
+
+The staff Builder keeps `CATALOG_ENDPOINT = '/api/pricing'`. The WordPress copy and four
+plan-page blocks use the public project's absolute `/catalog.json` URL after the split.
+The Builder requires complete valid prices and text; marketing pages retain their original
+HTML on catalog failures. Plan features, photos, links, IDs and coverage remain in code.
+
+The editor still requires Cloudflare Access JWT verification, exact company-domain/editor
+permission and CSRF checks; each changed field is audited with SQL-guarded concurrency.
+Never ship `/pricing/`, `pricing-admin.js`, `lib/admin/` or hook secrets to the public project.
+See `SETUP.md` for click-by-click setup and safe migration steps.
 
 
 ## Live/Test migration safety

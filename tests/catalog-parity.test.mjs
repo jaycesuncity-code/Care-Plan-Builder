@@ -175,3 +175,16 @@ test("pricing migrations resolve to every catalog id, label and default price", 
   assert.deepEqual(finalRows, expected);
   assert.equal(finalRows.length, 13, "4 plans + 9 add-ons, including the two counts and Water Softener Salt");
 });
+
+test('0008 backfilled catalog text exactly matches current Builder literals and is additive',async()=>{
+  const {SqliteD1}=await import('./sqlite-d1.mjs');const db=new SqliteD1();
+  try{
+    const rows=db.items;
+    for(const p of builder.plans){const row=rows.find(r=>r.id==='plan:'+p.id);assert.equal(row.label,p.full);assert.equal(row.short_label,p.name);assert.equal(row.description,p.tagline);}
+    for(const group of builder.addonGroups)for(const a of group.items){const row=rows.find(r=>r.id==='addon:'+a.id);assert.equal(row.label,a.name);assert.equal(row.short_label,null);assert.equal(row.description,a.desc);}
+    const sql=readFileSync(join(here,'..','migrations','0008_catalog_text.sql'),'utf8');
+    assert.doesNotMatch(sql,/DROP TABLE|CREATE TABLE|UPDATE submissions|ALTER TABLE submissions/i);
+    assert.match(sql,/-- BEGIN GENERATED CATALOG TEXT/);
+    assert.equal(db.sqlite.prepare('SELECT count(*) AS n FROM submission_addons').get().n,5,'existing seed children survive');
+  }finally{db.close();}
+});
