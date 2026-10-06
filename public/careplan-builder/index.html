@@ -428,6 +428,7 @@
 #sc-cpb .cpb-side .cpb-section-label { width: 100%; margin-bottom: 6px; }
 
 #sc-cpb .cpb-pricing-status { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+#sc-cpb .cpb-pricing-status:empty { display: none; }
 #sc-cpb .cpb-pricing-status a { color: inherit; text-decoration: underline; }
 #sc-cpb .cpb-cta[disabled] { opacity: .6; cursor: not-allowed; }
 #sc-cpb:not([data-pricing="ready"]) .cpb-plan-price,
@@ -988,7 +989,6 @@
         <h3 class="cpb-h3" id="cpb-totals-title">Your Plan &amp; Total</h3>
 
         <div class="cpb-pricing-status" data-cpb="pricing-status" role="status">Loading current pricing…</div>
-        <button type="button" data-cpb="pricing-retry" hidden>Retry pricing</button>
         <div class="cpb-monthly">
           <div class="cpb-monthly-head">
             <span class="cpb-monthly-label">Average Cost Per Month</span>
@@ -1867,8 +1867,6 @@
     root.setAttribute('data-pricing', status);
     $('pricing-status').innerHTML = status === 'unavailable' ? unavailablePricingHTML() :
       (status === 'loading' ? 'Loading current pricing…' : '');
-    $('pricing-retry').hidden = status === 'loading';
-    $('pricing-retry').textContent = status === 'ready' ? 'Refresh pricing' : 'Retry pricing';
     $('cta').disabled = status !== 'ready';
     renderCurrentPricing();
     if (status !== 'ready') addonModalPrice.textContent = '—';
@@ -1950,8 +1948,6 @@
     });
     return pricingLoad;
   }
-
-  $('pricing-retry').addEventListener('click', loadPricingThenRender);
 
   (function initLeadModal() {
     var ctaBtn = $('cta'); // data-cpb="cta" — the only lookup that can use $()
