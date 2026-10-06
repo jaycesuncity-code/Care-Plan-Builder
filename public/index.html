@@ -78,16 +78,24 @@
     font-size:13px;
     color:rgba(255,255,255,0.75);
   }
-  header.topbar .env-tag{
-    background:rgba(255,255,255,0.12);
-    border:1px solid rgba(255,255,255,0.25);
-    color:#fff;
-    font-size:12px;
-    padding:5px 10px;
-    border-radius:999px;
-    font-weight:500;
-    letter-spacing:0.3px;
-  }
+header.topbar .env-tag{
+  background:rgba(255,255,255,0.12);
+  border:1px solid rgba(255,255,255,0.25);
+  color:#fff;
+  font-size:12px;
+  padding:5px 10px;
+  border-radius:999px;
+  font-weight:500;
+  letter-spacing:0.3px;
+  text-decoration:none;
+  cursor:pointer;
+  transition:background 0.12s ease, border-color 0.12s ease;
+}
+
+header.topbar .env-tag:hover{
+  background:rgba(255,255,255,0.20);
+  border-color:rgba(255,255,255,0.40);
+}
 
   /* ---------- Layout ---------- */
   .layout{
@@ -348,11 +356,18 @@
     width:100%;
     border-collapse:collapse;
     font-size:14px;
-    min-width:760px;
+    min-width:880px;
+    table-layout:fixed;
   }
+  col.col-submitted{ width:23%; }
+  col.col-customer{ width:18%; }
+  col.col-phone{ width:17%; }
+  col.col-plan{ width:21%; }
+  col.col-total{ width:9%; }
+  col.col-status{ width:12%; }
   thead th{
     text-align:left;
-    padding:12px 14px;
+    padding:12px 12px;
     background:var(--gray-1);
     border-bottom:1px solid var(--gray-2);
     color:var(--gray-5);
@@ -384,16 +399,22 @@
   tbody tr:last-child{ border-bottom:none; }
   tbody tr:hover{ background:var(--maroon-tint); }
   tbody td{
-    padding:12px 14px;
+    padding:12px 12px;
     vertical-align:middle;
   }
   td.name-cell{ font-weight:600; color:var(--gray-6); }
-  td.sub-line{
-    display:block;
+  td.phone-cell{
     font-weight:400;
-    font-size:12px;
-    color:var(--gray-4);
-    margin-top:1px;
+    color:var(--gray-5);
+    white-space:nowrap;
+  }
+  .phone-link{
+    color:inherit;
+    text-decoration:none;
+  }
+  .phone-link:hover{
+    color:var(--maroon);
+    text-decoration:underline;
   }
   td.price-cell{ font-weight:600; color:var(--maroon-dark); white-space:nowrap; }
   td.date-cell{ color:var(--gray-5); white-space:nowrap; }
@@ -694,7 +715,10 @@
       <p>Sun City Plumbing &amp; Heating — Office Portal</p>
     </div>
   </div>
-  <span class="env-tag">LIVE DATA · NO AUTH YET</span>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a class="env-tag" href="/pricing/">PRICING</a>
+    <a class="env-tag" href="/memberships/" target="_blank" rel="noopener">CARE PLAN BUILDER →</a>
+  </div>
 </header>
 
 <div class="layout">
@@ -717,8 +741,8 @@
       <div class="legend">
         <div class="legend-row"><span class="badge badge-new">New</span> Not yet reviewed</div>
         <div class="legend-row"><span class="badge badge-contacted">Contacted</span> Office reached out</div>
-        <div class="legend-row"><span class="badge badge-signedup">Signed Up</span> Became a member — archived</div>
-        <div class="legend-row"><span class="badge badge-other">Other</span> Closed out, didn't convert — archived</div>
+        <div class="legend-row"><span class="badge badge-signedup">Signed Up</span> Became a member — Moved to Archives</div>
+        <div class="legend-row"><span class="badge badge-other">Other</span> See notes — Moved to Archives</div>
       </div>
     </div>
 
@@ -726,12 +750,11 @@
       <h2>Quick Links</h2>
       <!-- PLACEHOLDER LINKS — TO BE FILLED IN LATER. Real destinations not finalized. -->
       <ul class="shortcut-list">
-        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🗂️</span> Company CRM</a></li>
-        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🗓️</span> Scheduling System</a></li>
-        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">🧾</span> Service History</a></li>
-        <li><a href="javascript:void(0)" onclick="return false;"><span class="ico">📦</span> Inventory Lookup</a></li>
+        <li><a href="https://www.youknowsuncity.com/services/maintenance-plan" onclick="return false;"><span class="ico">🌐</span> Current Website</a></li>
+        <li><a href="https://list-frontend-membership-emails-2026.pages.dev/" onclick="return false;"><span class="ico">✉️</span> Emailed Customer List</a></li>
+        <li><a href="https://go.servicetitan.com/#/new/reports/14698925" onclick="return false;"><span class="ico">🧾</span> Service titan Report</a></li>
+        <li><a href="https://scph-member-cleanup.pages.dev/" onclick="return false;"><span class="ico">😒</span> Service Titan Cleanups</a></li>
       </ul>
-      <div class="shortcut-note">Links are placeholders — destinations to be set later.</div>
     </div>
   </aside>
 
@@ -758,10 +781,19 @@
 
     <div class="table-wrap">
       <table>
+        <colgroup>
+          <col class="col-submitted">
+          <col class="col-customer">
+          <col class="col-phone">
+          <col class="col-plan">
+          <col class="col-total">
+          <col class="col-status">
+        </colgroup>
         <thead>
           <tr>
             <th data-sort="submittedAt" class="sorted">Submitted <span class="arrow">▼</span></th>
             <th data-sort="name">Customer <span class="arrow">▲</span></th>
+            <th class="no-sort">Phone</th>
             <th data-sort="plan">Plan <span class="arrow">▲</span></th>
             <th data-sort="total">Total <span class="arrow">▲</span></th>
             <th data-sort="status">Status <span class="arrow">▲</span></th>
@@ -774,9 +806,7 @@
 
 </div>
 
-<footer class="page-footer">
-  Status changes and notes are saved live to Cloudflare D1. Auth (Cloudflare Access + Entra ID) is not wired up here yet — do not share this link outside the office.
-</footer>
+
 
 <!-- Detail modal -->
 <div class="modal-backdrop hidden" id="modalBackdrop">
@@ -1072,20 +1102,27 @@ function renderStats(){
   `;
 }
 
+function phoneHref(value){
+  const raw = String(value || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  return (raw.startsWith("+") ? "+" : "") + digits;
+}
+
 function renderTable(){
   const rows = getSorted(getFiltered());
   const totalInView = SUBMISSIONS.filter(r => VIEW_STATUSES[currentView].includes(r.status)).length;
   resultCount.textContent = `${rows.length} of ${totalInView} submissions`;
 
   if(rows.length === 0){
-    tableBody.innerHTML = `<tr class="empty-row"><td colspan="5">No submissions match your filters.</td></tr>`;
+    tableBody.innerHTML = `<tr class="empty-row"><td colspan="6">No submissions match your filters.</td></tr>`;
     return;
   }
 
   tableBody.innerHTML = rows.map(row => `
     <tr data-id="${row.id}">
       <td class="date-cell">${formatDate(row.submittedAt)}</td>
-      <td class="name-cell">${row.name}<span class="sub-line">${row.phone}</span></td>
+      <td class="name-cell">${row.name}</td>
+      <td class="phone-cell"><a class="phone-link" href="tel:${phoneHref(row.phone)}">${row.phone}</a></td>
       <td>${row.plan}</td>
       <td class="price-cell">$${row.total.toLocaleString()}</td>
       <td class="status-cell">
@@ -1096,10 +1133,10 @@ function renderTable(){
     </tr>
   `).join("");
 
-  // Row click opens detail — but not when the click originated on the status select itself.
+  // Row click opens detail — but not when the click originated on an interactive control.
   tableBody.querySelectorAll("tr[data-id]").forEach(tr => {
     tr.addEventListener("click", (e) => {
-      if(e.target.closest("select")) return;
+      if(e.target.closest("select, a")) return;
       openDetail(Number(tr.dataset.id));
     });
   });

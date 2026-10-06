@@ -13,15 +13,20 @@ dashboard's JSON shape.
 /functions/api/submissions/index.js   GET  /api/submissions      — list all submissions
 /functions/api/submissions/[id].js    PATCH /api/submissions/:id — update status (+ optional note)
 /functions/api/care-plan-request.js   POST /api/care-plan-request — PUBLIC intake from the Builder
+/functions/api/pricing.js             GET  /api/pricing — PUBLIC read-only pricing feed
+/functions/api/pricing-admin.js       GET/PUT pricing editor API — gated dashboard only
 /functions/[[path]].js                sandbox-only 404 fallback to the live site
 /lib/submissions.js                   shared helpers (row → JSON shaping, used by both)
-/lib/intake/                          the intake endpoint's own modules (self-contained)
+/lib/intake/                          public/intake modules, including D1 pricing reads
+/lib/admin/                           Access JWT verification; gated dashboard only
+/public/pricing/index.html             staff price editor (Access + passphrase speed bump)
 /public/index.html                    the dashboard itself (Pages build output dir)
 /public/memberships/index.html        SANDBOX mirror of the WordPress Care Plan Builder
 /public/{hvac,plumbing,bundled,premier}-care-plan/  sandbox mirrors of the plan pages
 /migrations/0001_init_schema.sql      D1 schema
 /migrations/0002_seed_data.sql        4 sample submissions, for local dev/testing
-/migrations/0004_…, 0005_…            intake schema changes (0003 is the Access branch's)
+/migrations/0004_…, 0005_…            intake schema changes (0003 is intentionally skipped)
+/migrations/0006_pricing.sql           editable pricing + audit + optimistic version
 /n8n/care-plan-request-notification.json  importable workflow: webhook → Outlook email
 /tests/                               unit, API and browser suites
 /wrangler.toml                        D1 binding (DB), vars, pages_build_output_dir = "public"
@@ -42,7 +47,7 @@ Order of checks — cheapest and most private first:
 3. field validation (400 with per-field messages)
 4. rate limit, read-only (429 + `Retry-After`)
 5. Turnstile siteverify (403; fails closed)
-6. server-side repricing from `lib/intake/catalog.js` — **client prices are ignored**
+6. server-side repricing from D1 via `lib/intake/pricing.js`, with catalog defaults only as missing-id fallback — **client prices are ignored**
 7. insert submission + add-on rows
 8. record the rate-limit hit (only successful submissions count)
 9. 201, then the n8n office email via `context.waitUntil()` — an n8n outage can never
@@ -159,3 +164,18 @@ GitHub repo exists (Pages project → Settings → Builds & deployments → conn
 - The header's "UX PROTOTYPE · MOCK DATA" tag and the footer's "resets on reload" note
   were updated since both were now inaccurate — replaced with a "LIVE DATA · NO AUTH
   YET" tag and a footer note about the auth gap. No other visual/layout changes.
+
+
+## Editable pricing
+
+Prices are stored in D1 `pricing_items`; coverage, included quantities and all pricing
+rules remain in `lib/intake/catalog.js`. The public Builder reads
+`GET /api/pricing` (edge-cached for up to five minutes), while the intake endpoint reads
+D1 directly before every submission. If a customer submits a stale pricing version whose
+total changed, the endpoint returns `409 PRICES_CHANGED` before inserting anything.
+
+The staff editor at `/pricing/` writes through `PUT /api/pricing-admin`. It requires
+a valid pricing-specific Cloudflare Access JWT and a verified email exactly on
+`@suncitylc.com` (or an address in the optional `PRICING_EDITORS` exception list), uses
+SQL-guarded optimistic concurrency, and records each real change in `pricing_audit`.
+See `SETUP.md` for Access policy, secrets and the passphrase-hash step.

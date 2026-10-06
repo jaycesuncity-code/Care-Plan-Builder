@@ -24,7 +24,9 @@ So:
 | Kind | Where it goes | Why |
 |---|---|---|
 | `DASHBOARD_URL`, `ALLOWED_ORIGINS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | **`wrangler.toml` → `[vars]`** (already committed) | plaintext; dashboard values wouldn't load |
-| `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | secrets must never be in a public repo |
+| `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | intake secrets; copy these four to the public intake project at launch |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | **Gated dashboard → Secrets (encrypted)** | required pricing-admin JWT verification; never copy these to the public intake project |
+| `PRICING_EDITORS` *(optional)* | **Gated dashboard → Secret (encrypted)** | named editor exceptions outside `@suncitylc.com`; never copy this to the public intake project |
 | everything, for local dev | **`.dev.vars`** (gitignored) | `wrangler pages dev` reads it |
 
 `N8N_WEBHOOK_URL` is technically not a secret, but it is an unauthenticated-looking
@@ -43,7 +45,7 @@ environments, so there is nothing to restate today.
 ```bash
 npm install
 cp .dev.vars.example .dev.vars     # already points at the local mocks
-npm run db:migrate:local           # applies 0001, 0002, 0004, 0005
+npm run db:migrate:local           # applies 0001, 0002, 0004, 0005, 0006
 ```
 
 Two terminals:
@@ -79,8 +81,10 @@ Cloudflare Access work. Nothing here depends on it, and the numbering gap is fin
 
 ```bash
 npx wrangler d1 migrations list care-plan-builder --remote   # see what's pending
-npx wrangler d1 migrations apply care-plan-builder --remote  # applies 0004 and 0005
+npx wrangler d1 migrations apply care-plan-builder --remote  # applies pending migrations, including 0006
 ```
+
+`0006_pricing.sql` is additive: it creates the three pricing tables and seeds them, and does not alter existing tables. Back up the real D1 first anyway, then apply the pending migrations.
 
 **`0004` rebuilds the `submissions` table** (SQLite can't ALTER a CHECK constraint), so
 read this before running it on real data:
@@ -133,7 +137,7 @@ The other documented test pairs, useful for deliberately breaking things:
 Cloudflare dashboard → **Workers & Pages** → **care-plan-builder** → **Settings** →
 **Variables and Secrets**.
 
-For **each** of Production and Preview, add these four as **Secret** (encrypted):
+For **each** of Production and Preview on the **gated dashboard project**, add the six required values below as **Secret** (encrypted). Add `PRICING_EDITORS` only if you intentionally need a named exception outside `@suncitylc.com`:
 
 | Name | Sandbox value | Notes |
 |---|---|---|
@@ -141,6 +145,9 @@ For **each** of Production and Preview, add these four as **Secret** (encrypted)
 | `N8N_WEBHOOK_URL` | `https://suncityautomation.app.n8n.cloud/webhook/care-plan-request` | see step 6 about test vs production URLs |
 | `N8N_WEBHOOK_SECRET` | any long random string | must match the n8n Header Auth credential exactly |
 | `IP_HASH_SALT` | any long random string | salts the stored IP hashes; rotating it just resets the rate-limit counters |
+| `PRICING_EDITORS` | *(optional)* comma-separated emails | named editor exceptions outside `@suncitylc.com`; company-domain staff do not need to be listed |
+| `ACCESS_TEAM_DOMAIN` | your Access team domain | used to verify the Access JWT issuer + fetch JWKS |
+| `ACCESS_AUD` | pricing Access application AUD tag | **must be the pricing-specific app's AUD, not the dashboard app's tag** |
 
 Generate the two random ones however you like, e.g.:
 
@@ -158,6 +165,35 @@ and dashboard copies would be ignored (see the note at the top). Change them by 
 `wrangler.toml` and pushing.
 
 Secrets take effect on the **next deployment** — redeploy after adding them.
+
+### Configure the pricing-page passphrase speed bump
+
+The passphrase is not the security boundary; Cloudflare Access and the server-side editor
+authorization rule are. The page ships fail-closed with a hash placeholder. Choose an internal
+passphrase, generate its SHA-256 hash locally, and paste **only the hash** into
+`PASSPHRASE_SHA256` in `public/pricing/index.html`:
+
+```bash
+node scripts/hash-passphrase.mjs "your passphrase"
+```
+
+Never commit the passphrase itself. The salt and hash are visible in page source by design.
+
+### Restrict the Pricing page to editors
+
+Create a **second Cloudflare Access application** for the dashboard project. Keep the
+existing dashboard Access application as-is, then add a pricing-specific application whose
+paths cover both `/pricing*` and `/api/pricing-admin*`. Its Allow policy should include
+company staff whose emails end in `@suncitylc.com`, plus any named outside-domain
+exceptions you intentionally support. Copy that application's AUD tag into the
+`ACCESS_AUD` secret above. A dashboard-app AUD in `ACCESS_AUD` will make every otherwise
+valid pricing editor receive 401. After JWT verification, the server independently
+requires an exact, case-insensitive `@suncitylc.com` email match or membership in the
+optional `PRICING_EDITORS` exception list. Subdomains and lookalike domains do not match.
+
+For local development only, `.dev.vars` may set `DEV_ADMIN_EMAIL`; that bypass is
+accepted only on `localhost` or `127.0.0.1`. `ACCESS_JWKS_URL` is test-only and must
+stay unset in production.
 
 ## 5. Deploy and verify the binding
 
@@ -224,27 +260,38 @@ customer's submission.
 1. Open <https://care-plan-builder.pages.dev/memberships/>.
 2. Pick **Premier**, tick **Mini-Split Tune-Up**, raise **# of HVAC Systems** to 3.
    Sidebar total should read **$930/yr** (600 + 80 + 2 × 125).
-3. Click the CTA. The recap should show the plan, the add-ons, and both of Premier's
-   complimentary add-ons as **Included**. The Turnstile box should appear and
-   self-solve (test key).
-4. Fill in a clearly fake name, a real-format phone, an address, pick **Midday**, tick
+3. Confirm that this canonical selection shows **no** Water Softener Salt line and
+   **no** Reverse Osmosis Service line. Neither corresponding paid service was selected.
+4. Click the CTA. The recap should show Premier, Mini-Split Tune-Up, and
+   **# of HVAC Systems × 3** with total **$930**. It should not contain phantom
+   water-treatment lines. The Turnstile box should appear and self-solve (test key).
+5. Fill in a clearly fake name, a real-format phone, an address, pick **Midday**, tick
    the acknowledgement, send.
-5. Expect the confirmation panel, and the form to disappear.
-6. Check the dashboard at <https://care-plan-builder.pages.dev/> — the lead should be
-   at the top of the queue. Open it: **Best time to call** = `Midday`, base $600, the
-   $0 **Included** lines, `# of HVAC Systems × 3` at $250, total **$930**.
-7. Check `service@suncitylc.com` for the email: subject
+6. Expect the confirmation panel, and the form to disappear.
+7. Check the dashboard at <https://care-plan-builder.pages.dev/> — the lead should be
+   at the top of the queue. Open it: **Best time to call** = `Midday`, base $600,
+   `Mini-Split Tune-Up` = $80, `# of HVAC Systems × 3` = $250, total **$930**,
+   and no phantom salt/RO line.
+8. Check `service@suncitylc.com` for the email: subject
    `New Care Plan request: Premier Care Plan - <name>`.
-8. Verify the numbers in the database are the server's, not the browser's:
+9. Verify the numbers in the database are the server's, not the browser's:
 
    ```bash
    npx wrangler d1 execute care-plan-builder --remote --command \
      "SELECT id, plan, best_time, base_price, addon_total, total_price FROM submissions ORDER BY id DESC LIMIT 3"
    ```
 
-9. Submit six leads in a row. The sixth should be refused with the wait-time message
-   (default limit: 5 per 10 minutes per IP).
-10. Delete the test rows when you're done — see part 8.
+10. Run a focused Premier softener-pairing check:
+    - select **Water Softener Service × 2**
+    - the service line should be **$150**
+    - **Water Softener Salt × 2** should appear automatically as **Included / $0**
+    - increasing/decreasing the service quantity should change salt 1:1
+    - removing Water Softener Service should remove the included salt line
+    - **Reverse Osmosis Service** should remain a normal paid **$50 each** add-on; its
+      replacement filters are the Premier perk, so no separate free RO line should appear.
+11. Submit six leads in a row. The sixth should be refused with the wait-time message
+    (default limit: 5 per 10 minutes per IP).
+12. Delete the test rows when you're done — see part 8.
 
 ---
 
@@ -265,7 +312,8 @@ middleware or reads `context.data.staffEmail`.
 1. A new repo (or a subdirectory build) containing only:
    ```
    functions/api/care-plan-request.js
-   lib/intake/          (catalog.js, validate.js, http.js, ratelimit.js,
+   functions/api/pricing.js
+   lib/intake/          (catalog.js, pricing.js, validate.js, http.js, ratelimit.js,
                          turnstile.js, persist.js, notify.js)
    public/              (can be a single index.html saying "nothing to see here")
    wrangler.toml
@@ -294,19 +342,31 @@ middleware or reads `context.data.staffEmail`.
    RATE_LIMIT_WINDOW_SECONDS = "600"
    ```
 
-   Same D1 id — both projects read and write one database. `ALLOWED_ORIGINS` drops the
-   `pages.dev` entry once the sandbox is gone.
-6. Add the same four **secrets** (step 4) to this project, Production and Preview.
+   Same D1 id — both projects share one database. The public project contains pricing
+   SELECT code only; **do not copy `functions/api/pricing-admin.js` or `lib/admin/` into
+   it**. A D1 binding itself cannot be read-only, so the project boundary is what enforces
+   public pricing read-only behavior. `ALLOWED_ORIGINS` drops the `pages.dev` entry once
+   the sandbox is gone.
+6. Add **only the four intake secrets** to this public project, Production and Preview:
+   `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, and
+   `IP_HASH_SALT`. Do **not** copy `PRICING_EDITORS`, `ACCESS_TEAM_DOMAIN`, or
+   `ACCESS_AUD` to the public intake project.
 7. Deploy, then re-run the step 5 curl against
-   `https://care-plan-intake.pages.dev/api/care-plan-request`.
+   `https://care-plan-intake.pages.dev/api/care-plan-request`. Also GET
+   `https://care-plan-intake.pages.dev/api/pricing` and confirm it returns only
+   `version`, `updatedAt`, `plans` and `addons`.
+
+A new plan or add-on added later in `lib/intake/catalog.js` still has its hardcoded
+default as a safe runtime fallback, but it **will not appear in the Pricing editor until a
+new migration seeds its `plan:<id>` or `addon:<id>` row**.
 
 ### 8b. Point the Builder at it
 
-In the LiveCanvas copy of the Builder (`builder-walkthrough.md` step 5 put both
-constants together for exactly this moment):
+In the LiveCanvas copy of the Builder (`builder-walkthrough.md` steps 5 and 15 keep the launch constants together for this moment):
 
 ```js
 var SUBMIT_ENDPOINT = 'https://care-plan-intake.pages.dev/api/care-plan-request';
+var PRICING_ENDPOINT = 'https://care-plan-intake.pages.dev/api/pricing';
 var TURNSTILE_SITEKEY = '<real sitekey from step 3>';
 ```
 
@@ -316,13 +376,14 @@ only if the page's origin is in that project's `ALLOWED_ORIGINS`. Both
 keep whichever the site actually serves, and remember the scheme and any `www.` must
 match exactly. No trailing slash.
 
-Apply all 14 walkthrough steps to the LiveCanvas block if you haven't already.
+Apply all 20 walkthrough steps to the LiveCanvas block if you haven't already.
 
 ### 8c. Constants and values to swap, in one list
 
 | Where | From | To |
 |---|---|---|
 | Builder, `SUBMIT_ENDPOINT` | `/api/care-plan-request` | `https://care-plan-intake.pages.dev/api/care-plan-request` |
+| Builder, `PRICING_ENDPOINT` | `/api/pricing` | `https://care-plan-intake.pages.dev/api/pricing` |
 | Builder, `TURNSTILE_SITEKEY` | `1x00000000000000000000AA` | the real sitekey |
 | Builder, each add-on's `photo` | `/img/…` | the WordPress media-library URLs |
 | Builder, `LINKS` | sandbox slugs | the real WP slugs, if any differ |

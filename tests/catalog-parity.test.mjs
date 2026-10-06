@@ -83,7 +83,7 @@ test("plans match the builder: id, full name, price, covered systems", () => {
   }
 });
 
-test("add-ons match the builder: id, name, price, system, quantityOnly, included, includedIn", () => {
+test("add-ons match the builder: id, name, price, system, quantityOnly, included, includedIn, includedWith", () => {
   const builderItems = [];
   for (const group of builder.addonGroups) {
     for (const item of group.items) builderItems.push({ ...item, system: group.system });
@@ -116,6 +116,11 @@ test("add-ons match the builder: id, name, price, system, quantityOnly, included
       [...(builderItem.includedIn || [])].sort(),
       `${builderItem.id}: includedIn differs`
     );
+    assert.equal(
+      serverItem.includedWith ?? null,
+      builderItem.includedWith ?? null,
+      `${builderItem.id}: includedWith differs`
+    );
   }
 });
 
@@ -140,4 +145,26 @@ test("the builder's bestTime <select> only offers values the server accepts", as
       `the form can send bestTime="${value}" but the server does not map it`
     );
   }
+});
+
+
+test("0006 seed matches every catalog id, label and default price", () => {
+  const sql = readFileSync(join(here, "..", "migrations", "0006_pricing.sql"), "utf8");
+  const rows = [...sql.matchAll(/\('(plan|addon):([^']+)',\s*'(plan|addon)',\s*'((?:''|[^'])*)',\s*(\d+),\s*NULL,\s*NULL\)/g)]
+    .map((match) => ({
+      id: `${match[1]}:${match[2]}`,
+      kind: match[3],
+      label: match[4].replace(/''/g, "'"),
+      price: Number(match[5]),
+    }));
+
+  const expected = [
+    ...PLANS.map((plan) => ({ id: `plan:${plan.id}`, kind: "plan", label: plan.full, price: plan.price })),
+    ...ADDON_GROUPS.flatMap((group) =>
+      group.items.map((item) => ({ id: `addon:${item.id}`, kind: "addon", label: item.name, price: item.price }))
+    ),
+  ];
+
+  assert.deepEqual(rows, expected);
+  assert.equal(rows.length, 13, "4 plans + 9 add-ons, including the two counts and Water Softener Salt");
 });

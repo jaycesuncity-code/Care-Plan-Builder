@@ -351,6 +351,36 @@
 #sc-cpb .cpb-feature-rule { width: 1px; align-self: stretch; background: var(--cpb-edge); margin: 4px 0; }
 #sc-cpb .cpb-feature-title { margin: 0; font-size: 15px; font-weight: 900; color: var(--cpb-accent-ink); line-height: 1.25; }
 #sc-cpb .cpb-feature-text { margin: 1px 0 0; font-size: 12.5px; color: var(--cpb-body); }
+#sc-cpb .cpb-filter-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 2px 0;
+  padding: 10px 12px;
+  background: var(--cpb-surface);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #505862;
+}
+#sc-cpb .cpb-filter-note::before {
+  content: "i";
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #66707D;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 900;
+  font-family: Arial, sans-serif;
+  color: #66707D;
+}
 
 #sc-cpb .cpb-bestfor {
   display: inline-flex; align-items: center; gap: 12px; margin-top: 10px;
@@ -602,6 +632,9 @@
 .cpb-lead-recap dl { display: grid; grid-template-columns: auto 1fr; gap: .2rem .6rem; margin: 0; }
 .cpb-lead-recap dt { font-weight: 600; color: var(--cpb-maroon); }
 .cpb-lead-recap dd { margin: 0; }
+.cpb-lead-recap dl > dt:first-of-type,
+.cpb-lead-recap dl > dd:first-of-type { font-weight: 800; }
+.cpb-lead-recap dl > dd:first-of-type { color: var(--cpb-maroon); }
 .cpb-lead-recap .cpb-lead-recap-total {
   margin-top: .5rem;
   padding-top: .5rem;
@@ -641,6 +674,70 @@
 
 .cpb-lead-field input[aria-invalid="true"],
 .cpb-lead-field select[aria-invalid="true"] { border-color: #b3261e; }
+
+/* Best Time to Call: progressive custom select.
+   The native select remains visible unless JS successfully adds
+   .is-calltime-enhanced to the field. */
+.cpb-calltime { position: relative; display: none; }
+.cpb-lead-field.is-calltime-enhanced > .cpb-lead-native-select { display: none; }
+.cpb-lead-field.is-calltime-enhanced .cpb-calltime { display: block; }
+
+.cpb-calltime-button {
+  width: 100%; min-height: 42px;
+  border: 1px solid #d9d2c8; border-radius: 8px;
+  padding: .55rem .7rem;
+  background: #fff; color: inherit; font: inherit;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  text-align: left; cursor: pointer;
+}
+.cpb-calltime-button:hover { border-color: color-mix(in srgb, var(--cpb-maroon) 35%, #d9d2c8); }
+.cpb-calltime-button:focus-visible,
+.cpb-calltime-button[aria-expanded="true"] {
+  outline: 2px solid var(--cpb-accent);
+  outline-offset: 1px;
+  border-color: var(--cpb-accent);
+}
+.cpb-calltime-chevron {
+  width: 9px; height: 9px; flex: 0 0 auto;
+  border-right: 2px solid var(--cpb-maroon);
+  border-bottom: 2px solid var(--cpb-maroon);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .15s ease;
+}
+.cpb-calltime-button[aria-expanded="true"] .cpb-calltime-chevron {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+.cpb-calltime-list {
+  position: absolute; z-index: 20;
+  top: calc(100% + 6px); left: 0; right: 0;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--cpb-maroon) 35%, #d9d2c8);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(38,38,42,.16);
+  max-height: 240px; overflow-y: auto;
+}
+.cpb-calltime-list[hidden] { display: none; }
+.cpb-calltime-option {
+  padding: .62rem .7rem;
+  border-radius: 7px;
+  color: var(--cpb-body);
+  cursor: pointer;
+  line-height: 1.25;
+}
+.cpb-calltime-option:hover,
+.cpb-calltime-option.is-active:not([aria-selected="true"]) {
+  background: color-mix(in srgb, var(--cpb-gold) 22%, #fff);
+  color: var(--cpb-maroon);
+}
+.cpb-calltime-option[aria-selected="true"] {
+  background: var(--cpb-maroon);
+  color: #fff;
+  font-weight: 700;
+}
+.cpb-calltime-option.is-active {
+  box-shadow: inset 0 0 0 2px var(--cpb-gold);
+}
 
 .cpb-lead-error { color: #b3261e; font-size: .82rem; min-height: 1em; }
 
@@ -683,14 +780,34 @@
 #sc-cpb .cpb-addon.is-active .cpb-qty-input { border-color: rgba(255,255,255,.55); }
 #sc-cpb .cpb-addon.is-active .cpb-qty-plus, #sc-cpb .cpb-addon.is-active .cpb-qty-minus { background: rgba(255,255,255,.22); }
 
-/* Item 3 fix: an add-on the current plan already includes for free (e.g.
-   Premier's Water Softener Salt / Reverse Osmosis Service) — visually
-   similar to is-active (it IS part of the order) but not interactive, since
-   there's nothing to toggle or count. */
+/* Premier paired benefit: complimentary salt is derived from the paid Water
+   Softener Service quantity. The salt card is informational/non-editable; it
+   becomes active only when the paid service is selected. */
+#sc-cpb .cpb-premier-pair {
+  position: relative; grid-column: span 2; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  padding: 12px; border: 1px solid var(--cpb-gold); border-radius: 14px;
+  background: color-mix(in srgb, var(--cpb-gold) 10%, #fff);
+}
+#sc-cpb .cpb-premier-pair-label {
+  position: absolute; top: -10px; left: 14px; z-index: 3;
+  padding: 2px 8px; border-radius: 999px; background: #fff;
+  color: var(--cpb-maroon); font-size: 10px; font-weight: 900;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+#sc-cpb .cpb-addon.is-premier-salt { cursor: default; }
+#sc-cpb .cpb-addon.is-premier-salt:hover { box-shadow: none; }
+#sc-cpb .cpb-addon.is-premier-salt .cpb-addon-note { margin-top: 2px; }
+#sc-cpb .cpb-addon.is-premier-salt .cpb-premier-included-status {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
 #sc-cpb .cpb-addon.is-included { cursor: default; border-color: var(--g-accent); }
 #sc-cpb .cpb-addon.is-included:hover { box-shadow: none; }
 #sc-cpb .cpb-addon.is-included .cpb-addon-body { background: var(--g-accent); }
 #sc-cpb .cpb-addon.is-included .cpb-addon-name { color: #fff; }
+#sc-cpb .cpb-addon.is-premier-salt.is-included .cpb-addon-note { color: rgba(255,255,255,.86); }
 #sc-cpb .cpb-addon.is-included .cpb-addon-price { background: rgba(255,255,255,.15); color: #fff; }
 #sc-cpb .cpb-line.is-included .cpb-line-price { color: var(--cpb-accent-ink); }
 
@@ -794,6 +911,7 @@
 /* Very narrow phones: two photo cards per row no longer fit their +/- controls. */
 @media (max-width: 360px) {
   #sc-cpb .cpb-addons-grid { grid-template-columns: minmax(0, 1fr); }
+  #sc-cpb .cpb-premier-pair { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   /* Includes #sc-cpb itself (not just its descendants) so the module's own
@@ -907,7 +1025,7 @@
 
       <form id="cpbLeadForm" class="cpb-lead-form" novalidate>
         <div class="cpb-lead-field">
-          <label for="cpbLeadName">Customer Name</label>
+          <label for="cpbLeadName">Your Name</label>
           <input type="text" id="cpbLeadName" name="customerName" autocomplete="name" required aria-describedby="cpbLeadNameErr">
           <span class="cpb-lead-error" id="cpbLeadNameErr" role="alert"></span>
         </div>
@@ -924,23 +1042,49 @@
           <span class="cpb-lead-error" id="cpbLeadAddressErr" role="alert"></span>
         </div>
 
-        <div class="cpb-lead-field">
-          <label for="cpbLeadBestTime">Best Time to Call <span class="cpb-lead-optional">(optional)</span></label>
-          <select id="cpbLeadBestTime" name="bestTime">
+        <div class="cpb-lead-field" data-cpb-calltime-field>
+          <label id="cpbLeadBestTimeLabel" for="cpbLeadBestTime">Best Time to Call <span class="cpb-lead-optional">(optional)</span></label>
+
+          <!-- Keep the native select as the canonical value/fallback. JavaScript
+               hides it only after the custom accessible control is initialized. -->
+          <select id="cpbLeadBestTime" name="bestTime" class="cpb-lead-native-select" aria-labelledby="cpbLeadBestTimeLabel">
             <option value="">No preference</option>
             <option value="morning">Morning (8&ndash;11)</option>
             <option value="midday">Midday (11&ndash;2)</option>
             <option value="afternoon">Afternoon (2&ndash;5)</option>
           </select>
+
+          <div class="cpb-calltime">
+            <button
+              type="button"
+              id="cpbLeadBestTimeButton"
+              class="cpb-calltime-button"
+              role="combobox"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="cpbLeadBestTimeList"
+              aria-labelledby="cpbLeadBestTimeLabel cpbLeadBestTimeValue"
+            >
+              <span id="cpbLeadBestTimeValue">No preference</span>
+              <span class="cpb-calltime-chevron" aria-hidden="true"></span>
+            </button>
+
+            <div id="cpbLeadBestTimeList" class="cpb-calltime-list" role="listbox" aria-labelledby="cpbLeadBestTimeLabel" hidden>
+              <div id="cpbLeadBestTimeOptAny" class="cpb-calltime-option" role="option" aria-selected="true" data-value="">No preference</div>
+              <div id="cpbLeadBestTimeOptMorning" class="cpb-calltime-option" role="option" aria-selected="false" data-value="morning">Morning (8&ndash;11)</div>
+              <div id="cpbLeadBestTimeOptMidday" class="cpb-calltime-option" role="option" aria-selected="false" data-value="midday">Midday (11&ndash;2)</div>
+              <div id="cpbLeadBestTimeOptAfternoon" class="cpb-calltime-option" role="option" aria-selected="false" data-value="afternoon">Afternoon (2&ndash;5)</div>
+            </div>
+          </div>
         </div>
 
         <p class="cpb-lead-disclosure">
-          Sending this request does not enroll you in a Care Plan, and no payment is taken online. A Sun City team member will reach out during regular business hours (Monday&ndash;Friday, 8:00&nbsp;AM&ndash;5:00&nbsp;PM) to confirm your plan and price, go over the applicable terms, take payment if you decide to move forward, and get your visits scheduled.
+          Sun City will contact you during regular business hours (Monday&ndash;Friday, 8:00&nbsp;AM&ndash;5:00&nbsp;PM) to confirm your plan, final price and applicable terms before enrollment, payment and scheduling.
         </p>
 
         <div class="cpb-lead-field cpb-lead-checkbox-field">
           <input type="checkbox" id="cpbLeadAck" name="ack" required aria-describedby="cpbLeadAckErr">
-          <label for="cpbLeadAck">I understand that sending this request does not enroll me or take payment. Sun City will contact me to confirm my plan, price and applicable terms before enrollment is completed.</label>
+          <label for="cpbLeadAck">I understand that sending this request does not enroll me in a membership or schedule an appointment.</label>
           <span class="cpb-lead-error" id="cpbLeadAckErr" role="alert"></span>
         </div>
 
@@ -1014,10 +1158,10 @@
       covers: ['hvac'],
       tagline: 'Stay on top of your homes heating and cooling maintenance with seasonal visits and Member Discounts throughout the year.',
       features: [
-        { i: 'calendar', t: '2 Seasonal Visits', d: 'Heating & cooling inspections' },
-        { i: 'filter',   t: 'Filters Included',  d: 'Replacement air filters' },
-        { i: 'clock',    t: 'Priority Scheduling', d: 'Faster access to service' },
-        { i: 'tag',      t: '10% Off Repairs',   d: 'Savings on repairs & services' }
+        { i: 'calendar', t: '2 Seasonal Visits', d: 'Heating & Cooling Inspections' },
+        { i: 'filter',   t: 'Complementary Filters',  d: 'Replaced Each Visit' },
+        { i: 'clock',    t: 'Preferred Scheduling', d: 'Faster access to service' },
+        { i: 'tag',      t: 'Members Savings',   d: '10% discount on Repairs and Services' }
       ]
     },
     {
@@ -1028,7 +1172,7 @@
         { i: 'wrench', t: 'Annual Plumbing Visit', d: 'Inspection + water heater flush' },
         { i: 'gauge',  t: 'Pressure & Quality Tests', d: 'Water pressure and quality checked' },
         { i: 'clock',  t: 'Preferred Scheduling',  d: 'Faster access to service' },
-        { i: 'tag',    t: '10% Off Repairs',       d: 'Savings on repairs & services' }
+        { i: 'tag',    t: 'Members Savings',       d: '10% discount on Repairs and Services' }
       ]
     },
     {
@@ -1037,9 +1181,9 @@
       tagline: 'Full HVAC and plumbing coverage together in one membership.',
       rewards: true,
       features: [
-        { i: 'calendar', t: '3 Visits a Year',     d: '2 HVAC + 1 plumbing, plus filters' },
+        { i: 'calendar', t: '3 Visits a Year',     d: '2 HVAC + 1 plumbing' },
         { i: 'clock',    t: 'Preferred Scheduling', d: 'Faster access to service' },
-        { i: 'tag',      t: '10% Off Repairs',     d: 'Savings on repairs & services' },
+        { i: 'tag',      t: 'Members Savings',     d: '10% discount on Repairs and Services' },
         { i: 'gift',     t: 'Sun City Rewards',    d: 'Access to the member rewards program' }
       ]
     },
@@ -1051,8 +1195,8 @@
       features: [
         { i: 'layers',   t: 'Everything in Bundled', d: 'All Bundled coverage and perks' },
         { i: 'clock',    t: 'Priority Scheduling',   d: 'Plus a reduced $99 dispatch fee', plus: true },
-        { i: 'moon',     t: '2 Free After-Hours Calls', d: 'Per year, no after-hours charge', plus: true },
-        { i: 'cube',     t: 'Softener Salt & Reverse Osmosis Service', d: 'Complimentary with service visits', plus: true }
+        { i: 'moon',     t: 'After-Hours Fee Waived', d: 'Up to 2 calls per year', plus: true },
+        { i: 'cube',     t: 'RO Filters Included', d: 'Filters replaced during a Reverse Osmosis Service are included at no additional charge', plus: true }
       ]
     }
   ];
@@ -1071,9 +1215,9 @@
     ]},
     { system: 'plumbing', label: 'Plumbing add-ons', needs: 'Plumbing, Bundled, or Premier', items: [
       { id: 'waterHeaters', name: '# of Water Heaters', price: 50, quantityOnly: true, included: 1, photo: '/img/addon-waterheatercount.jpg', desc: 'Have more than one water heater at your property? This add-on extends your plan\'s annual service visit to each additional unit, so every water heater gets the same care as your first.' },
-      { id: 'wss',  name: 'Water Softener Salt',           price: 68,  includedIn: ['premier'], photo: '/img/addon-softenersalt.jpg', desc: 'Your technician will top off your water softener with salt during the visit and leave extra bags on hand — so you\'re covered between visits without the extra trip to the store.' },
       { id: 'wsv',  name: 'Water Softener Service',        price: 75,  photo: '/img/addon-softenerservice.jpg', desc: 'Your water softener is professionally inspected and serviced during your annual plumbing visit, helping protect your plumbing, appliances, and water quality throughout the year.' },
-      { id: 'ros',  name: 'Reverse Osmosis Service',       price: 50,  includedIn: ['premier'], photo: '/img/addon-reverseosmosis.jpg', desc: 'Your RO system is professionally serviced during your annual plumbing visit, keeping it operating at peak performance for cleaner, better-tasting water all year long.' },
+      { id: 'wss',  name: 'Water Softener Salt',           price: 68,  includedIn: ['premier'], includedWith: 'wsv', photo: '/img/addon-softenersalt.jpg', desc: 'Your technician will top off your water softener with salt during the visit and leave extra bags on hand — so you\'re covered between visits without the extra trip to the store.' },
+      { id: 'ros',  name: 'Reverse Osmosis Service',       price: 50,  photo: '/img/addon-reverseosmosis.jpg', desc: 'Your RO system is professionally serviced during your annual plumbing visit, keeping it operating at peak performance for cleaner, better-tasting water all year long.' },
       { id: 'twf',  name: 'Tankless Water Heater Flush',   price: 40,  photo: '/img/addon-tanklessflush.jpg', desc: 'Your tankless water heater receives a professional chemical descaling flush each year, clearing out mineral buildup to keep it running efficiently and extend its lifespan.' },
       { id: 'qbb',  name: 'Quarterly BigBlue Filter Change', price: 180, photo: '/img/addon-bigbluefilter.jpg', desc: 'Your whole house water filter has four filter change visits per year, so your home filter stays clean, efficient, and well-maintained throughout the seasons.' }
     ]}
@@ -1094,7 +1238,9 @@
 
   function plan() { return PLANS.filter(function (p) { return p.id === state.plan; })[0]; }
   function eligible(a) { return plan().covers.indexOf(a.system) !== -1; }
-  function includedFree(a) { return !!(a.includedIn && a.includedIn.indexOf(state.plan) !== -1); }
+  function premierSaltQty() {
+    return state.plan === 'premier' && state.addons.wsv ? addonQty('wsv') : 0;
+  }
   function money(n) { return '$' + n.toLocaleString('en-US'); }
   function moneyCents(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -1138,6 +1284,9 @@
     var link = p.rewards
       ? '<a href="' + LINKS.rewards + '">About Sun City Rewards</a>'
       : '<a href="' + LINKS[p.id] + '">See full plan details</a>';
+    var filterNote = p.covers.indexOf('hvac') !== -1
+      ? '<p class="cpb-filter-note">Standard disposable HVAC filters are included. Specialty HVAC filters are subject to an additional charge.</p>'
+      : '';
     el.innerHTML =
       '<div class="cpb-detail-top">' +
         '<div>' +
@@ -1156,6 +1305,7 @@
           '<div><p class="cpb-feature-title">' + esc(f.t) + '</p>' +
           '<p class="cpb-feature-text">' + esc(f.d) + '</p></div></div>';
       }).join('') + '</div>' +
+      filterNote +
       '<div class="cpb-bestfor">' +
         link +
       '</div>';
@@ -1190,6 +1340,47 @@
         var open = eligible(a);
         var photo = '<span class="cpb-addon-photo"><img src="' + esc(a.photo) + '" alt="" loading="lazy"></span>';
         var infoBadge = '<button type="button" class="cpb-addon-info" aria-label="More info about ' + esc(a.name) + '" data-addon-info="' + a.id + '"><img src="/img/question-mark-icon.png" alt="" loading="lazy"></button>';
+
+        /* Premier exception: Water Softener Service stays a normal PAID add-on,
+           while its salt benefit is derived 1:1 from the selected service
+           quantity. The salt card is deliberately non-editable. */
+        if (state.plan === 'premier' && a.id === 'wss') {
+          var service = ADDON_INDEX.wsv;
+          var serviceQty = addonQty('wsv');
+          var serviceOn = !!state.addons.wsv;
+          var saltQty = premierSaltQty();
+          var servicePhoto = '<span class="cpb-addon-photo"><img src="' + esc(service.photo) + '" alt="" loading="lazy"></span>';
+          var serviceInfo = '<button type="button" class="cpb-addon-info" aria-label="More info about ' + esc(service.name) + '" data-addon-info="wsv"><img src="/img/question-mark-icon.png" alt="" loading="lazy"></button>';
+          var saltPrice = saltQty > 0 ? 'Included &times; ' + saltQty : 'Included with service';
+
+          html += '<div class="cpb-premier-pair" data-premier-pair>' +
+            '<span class="cpb-premier-pair-label">Premier Pairing</span>' +
+            '<div role="button" tabindex="0" class="cpb-addon is-plumbing' + (serviceOn ? ' is-active' : '') + '" data-addon="wsv" aria-pressed="' + serviceOn + '">' +
+              servicePhoto +
+              serviceInfo +
+              '<span class="cpb-addon-body">' +
+                '<span class="cpb-addon-row">' +
+                  '<span class="cpb-addon-name">' + esc(service.name) + '</span>' +
+                  '<span class="cpb-addon-price">+' + money(service.price) + '<small>/ea</small></span>' +
+                '</span>' +
+                '<span class="cpb-addon-note">Each paid service includes one complimentary salt refill.</span>' +
+                qtyControls(service, serviceQty, true, 0) +
+              '</span>' +
+            '</div>' +
+            '<div class="cpb-addon is-plumbing is-premier-salt' + (saltQty > 0 ? ' is-included' : '') + '" data-premier-salt title="Included with each Water Softener Service under Premier">' +
+              photo +
+              infoBadge +
+              '<span class="cpb-addon-body">' +
+                '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
+                '<span class="cpb-addon-note">Each Water Softener Service includes one complimentary salt refill.</span>' +
+                '<span class="cpb-addon-price cpb-premier-included-status" data-premier-salt-price>' + saltPrice + '</span>' +
+              '</span>' +
+            '</div>' +
+          '</div>';
+          return;
+        }
+        if (state.plan === 'premier' && a.id === 'wsv') return;
+
         if (a.quantityOnly) {
           var specialQty = coverageQty(a.id);
           html += '<div class="cpb-addon is-' + a.system + ' is-quantity' + (open ? ' is-active' : ' is-locked') + '" data-coverage-qty="' + a.id + '">' +
@@ -1203,19 +1394,7 @@
           '</div>';
           return;
         }
-        if (open && includedFree(a)) {
-          html += '<div class="cpb-addon is-' + a.system + ' is-included" title="Included free with your Premier Care Plan">' +
-            photo +
-            infoBadge +
-            '<span class="cpb-addon-body">' +
-              '<span class="cpb-addon-row">' +
-                '<span class="cpb-addon-name">' + esc(a.name) + '</span>' +
-                '<span class="cpb-addon-price">Included</span>' +
-              '</span>' +
-            '</span>' +
-          '</div>';
-          return;
-        }
+
         var qty = addonQty(a.id), on = !!state.addons[a.id];
         html += '<div role="button" tabindex="0" class="cpb-addon is-' + a.system + (open ? (on ? ' is-active' : '') : ' is-locked') + '" data-addon="' + a.id + '" aria-pressed="' + on + '"' +
           (open ? '' : ' title="Switches your plan to Bundled to unlock this add-on"') + '>' +
@@ -1233,7 +1412,6 @@
     });
     $('addons').innerHTML = html;
   }
-
   function pulseEl(el, cls) {
     cls = cls || 'cpb-pulse';
     el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
@@ -1271,7 +1449,8 @@
       basePrice: p.price,
       addons: addons,
       total: total,
-      monthlyEquivalent: Math.round((total / 12) * 100) / 100
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100,
+      pricingVersion: pricingVersion
     };
   }
 
@@ -1290,7 +1469,7 @@
        quantity is currently included in the total. */
     ADDON_GROUPS.forEach(function (g) {
       g.items.forEach(function (a) {
-        if (a.quantityOnly || !state.addons[a.id]) return;
+        if (a.quantityOnly || !state.addons[a.id] || (state.plan === 'premier' && a.id === 'wss')) return;
         var qty = addonQty(a.id);
         if (qty <= 0) return;
         var lineTotal = a.price * qty;
@@ -1311,17 +1490,13 @@
       });
     });
 
-    /* Item 3 fix: add-ons the current plan includes at no charge (Premier's
-       Water Softener Salt / Reverse Osmosis Service) always show as a $0
-       line while eligible, regardless of state.addons — they aren't
-       "selected" by the customer, they're already part of the plan, so
-       they can't be double-charged either. */
-    ADDON_GROUPS.forEach(function (g) {
-      g.items.forEach(function (a) {
-        if (a.quantityOnly || !eligible(a) || !includedFree(a)) return;
-        lines.push({ name: a.name, price: 0, id: a.id, included: true });
-      });
-    });
+    /* Premier's complimentary salt is conditional, not a blanket included
+       add-on. Its quantity is always derived from the selected paid Water
+       Softener Service quantity; no service means no salt line. */
+    var saltQty = premierSaltQty();
+    if (saltQty > 0) {
+      lines.push({ name: ADDON_INDEX.wss.name, price: 0, id: 'wss', included: true, qty: saltQty });
+    }
 
     var monthly = moneyCents(total / 12);
     $('monthly').textContent = monthly + '*';
@@ -1431,6 +1606,18 @@
       var on = !!state.addons[id];
       el.classList.toggle('is-active', on);
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    /* Keep the non-editable Premier salt card visually synchronized with the
+       paid Water Softener Service without re-rendering the whole grid. */
+    if (state.plan === 'premier' && id === 'wsv') {
+      var saltCard = root.querySelector('[data-premier-salt]');
+      if (saltCard) {
+        var saltQty = premierSaltQty();
+        saltCard.classList.toggle('is-included', saltQty > 0);
+        var saltPrice = saltCard.querySelector('[data-premier-salt-price]');
+        if (saltPrice) saltPrice.innerHTML = saltQty > 0 ? 'Included &times; ' + saltQty : 'Included with service';
+      }
     }
   }
 
@@ -1636,6 +1823,65 @@
      the real site key (and add the live hostnames to the widget) at launch. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
 
+  /* Same public intake project as SUBMIT_ENDPOINT. At launch swap this to its
+     absolute /api/pricing URL too. */
+  var PRICING_ENDPOINT = '/api/pricing';
+  var pricingVersion = null;
+
+  function renderCurrentPricing() {
+    buildPlans();
+    syncPlans();
+    renderDetail(false);
+    renderAddons();
+    renderTotal(false);
+  }
+
+  function applyPricingPayload(pricing) {
+    if (!pricing || !Number.isInteger(pricing.version) ||
+        !pricing.plans || typeof pricing.plans !== 'object' ||
+        !pricing.addons || typeof pricing.addons !== 'object') return false;
+
+    var applied = 0;
+    PLANS.forEach(function (p) {
+      var value = pricing.plans[p.id];
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) return;
+      p.price = value;
+      applied++;
+    });
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var value = pricing.addons[a.id];
+        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) return;
+        a.price = value;
+        applied++;
+      });
+    });
+
+    if (!applied) return false;
+    pricingVersion = pricing.version;
+    return true;
+  }
+
+  function loadPricingThenRender() {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 1500);
+    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
+      .then(function (res) {
+        if (!res.ok) throw new Error('pricing unavailable');
+        return res.json();
+      })
+      .then(function (pricing) {
+        applyPricingPayload(pricing);
+      })
+      .catch(function () {
+        pricingVersion = null; // hardcoded catalog defaults stay in place
+      })
+      .then(function () {
+        clearTimeout(timer);
+        renderCurrentPricing();
+      });
+  }
+
   (function initLeadModal() {
     var ctaBtn = $('cta'); // data-cpb="cta" — the only lookup that can use $()
     var modal = root.querySelector('#cpbLeadModal');
@@ -1658,7 +1904,146 @@
     };
 
     function field(id) { return modal.querySelector('#' + id); }
+  // -- Accessible Best Time to Call combobox -------------------------------
+    // The original <select> remains the canonical value and no-JS fallback.
+    // Once this enhancement initializes successfully, the select is hidden and
+    // this control mirrors its value without changing the payload contract.
+    var bestTimeField = modal.querySelector('[data-cpb-calltime-field]');
+    var bestTimeLabel = modal.querySelector('#cpbLeadBestTimeLabel');
+    var bestTimeSelect = modal.querySelector('#cpbLeadBestTime');
+    var bestTimeCombo = modal.querySelector('#cpbLeadBestTimeButton');
+    var bestTimeList = modal.querySelector('#cpbLeadBestTimeList');
+    var bestTimeValueEl = modal.querySelector('#cpbLeadBestTimeValue');
+    var bestTimeOptions = bestTimeList
+      ? Array.prototype.slice.call(bestTimeList.querySelectorAll('[role="option"]'))
+      : [];
+    var bestTimeActiveIndex = 0;
 
+    function bestTimeIndexForValue(value) {
+      for (var i = 0; i < bestTimeOptions.length; i++) {
+        if (bestTimeOptions[i].getAttribute('data-value') === value) return i;
+      }
+      return 0;
+    }
+
+    function bestTimeIsOpen() {
+      return !!bestTimeCombo && bestTimeCombo.getAttribute('aria-expanded') === 'true';
+    }
+
+    function syncBestTimeUI() {
+      if (!bestTimeSelect || !bestTimeCombo || !bestTimeValueEl || !bestTimeOptions.length) return;
+
+      var selectedIndex = bestTimeIndexForValue(bestTimeSelect.value);
+      bestTimeValueEl.textContent = bestTimeOptions[selectedIndex].textContent;
+
+      if (!bestTimeIsOpen()) bestTimeActiveIndex = selectedIndex;
+
+      bestTimeOptions.forEach(function (option, index) {
+        option.setAttribute('aria-selected', index === selectedIndex ? 'true' : 'false');
+        option.classList.toggle('is-active', bestTimeIsOpen() && index === bestTimeActiveIndex);
+      });
+
+      if (bestTimeIsOpen()) {
+        bestTimeCombo.setAttribute('aria-activedescendant', bestTimeOptions[bestTimeActiveIndex].id);
+      } else {
+        bestTimeCombo.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function openBestTimeList() {
+      if (!bestTimeCombo || !bestTimeList || !bestTimeOptions.length) return;
+      bestTimeActiveIndex = bestTimeIndexForValue(bestTimeSelect.value);
+      bestTimeList.hidden = false;
+      bestTimeCombo.setAttribute('aria-expanded', 'true');
+      syncBestTimeUI();
+    }
+
+    function closeBestTimeList(returnFocus) {
+      if (!bestTimeCombo || !bestTimeList) return;
+      bestTimeList.hidden = true;
+      bestTimeCombo.setAttribute('aria-expanded', 'false');
+      syncBestTimeUI();
+      if (returnFocus) bestTimeCombo.focus();
+    }
+
+    function setBestTimeActive(index) {
+      if (!bestTimeOptions.length) return;
+      bestTimeActiveIndex = Math.max(0, Math.min(bestTimeOptions.length - 1, index));
+      syncBestTimeUI();
+    }
+
+    function moveBestTimeActive(delta) {
+      if (!bestTimeOptions.length) return;
+      bestTimeActiveIndex = (bestTimeActiveIndex + delta + bestTimeOptions.length) % bestTimeOptions.length;
+      syncBestTimeUI();
+    }
+
+    function chooseBestTime(index) {
+      if (!bestTimeSelect || !bestTimeOptions[index]) return;
+      bestTimeSelect.value = bestTimeOptions[index].getAttribute('data-value');
+      bestTimeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      closeBestTimeList(true);
+    }
+
+    if (bestTimeField && bestTimeSelect && bestTimeCombo && bestTimeList && bestTimeOptions.length) {
+      bestTimeField.classList.add('is-calltime-enhanced');
+      bestTimeSelect.setAttribute('tabindex', '-1');
+      bestTimeSelect.setAttribute('aria-hidden', 'true');
+      if (bestTimeLabel) bestTimeLabel.setAttribute('for', 'cpbLeadBestTimeButton');
+      syncBestTimeUI();
+
+      bestTimeSelect.addEventListener('change', syncBestTimeUI);
+
+      bestTimeCombo.addEventListener('click', function () {
+        if (bestTimeIsOpen()) closeBestTimeList(false);
+        else openBestTimeList();
+      });
+
+      bestTimeCombo.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (!bestTimeIsOpen()) openBestTimeList();
+          else moveBestTimeActive(1);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!bestTimeIsOpen()) openBestTimeList();
+          else moveBestTimeActive(-1);
+          return;
+        }
+        if (e.key === 'Home') {
+          e.preventDefault();
+          if (!bestTimeIsOpen()) openBestTimeList();
+          setBestTimeActive(0);
+          return;
+        }
+        if (e.key === 'End') {
+          e.preventDefault();
+          if (!bestTimeIsOpen()) openBestTimeList();
+          setBestTimeActive(bestTimeOptions.length - 1);
+          return;
+        }
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (!bestTimeIsOpen()) openBestTimeList();
+          else chooseBestTime(bestTimeActiveIndex);
+        }
+      });
+
+      bestTimeOptions.forEach(function (option, index) {
+        option.addEventListener('mouseenter', function () {
+          if (bestTimeIsOpen()) setBestTimeActive(index);
+        });
+        option.addEventListener('click', function () {
+          chooseBestTime(index);
+        });
+      });
+
+      modal.addEventListener('click', function (e) {
+        if (bestTimeIsOpen() && !bestTimeField.contains(e.target)) closeBestTimeList(false);
+      });
+    }
     function focusableEls() {
       return Array.prototype.slice.call(
         modal.querySelectorAll(
@@ -1677,7 +2062,13 @@
     }
 
     function onKeydown(e) {
+      if (e.key === 'Escape' && bestTimeIsOpen()) {
+        e.preventDefault();
+        closeBestTimeList(true);
+        return;
+      }
       if (e.key === 'Escape') { closeLeadModal(); return; }
+      if (e.key === 'Tab' && bestTimeIsOpen()) closeBestTimeList(false);
       trapFocus(e);
     }
 
@@ -1794,6 +2185,8 @@
 
     function resetModalUI() {
       form.reset();
+      closeBestTimeList(false);
+      syncBestTimeUI();
       form.hidden = false;
       confirmEl.hidden = true;
       formErrorEl.hidden = true;
@@ -1887,6 +2280,7 @@
         addons: selection.addons,
         total: selection.total,
         monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: selection.pricingVersion,
         customerName: field(FIELD_IDS.name).value.trim(),
         phone: field(FIELD_IDS.phone).value.trim(),
         address: field(FIELD_IDS.address).value.trim(),
@@ -1927,6 +2321,16 @@
         resetTurnstile();
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send My Request';
+
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+          if (applyPricingPayload(data.pricing)) {
+            renderCurrentPricing();
+            renderRecap();
+          }
+          formErrorEl.hidden = false;
+          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          return;
+        }
 
         // Field-level messages, next to the inputs they belong to.
         var fieldErrors = data.fieldErrors || {};
@@ -1969,7 +2373,7 @@
     });
   })();
 
-  buildPlans(); syncPlans(); renderDetail(false); renderAddons(); renderTotal(false);
+  loadPricingThenRender();
 })();
 </script>
 </div>

@@ -53,11 +53,11 @@ test("the workflow ships inactive, so importing it cannot start sending mail", (
 test("the Code node builds the office email from a real intake payload", () => {
   const code = nodeNamed("Build Office Email").parameters.jsCode;
 
-  // Exactly what the Function would send: Premier with a billable add-on at
-  // quantity 2, both complimentary add-ons, and one locked leftover line.
+  // Exactly what the Function would send: Premier with paid softener service
+  // x2, the matching complimentary salt x2, plus a normal billable add-on.
   const pricing = priceSelection("premier", [
-    { id: "mst", quantity: 2 },
-    { id: "qfc", quantity: 1 },
+    { id: "wsv", quantity: 2 },
+    { id: "mst", quantity: 1 },
   ]);
   const payload = buildNotificationPayload({
     submissionId: 1234,
@@ -89,18 +89,20 @@ test("the Code node builds the office email from a real intake payload", () => {
   assert.match(html, /tel:5755552093/, "click-to-call");
   assert.match(html, /2210 El Paseo Rd/, "address");
   assert.match(html, /Midday/, "best time to call");
-  assert.match(html, /Mini-Split Tune-Up &times; 2/, "add-on with quantity");
-  assert.match(html, /\$80 each/, "per-unit price for a multi-quantity add-on");
-  assert.match(html, /\$160/, "multi-quantity add-on line total");
-  assert.match(html, /\$120/, "single-quantity add-on line total");
-  assert.match(html, /Included with plan/, "complimentary add-ons");
+  assert.match(html, /Water Softener Service &times; 2/, "paid softener service quantity");
+  assert.match(html, /\$75 each/, "softener per-unit price");
+  assert.match(html, /\$150/, "softener line total");
+  assert.match(html, /Water Softener Salt &times; 2/, "paired salt quantity");
+  assert.match(html, /Included with plan/, "paired salt is complimentary");
+  assert.match(html, /Mini-Split Tune-Up/, "normal paid add-on");
+  assert.match(html, /\$80/, "normal add-on line total");
   assert.match(html, /\$600/, "base price");
-  assert.match(html, /\$880\/yr/, "annual total: 600 base + 120 + 160");
+  assert.match(html, /\$830\/yr/, "annual total: 600 base + 150 + 80");
   assert.match(html, /care-plan-builder\.pages\.dev/, "dashboard link");
   assert.match(html, /no payment was taken/i, "sets the office's expectation");
 
   // The total in the email must be the server's, not a re-derivation.
-  assert.equal(pricing.total, 880);
+  assert.equal(pricing.total, 830);
 });
 
 test("the email marks a locked leftover line as not charged", () => {

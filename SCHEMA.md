@@ -36,7 +36,7 @@ One row per add-on selected on a submission. Many-to-one with `submissions`.
 | `addon_name` | TEXT | e.g. `Quarterly Filter Change` |
 | `addon_price` | INTEGER | **the line total for this row at time of submission**, not a live pricebook lookup and not the unit price — so `SUM(addon_price) = submissions.addon_total` always holds, for a normal add-on (unit x qty) and for the equipment counts alike (only the units above the included count are charged). `0` for included/locked rows. Historical submissions never reprice when the pricebook changes. |
 | `quantity` | INTEGER | default `1`. For a normal add-on this is how many the customer chose. For the two quantity-only equipment counts (`# of HVAC Systems`, `# of Water Heaters`) it is the **total** count at the property, of which `included` (1) comes with the plan. |
-| `included_free` | INTEGER | added by 0004. `1` = complimentary with the selected plan (Premier's softener salt and reverse osmosis). Always `$0`, never counted in `addon_total`. |
+| `included_free` | INTEGER | added by 0004. `1` = complimentary with the selected plan (currently Premier's paired Water Softener Salt). Always `$0`, never counted in `addon_total`. |
 | `locked` | INTEGER | added by 0004. `1` = the customer had selected this under a previous plan and the plan they submitted doesn't cover it. Recorded at `$0` so the office can see what they were interested in; never charged. |
 
 Non-billable rows also carry a suffix in `addon_name` — `" (included with plan)"` or
@@ -68,6 +68,39 @@ have.
 | `created_at_epoch` | INTEGER | Unix seconds. One row per *successful* submission, so a customer's own typos or a failed captcha can't push them toward a lockout. |
 
 Rows older than 24h are purged lazily by the endpoint on the way past — no cron.
+
+### `pricing_items`
+Added by migration 0006. This is the editable pricebook used by both the public Builder and server-side repricing. Only prices are data; coverage and quantity rules stay in code.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | D1-only prefixed id: `plan:<catalogId>` or `addon:<catalogId>` |
+| `kind` | TEXT | CHECK in `plan`, `addon` |
+| `label` | TEXT | display label copied from the code catalog when seeded |
+| `price` | INTEGER | whole-dollar price, CHECK >= 0 |
+| `updated_at` | TEXT | nullable; set when an editor changes the price |
+| `updated_by` | TEXT | nullable; Access JWT email of the last editor |
+
+### `pricing_audit`
+Append-only price-change history. Admin writes record the live old price and requested new price in the same D1 batch as the item update.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | autoincrement |
+| `item_id` | TEXT | pricing item id |
+| `old_price` | INTEGER | price immediately before the change |
+| `new_price` | INTEGER | new whole-dollar price |
+| `changed_by` | TEXT | authenticated editor email |
+| `changed_at` | TEXT | defaults to `datetime('now')` |
+
+### `pricing_meta`
+Single-row version marker used for optimistic concurrency and stale-price detection.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | constrained to the single value `1` |
+| `version` | INTEGER | starts at 1; increments once per successful admin save |
+| `updated_at` | TEXT | last successful pricing update |
 
 ### Indexes
 - `submissions.status`, `submissions.submitted_at`
@@ -126,6 +159,7 @@ Cloudflare Access work. The intake work starts at `0004`.
 | `0003_…` | **reserved** for the Access branch, not in this repo |
 | `0004_best_time_and_addon_flags.sql` | widens the `best_time` CHECK (table rebuild), adds `included_free`/`locked` |
 | `0005_intake_rate_limit.sql` | the rate-limit table |
+| `0006_pricing.sql` | editable pricing tables, audit history, version marker, and generated catalog seed |
 
 `0004` rebuilds `submissions`, because SQLite cannot ALTER a CHECK constraint. Note
 that `DROP TABLE` on a parent runs an implicit `DELETE FROM`, and that **does** fire

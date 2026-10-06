@@ -15,7 +15,7 @@
 //   3. field validation            (no I/O; 400 with fieldErrors)
 //   4. rate limit, read-only       (1 D1 read; 429 + Retry-After)
 //   5. Turnstile siteverify        (1 outbound fetch; 403)
-//   6. server-side repricing       (catalog only; client prices are ignored)
+//   6. server-side repricing       (direct D1 pricing read; client prices are ignored)
 //   7. INSERT submission + add-ons (D1 write; 500 on failure)
 //   8. record the rate-limit hit   (only successful submissions count)
 //   9. 201, then n8n notify via waitUntil (never affects the response)
@@ -26,6 +26,7 @@
 import { classifyOrigin, errorResponse, json } from "../../lib/intake/http.js";
 import { MAX_BODY_BYTES, validateIntake } from "../../lib/intake/validate.js";
 import { priceSelection } from "../../lib/intake/catalog.js";
+import { loadPricing } from "../../lib/intake/pricing.js";
 import { checkRateLimit, getClientIp, hashIp, rateLimitConfig, recordHit } from "../../lib/intake/ratelimit.js";
 import { verifyTurnstile } from "../../lib/intake/turnstile.js";
 import { insertSubmission, submissionNumber } from "../../lib/intake/persist.js";
@@ -171,19 +172,40 @@ export async function onRequestPost(context) {
     });
   }
 
-  // --- 6. repricing (the client's basePrice/total/unitPrice are never read) --
+  // --- 6. repricing (authoritative D1 prices; client prices are never trusted) --
   let pricing;
+  let currentPricing;
   try {
-    pricing = priceSelection(input.planId, input.addons);
+    currentPricing = await loadPricing(env.DB);
+    pricing = priceSelection(input.planId, input.addons, currentPricing);
   } catch (err) {
-    console.warn("care-plan-request: pricing rejected:", err && err.message);
+    console.error("care-plan-request: pricing load/reprice failed");
     return errorResponse({
-      status: 400,
-      code: "VALIDATION_FAILED",
-      message: "Please check the highlighted fields and try again.",
-      fieldErrors: { addons: "One of the selected add-ons is no longer available." },
+      status: 500,
+      code: "SERVER_ERROR",
+      message: "We could not confirm current pricing. Please try again or call us at 575-526-9758.",
       originInfo,
     });
+  }
+
+  // If the Builder priced against an older D1 version AND that actually changes
+  // the displayed total, stop before writing anything so the customer can review
+  // the new amount. A version change with an identical total is harmless.
+  if (
+    typeof input.pricingVersion === "number" &&
+    input.pricingVersion !== currentPricing.version &&
+    Number(body.total) !== pricing.total
+  ) {
+    return json(
+      {
+        error: {
+          code: "PRICES_CHANGED",
+          message: "Our prices were just updated. Please review your updated total, then send again.",
+        },
+        pricing: currentPricing,
+      },
+      { status: 409, originInfo }
+    );
   }
 
   // Drift detector. The server's numbers win regardless; a mismatch means the

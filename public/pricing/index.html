@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Plan Pricing — Sun City Plumbing &amp; Heating</title>
+<style>
+:root{
+  --maroon:#6B1A2C; --maroon-dark:#4c1220; --maroon-tint:#f6e9ec; --gold:#C9A84C;
+  --gray-1:#f5f5f6; --gray-2:#e4e4e6; --gray-3:#c7c8cb; --gray-4:#8a8c90;
+  --gray-5:#4a4c50; --gray-6:#242527; --success:#2f7a4f; --danger:#a12b3f;
+  --radius:8px; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  font-size:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--gray-1);color:var(--gray-6)}
+.topbar{background:linear-gradient(135deg,var(--maroon),var(--maroon-dark));color:#fff;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:14px}.brand-mark{width:42px;height:42px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:var(--maroon-dark);font-weight:700}
+.topbar h1{font-size:19px;margin:0}.topbar p{font-size:13px;margin:2px 0 0;color:rgba(255,255,255,.75)}
+.toplinks{display:flex;gap:8px;flex-wrap:wrap}.toplinks a{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600}
+main{max-width:1100px;margin:0 auto;padding:22px}
+.intro,.card{background:#fff;border:1px solid var(--gray-2);border-radius:var(--radius);box-shadow:var(--shadow)}
+.intro{padding:18px 20px;margin-bottom:18px}.intro-top{display:flex;align-items:center;justify-content:space-between;gap:20px}.intro-copy{min-width:0}.intro h2{margin:0 0 4px;font-size:21px}.intro p{margin:0;color:var(--gray-5);font-size:14px;line-height:1.5}.intro-actions{display:flex;justify-content:flex-end;gap:10px;flex:0 0 auto}
+.notice{margin-top:12px;padding:10px 12px;border-radius:6px;background:var(--maroon-tint);color:var(--maroon-dark);font-size:13px}.notice.success{background:#e7f3ec;color:var(--success)}.notice.error{background:#f7e5e8;color:var(--danger)}
+.group{margin-bottom:18px}.group h3{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--gray-5);margin:0 0 8px}
+.price-grid{display:grid;gap:1px;background:var(--gray-2);border:1px solid var(--gray-2);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.price-row{background:#fff;display:grid;grid-template-columns:minmax(210px,1fr) 130px 180px;align-items:center;gap:16px;padding:13px 16px;transition:background .12s}.price-row.changed{background:#fff8e8}
+.label{font-weight:600}.current{color:var(--gray-5);font-variant-numeric:tabular-nums}.money-input{position:relative}.money-input span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-5)}
+.money-input input{width:100%;padding:9px 10px 9px 25px;border:1px solid var(--gray-3);border-radius:6px;font:inherit;font-variant-numeric:tabular-nums}.money-input input:focus{outline:2px solid rgba(107,26,44,.18);border-color:var(--maroon)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin:18px 0}.btn{border-radius:6px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}.btn:disabled{opacity:.45;cursor:default}.btn-primary{background:var(--maroon);color:#fff}.btn-secondary{background:#fff;border-color:var(--gray-3)}
+.audit{margin-top:24px}.audit table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-2);box-shadow:var(--shadow)}.audit th,.audit td{padding:10px 12px;border-bottom:1px solid var(--gray-2);text-align:left;font-size:13px}.audit th{color:var(--gray-5);background:#fafafa}
+.empty{padding:18px;color:var(--gray-5)}
+.modal-wrap[hidden]{display:none}.modal-wrap{position:fixed;inset:0;z-index:1000;background:rgba(20,20,22,.62);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}.modal{background:#fff;width:min(560px,100%);border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.28);padding:20px;margin:auto}.modal h2{margin:0 0 8px}.modal p{line-height:1.45;color:var(--gray-5)}.modal-list{margin:14px 0;padding-left:22px;max-height:42vh;overflow:auto}.warning{background:#fff2d8;border:1px solid #e5c46a;border-radius:6px;padding:10px 12px;color:#694d07}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.pass-field{display:flex;gap:8px;margin-top:14px}.pass-field input{flex:1;padding:10px;border:1px solid var(--gray-3);border-radius:6px;font:inherit}
+@media(max-width:700px){main{padding:14px}.intro-top{align-items:flex-start;flex-direction:column}.intro-actions{align-self:flex-end;flex-wrap:wrap}.price-row{grid-template-columns:1fr 110px}.label{grid-column:1}.current{grid-column:2}.money-input{grid-column:1/-1}.audit{overflow:auto}.topbar{padding:16px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">SC</div><div><h1>Care Plan Pricing</h1><p>Sun City Plumbing &amp; Heating — Office Portal</p></div></div>
+  <div class="toplinks"><a href="/">SUBMISSIONS</a><a href="/memberships/" target="_blank" rel="noopener">CARE PLAN BUILDER ↗</a></div>
+</header>
+<main>
+  <section class="intro">
+    <div class="intro-top">
+      <div class="intro-copy">
+        <h2>Pricing Editor</h2>
+        <p>Adjust the prices for care plans and add on&#39;s here, don&#39;t forget to save your changes.</p>
+      </div>
+      <div class="intro-actions" role="toolbar" aria-label="Pricing actions"><button class="btn btn-secondary" id="resetAllBtn" disabled>Reset / Clear</button><button class="btn btn-primary" id="topReviewBtn" disabled>Save Changes</button></div>
+    </div>
+    <div id="statusNotice" class="notice" hidden role="status"></div>
+  </section>
+  <div id="editor" hidden>
+    <section class="group"><h3>Plans</h3><div class="price-grid" id="plans"></div></section>
+    <section class="group"><h3>Add-ons</h3><div class="price-grid" id="addons"></div></section>
+    <div class="actions"><button class="btn btn-primary" id="reviewBtn" disabled>Save Changes</button></div>
+    <section class="audit"><h3>Recent Price Changes</h3><div id="audit"></div></section>
+  </div>
+</main>
+
+<div class="modal-wrap" id="passModal" role="dialog" aria-modal="true" aria-labelledby="passTitle">
+  <div class="modal">
+    <h2 id="passTitle">Pricing editor check</h2>
+    <p>This extra passphrase is an internal “are you sure?” step. Your Cloudflare sign-in and server permissions are the actual security controls.</p>
+    <div id="passConfigMsg" class="notice error" hidden>Passphrase not configured — see SETUP.md.</div>
+    <form id="passForm">
+      <label for="passInput">Passphrase</label>
+      <div class="pass-field"><input id="passInput" type="password" autocomplete="current-password"><button class="btn btn-primary" type="submit">Continue</button></div>
+      <div id="passError" class="notice error" hidden>That passphrase did not match.</div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-wrap" id="reviewModal" hidden role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+  <div class="modal">
+    <h2 id="reviewTitle">Review price changes</h2>
+    <p>Couldn't hurt to double check...</p>
+    <ul class="modal-list" id="reviewList"></ul>
+    <div class="warning" id="largeWarning" hidden>
+      Dang, that's a pretty big change in price, you sure about that?
+      <label style="display:block;margin-top:8px;font-weight:600"><input type="checkbox" id="largeConfirm"> I'm sure</label>
+    </div>
+    <div id="conflictNotice" class="notice error" hidden>Someone else changed prices while you were reviewing. Current prices were reloaded below; your proposed prices were kept so you can review the differences again.</div>
+    <div class="modal-actions"><button class="btn btn-secondary" id="reviewCancel">Back</button><button class="btn btn-primary" id="saveBtn">Save Prices</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Frontend speed bump only. The hash is visible in page source; real protection
+  // is Cloudflare Access plus the server-side editor domain/exception and JWT checks.
+  var PASSPHRASE_SALT = 'care-plan-pricing-speed-bump-v1';
+  var PASSPHRASE_SHA256 = 'de2ee0df2b6225cb6befb068ca9808177c2a9341741448f5c6e6489a934da382';
+
+  var items = [], version = null, audit = [], proposed = {};
+  var editor = document.getElementById('editor');
+  var statusNotice = document.getElementById('statusNotice');
+  var reviewBtn = document.getElementById('reviewBtn');
+  var topReviewBtn = document.getElementById('topReviewBtn');
+  var resetAllBtn = document.getElementById('resetAllBtn');
+  var reviewButtons = [topReviewBtn, reviewBtn];
+  var reviewModal = document.getElementById('reviewModal');
+  var reviewList = document.getElementById('reviewList');
+  var largeWarning = document.getElementById('largeWarning');
+  var largeConfirm = document.getElementById('largeConfirm');
+  var saveBtn = document.getElementById('saveBtn');
+  var conflictNotice = document.getElementById('conflictNotice');
+  var reviewPreviouslyFocused = null;
+
+  function esc(value){return String(value).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+  function money(n){return '$' + Number(n).toLocaleString('en-US');}
+  function showStatus(message, kind){statusNotice.hidden=false;statusNotice.className='notice'+(kind?' '+kind:'');statusNotice.textContent=message;}
+  function changed(){return items.filter(function(item){return Number(proposed[item.id]) !== Number(item.price);});}
+
+  function renderRows(kind, targetId){
+    var rows = items.filter(function(item){return item.kind===kind;});
+    document.getElementById(targetId).innerHTML = rows.map(function(item){
+      var value = proposed[item.id] == null ? item.price : proposed[item.id];
+      var isChanged = Number(value) !== Number(item.price);
+      return '<div class="price-row'+(isChanged?' changed':'')+'" data-id="'+esc(item.id)+'">'+
+        '<div class="label">'+esc(item.label)+'</div>'+
+        '<div class="current">Current: '+money(item.price)+'</div>'+
+        '<label class="money-input"><span aria-hidden="true">$</span><input type="number" inputmode="numeric" step="1" min="'+(kind==='plan'?1:0)+'" max="'+(kind==='plan'?5000:2000)+'" aria-label="New price for '+esc(item.label)+'" data-price="'+esc(item.id)+'" value="'+esc(value)+'"></label>'+
+      '</div>';
+    }).join('');
+  }
+
+  function renderAudit(){
+    var byId={};items.forEach(function(item){byId[item.id]=item;});
+    var host=document.getElementById('audit');
+    if(!audit.length){host.innerHTML='<div class="card empty">No price changes have been recorded yet.</div>';return;}
+    host.innerHTML='<table><thead><tr><th>When</th><th>Item</th><th>Change</th><th>Changed by</th></tr></thead><tbody>'+
+      audit.map(function(row){var item=byId[row.item_id];return '<tr><td>'+esc(new Date(row.changed_at).toLocaleString())+'</td><td>'+esc(item?item.label:row.item_id)+'</td><td>'+money(row.old_price)+' → '+money(row.new_price)+'</td><td>'+esc(row.changed_by)+'</td></tr>';}).join('')+
+      '</tbody></table>';
+  }
+
+  function updatePendingActions(){
+    var disabled=changed().length===0;
+    reviewButtons.forEach(function(button){button.disabled=disabled;});
+    resetAllBtn.disabled=disabled;
+  }
+
+  function render(){
+    renderRows('plan','plans');renderRows('addon','addons');renderAudit();
+    updatePendingActions();
+  }
+
+  function applyData(data, keepProposed){
+    var oldProposed = Object.assign({}, proposed);
+    items = Array.isArray(data.items)?data.items:[];
+    audit = Array.isArray(data.audit)?data.audit:[];
+    version = data.version;
+    proposed = {};
+    items.forEach(function(item){proposed[item.id] = keepProposed && oldProposed[item.id] != null ? oldProposed[item.id] : item.price;});
+    editor.hidden=false;render();
+  }
+
+  async function load(){
+    try{
+      var res=await fetch('/api/pricing-admin',{headers:{'X-Requested-With':'pricing-admin'}});
+      var data=await res.json().catch(function(){return {};});
+      if(res.status===403){showStatus("You don't have permission to edit prices.",'error');return;}
+      if(res.status===401){showStatus('Your pricing-editor sign-in could not be verified.','error');return;}
+      if(res.status===503){showStatus('Pricing is temporarily unavailable. Please try again later.','error');return;}
+      if(!res.ok) throw new Error('Request failed');
+      applyData(data,false);
+    }catch(err){showStatus('Could not load pricing. Please refresh and try again.','error');}
+  }
+
+  function refreshChangedState(id, row) {
+    var item=items.find(function(entry){return entry.id===id;});if(!item)return;
+    var isChanged=Number(proposed[id])!==Number(item.price);
+    if(row)row.classList.toggle('changed',isChanged);
+    updatePendingActions();
+  }
+  document.addEventListener('input',function(e){
+    var id=e.target && e.target.getAttribute('data-price');if(!id)return;
+    proposed[id]=e.target.value;
+    var row=e.target.closest('.price-row');
+    refreshChangedState(id,row);
+  });
+
+  function resetAllUnsaved(){
+    items.forEach(function(item){proposed[item.id]=item.price;});
+    render();
+  }
+  resetAllBtn.addEventListener('click',resetAllUnsaved);
+
+  function openReview(showConflict){
+    var changes=changed(), large=false;
+    reviewList.innerHTML=changes.map(function(item){
+      var next=Number(proposed[item.id]), pct=item.price===0?(next===0?0:Infinity):Math.abs(next-item.price)/item.price;
+      if(pct>.25)large=true;
+      return '<li><strong>'+esc(item.label)+':</strong> '+money(item.price)+' → '+money(next)+'</li>';
+    }).join('');
+    largeWarning.hidden=!large;largeConfirm.checked=false;conflictNotice.hidden=!showConflict;
+    reviewPreviouslyFocused=document.activeElement;reviewModal.hidden=false;
+    document.getElementById('reviewCancel').focus();
+  }
+  function closeReview(){reviewModal.hidden=true;if(reviewPreviouslyFocused)reviewPreviouslyFocused.focus();}
+  function beginReview(){openReview(false);}
+  reviewButtons.forEach(function(button){button.addEventListener('click',beginReview);});
+  document.getElementById('reviewCancel').addEventListener('click',closeReview);
+
+  saveBtn.addEventListener('click',async function(){
+    var changes=changed();
+    if(!largeWarning.hidden && !largeConfirm.checked){largeConfirm.focus();return;}
+    saveBtn.disabled=true;saveBtn.textContent='Saving…';
+    try{
+      var res=await fetch('/api/pricing-admin',{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Requested-With':'pricing-admin'},
+        body:JSON.stringify({expectedVersion:version,changes:changes.map(function(item){return {id:item.id,price:Number(proposed[item.id])};})})
+      });
+      var data=await res.json().catch(function(){return {};});
+      if(res.status===409){
+        applyData(data,true);saveBtn.disabled=false;saveBtn.textContent='Save Prices';openReview(true);return;
+      }
+      if(!res.ok)throw new Error('Save failed');
+      closeReview();applyData(data,false);showStatus('Saved. Visitors will see the new prices within about 5 minutes.','success');
+    }catch(err){showStatus('Could not save pricing. Review your changes and try again.','error');}
+    finally{saveBtn.disabled=false;saveBtn.textContent='Save Prices';}
+  });
+
+  reviewModal.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){e.preventDefault();closeReview();}
+    if(e.key!=='Tab')return;
+    var list=Array.prototype.slice.call(reviewModal.querySelectorAll('button:not([disabled]),input:not([disabled])'));
+    if(!list.length)return;var first=list[0],last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
+
+  async function sha256Hex(value){
+    var bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(bytes)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  var passModal=document.getElementById('passModal'), passForm=document.getElementById('passForm'), passInput=document.getElementById('passInput');
+  function unlock(){try{sessionStorage.setItem('pricingPassphraseOk','1');}catch(e){}passModal.hidden=true;load();}
+  var already=false;try{already=sessionStorage.getItem('pricingPassphraseOk')==='1';}catch(e){}
+  if(PASSPHRASE_SHA256==='NOT_CONFIGURED'){
+    document.getElementById('passConfigMsg').hidden=false;passInput.disabled=true;passForm.querySelector('button').disabled=true;
+  }else if(already){unlock();}
+  else{setTimeout(function(){passInput.focus();},0);}
+  passForm.addEventListener('submit',async function(e){
+    e.preventDefault();document.getElementById('passError').hidden=true;
+    var hash=await sha256Hex(PASSPHRASE_SALT+passInput.value);
+    if(hash===PASSPHRASE_SHA256)unlock();else document.getElementById('passError').hidden=false;
+  });
+})();
+</script>
+</body>
+</html>

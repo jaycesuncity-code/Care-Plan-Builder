@@ -34,13 +34,16 @@ function parseSteps(md) {
 const steps = parseSteps(walkthrough);
 
 test("the walkthrough parses into the documented number of steps", () => {
-  assert.equal(steps.length, 14, "builder-walkthrough.md should hold 14 Find/Replace steps");
+  assert.equal(steps.length, 20, "builder-walkthrough.md should hold 20 Find/Replace steps");
 });
 
-test("every step's replacement is present exactly once in the sandbox Builder", () => {
+test("every final replacement is present once unless a later step intentionally edits inside it", () => {
   for (const step of steps) {
+    const laterSteps = steps.slice(step.number);
+    const superseded = laterSteps.some((later) => step.replace.includes(later.find));
+    if (superseded) continue;
     const count = builder.split(step.replace).length - 1;
-    assert.equal(count, 1, `step ${step.number}: its "Replace with" block appears ${count} times in the Builder, expected 1`);
+    assert.equal(count, 1, `step ${step.number}: its final "Replace with" block appears ${count} times in the Builder, expected 1`);
   }
 });
 
@@ -56,6 +59,8 @@ test("no step's original text is still in the sandbox Builder", () => {
 
 test("the launch constants the walkthrough promises are really there", () => {
   assert.match(builder, /var SUBMIT_ENDPOINT = '\/api\/care-plan-request';/);
+  assert.match(builder, /var PRICING_ENDPOINT = '\/api\/pricing';/);
+  assert.match(builder, /var pricingVersion = null;/);
   assert.match(builder, /var TURNSTILE_SITEKEY = '1x00000000000000000000AA';/);
   // And they are adjacent, which is the whole point of step 5.
   const endpointAt = builder.indexOf("var SUBMIT_ENDPOINT");
@@ -76,4 +81,71 @@ test("the Builder posts the Turnstile token and the endpoint requires it", async
     addons: [],
   });
   assert.equal(result.ok, false, "the endpoint rejects a payload with no token");
+});
+
+
+test("the walkthrough documents the corrected Premier pairing markers in the Builder", () => {
+  assert.match(walkthrough, /Premier \+ Water Softener Service ×2/);
+  assert.match(walkthrough, /Water Softener Salt ×2/);
+  assert.match(builder, /includedWith: 'wsv'/, "salt must be paired to Water Softener Service");
+  assert.match(builder, /data-premier-pair/, "paired cards need the Premier visual grouping");
+  assert.match(builder, /function premierSaltQty\(\)/, "salt quantity must be derived from service state");
+  assert.doesNotMatch(
+    builder,
+    /id: 'ros'[^\n]*includedIn:\s*\['premier'\]/,
+    "Reverse Osmosis Service must not be a free Premier add-on"
+  );
+  assert.match(
+    builder,
+    /Filters replaced during a Reverse Osmosis Service are included at no additional charge/,
+    "Premier card copy must describe the current RO-filter benefit wording"
+  );
+});
+
+
+test("the Builder carries pricing version and handles stale price refreshes", () => {
+  assert.match(builder, /pricingVersion: pricingVersion/);
+  assert.match(builder, /pricingVersion: selection\.pricingVersion/);
+  assert.match(builder, /data\.error\.code === 'PRICES_CHANGED'/);
+  assert.match(builder, /Our prices were just updated/);
+  assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
+  assert.match(builder, /loadPricingThenRender\(\);/);
+});
+
+test("the Builder applies valid pricing entries while ignoring malformed and unknown values", () => {
+  const start = builder.indexOf("  function applyPricingPayload(pricing) {");
+  const end = builder.indexOf("\n  function loadPricingThenRender()", start);
+  assert.ok(start >= 0 && end > start, "could not isolate applyPricingPayload");
+
+  const functionSource = builder.slice(start, end);
+  const PLANS = [
+    { id: "hvac", price: 260 },
+    { id: "premier", price: 600 },
+  ];
+  const ADDON_GROUPS = [
+    { items: [{ id: "qfc", price: 120 }, { id: "mst", price: 80 }] },
+  ];
+  const ADDON_INDEX = { qfc: ADDON_GROUPS[0].items[0], mst: ADDON_GROUPS[0].items[1] };
+
+  // eslint-disable-next-line no-new-func -- exact Builder function isolated above.
+  const harness = new Function(
+    "PLANS",
+    "ADDON_GROUPS",
+    "ADDON_INDEX",
+    "pricingVersion",
+    functionSource + "\nreturn { applyPricingPayload, getVersion: function () { return pricingVersion; } };"
+  )(PLANS, ADDON_GROUPS, ADDON_INDEX, null);
+
+  const applied = harness.applyPricingPayload({
+    version: 9,
+    plans: { hvac: 300, premier: "bad", unknownPlan: 999 },
+    addons: { qfc: 135, mst: -1, unknownAddon: 777 },
+  });
+
+  assert.equal(applied, true);
+  assert.equal(PLANS[0].price, 300, "valid plan price applied");
+  assert.equal(PLANS[1].price, 600, "malformed plan price ignored");
+  assert.equal(ADDON_INDEX.qfc.price, 135, "valid add-on price applied");
+  assert.equal(ADDON_INDEX.mst.price, 80, "out-of-bounds add-on price ignored");
+  assert.equal(harness.getVersion(), 9, "version advances when at least one valid price applied");
 });

@@ -191,29 +191,79 @@ async function main() {
     checkEqual("Bundled records three add-on rows", addons.length, 3);
     checkEqual("no locked lines under Bundled", addons.filter((a) => a.locked).length, 0);
 
-    // Premier: included add-ons recorded at $0 even though not sent
+    // Premier canonical selection: no phantom water-treatment rows
     const premier = await postIntake(
-      { ...VALID_LEAD, planId: "premier", addons: [{ id: "mst", quantity: 1 }], basePrice: 600, total: 680, bestTime: "afternoon" },
+      {
+        ...VALID_LEAD,
+        planId: "premier",
+        addons: [
+          { id: "mst", quantity: 1 },
+          { id: "hvacSystems", quantity: 3 },
+        ],
+        basePrice: 600,
+        total: 930,
+        bestTime: "afternoon",
+      },
       { ip: "203.0.113.23" }
     );
     check("Premier submission returns 201", premier.status === 201, premier);
     row = await rowFor(premier.body.submissionId);
-    checkEqual("Premier addon_total is the billable sum only", row.addon_total, 80);
-    checkEqual("Premier total_price", row.total_price, 680);
+    checkEqual("Premier canonical addon_total", row.addon_total, 330);
+    checkEqual("Premier canonical total_price", row.total_price, 930);
     addons = await addonsFor(premier.body.submissionId);
-    const includedRows = addons.filter((a) => a.included_free);
-    checkEqual("Premier records both complimentary add-ons", includedRows.length, 2);
-    check(
-      "complimentary rows are $0 and labelled for the office",
-      includedRows.every((a) => a.addon_price === 0 && /\(included with plan\)$/.test(a.addon_name)),
-      includedRows
-    );
+    checkEqual("Premier canonical selection has two add-on rows", addons.length, 2);
+    checkEqual("Premier canonical selection has no phantom included rows", addons.filter((a) => a.included_free).length, 0);
+    checkEqual("Premier canonical selection has no phantom salt", addons.filter((a) => a.addon_name.startsWith("Water Softener Salt")).length, 0);
+    checkEqual("Premier canonical selection has no phantom RO service", addons.filter((a) => a.addon_name.startsWith("Reverse Osmosis Service")).length, 0);
     checkEqual(
-      "SUM(addon_price) still equals addon_total with $0 lines present",
+      "SUM(addon_price) still equals addon_total",
       addons.reduce((s, a) => s + a.addon_price, 0),
       row.addon_total
     );
 
+    // Premier softener pairing: paid service x2 + included salt x2.
+    const premierSoftener = await postIntake(
+      {
+        ...VALID_LEAD,
+        planId: "premier",
+        addons: [{ id: "wsv", quantity: 2 }],
+        basePrice: 600,
+        total: 750,
+      },
+      { ip: "203.0.113.26" }
+    );
+    check("Premier softener submission returns 201", premierSoftener.status === 201, premierSoftener);
+    row = await rowFor(premierSoftener.body.submissionId);
+    checkEqual("Premier softener addon_total is $150", row.addon_total, 150);
+    checkEqual("Premier softener total is $750", row.total_price, 750);
+    addons = await addonsFor(premierSoftener.body.submissionId);
+    const softenerServiceRow = addons.find((a) => a.addon_name.startsWith("Water Softener Service"));
+    const includedSaltRow = addons.find((a) => a.addon_name.startsWith("Water Softener Salt"));
+    checkEqual("paid softener service quantity persists", softenerServiceRow && softenerServiceRow.quantity, 2);
+    checkEqual("paid softener service charge persists", softenerServiceRow && softenerServiceRow.addon_price, 150);
+    checkEqual("matching included salt quantity persists", includedSaltRow && includedSaltRow.quantity, 2);
+    checkEqual("included salt is $0", includedSaltRow && includedSaltRow.addon_price, 0);
+    checkEqual("included salt flag persists", includedSaltRow && includedSaltRow.included_free, 1);
+
+    // Premier RO service is paid normally; no extra included line is created.
+    const premierRo = await postIntake(
+      {
+        ...VALID_LEAD,
+        planId: "premier",
+        addons: [{ id: "ros", quantity: 2 }],
+        basePrice: 600,
+        total: 700,
+      },
+      { ip: "203.0.113.27" }
+    );
+    check("Premier RO submission returns 201", premierRo.status === 201, premierRo);
+    row = await rowFor(premierRo.body.submissionId);
+    checkEqual("Premier RO addon_total is $100", row.addon_total, 100);
+    checkEqual("Premier RO total is $700", row.total_price, 700);
+    addons = await addonsFor(premierRo.body.submissionId);
+    checkEqual("Premier RO creates one row", addons.filter((a) => a.addon_name.startsWith("Reverse Osmosis Service")).length, 1);
+    const roRow = addons.find((a) => a.addon_name.startsWith("Reverse Osmosis Service"));
+    checkEqual("Premier RO row is not included/free", roRow && roRow.included_free, 0);
     // Locked line: a plumbing add-on left over from a previous plan, on HVAC
     const locked = await postIntake(
       {
@@ -241,25 +291,25 @@ async function main() {
     );
     checkEqual("locked line keeps the customer's quantity", lockedRow && lockedRow.quantity, 2);
 
-    // Premier double-send of an included add-on must not bill
-    const dbl = await postIntake(
+    // Stale/forged independent Premier salt is ignored unless softener service exists.
+    const staleSalt = await postIntake(
       {
         ...VALID_LEAD,
         planId: "premier",
         addons: [
-          { id: "wss", quantity: 1 },
+          { id: "wss", quantity: 9 },
           { id: "wss", quantity: 1 },
         ],
         basePrice: 600,
-        total: 736,
+        total: 1212,
       },
       { ip: "203.0.113.25" }
     );
-    row = await rowFor(dbl.body.submissionId);
-    checkEqual("a doubled Premier included add-on is never charged", row.addon_total, 0);
-    checkEqual("total stays the plan price", row.total_price, 600);
-    addons = await addonsFor(dbl.body.submissionId);
-    checkEqual("the doubled add-on collapses to one row", addons.filter((a) => a.addon_name.startsWith("Water Softener Salt")).length, 1);
+    row = await rowFor(staleSalt.body.submissionId);
+    checkEqual("independent Premier salt is never charged", row.addon_total, 0);
+    checkEqual("independent Premier salt does not change total", row.total_price, 600);
+    addons = await addonsFor(staleSalt.body.submissionId);
+    checkEqual("independent Premier salt creates no row", addons.filter((a) => a.addon_name.startsWith("Water Softener Salt")).length, 0);
 
     group("A4 — client prices are never trusted");
     const tampered = await postIntake(
@@ -280,6 +330,38 @@ async function main() {
     checkEqual("addon_total recomputed", row.addon_total, 120);
     checkEqual("total_price recomputed", row.total_price, 380);
     checkEqual("the response reports the server's total", tampered.body.total, 380);
+
+    group("A4b — D1 pricing + stale-price protection");
+    await d1("UPDATE pricing_items SET price = 270 WHERE id = 'plan:hvac'");
+    await d1("UPDATE pricing_meta SET version = 2, updated_at = datetime('now') WHERE id = 1");
+    const rowsBeforeStale = (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c;
+    const hitsBeforeStale = (await d1("SELECT COUNT(*) AS c FROM intake_rate_limit"))[0].c;
+    const staleChanged = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 260, total: 260, pricingVersion: 1 },
+      { ip: "203.0.113.31" }
+    );
+    checkEqual("stale version + changed total returns 409", staleChanged.status, 409);
+    checkEqual("409 is PRICES_CHANGED", staleChanged.body && staleChanged.body.error && staleChanged.body.error.code, "PRICES_CHANGED");
+    checkEqual("409 returns fresh pricing version", staleChanged.body && staleChanged.body.pricing && staleChanged.body.pricing.version, 2);
+    checkEqual("stale changed request inserts nothing", (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c, rowsBeforeStale);
+    checkEqual("stale changed request consumes no rate-limit hit", (await d1("SELECT COUNT(*) AS c FROM intake_rate_limit"))[0].c, hitsBeforeStale);
+
+    const staleSameTotal = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 270, total: 270, pricingVersion: 1 },
+      { ip: "203.0.113.32" }
+    );
+    checkEqual("stale version + same current total proceeds", staleSameTotal.status, 201);
+    checkEqual("server charges the D1 plan price", staleSameTotal.body && staleSameTotal.body.basePrice, 270);
+
+    const nullVersion = await postIntake(
+      { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 1, total: 1, pricingVersion: null },
+      { ip: "203.0.113.33" }
+    );
+    checkEqual("null pricingVersion keeps server-wins behavior", nullVersion.status, 201);
+    checkEqual("null-version request still charges D1", nullVersion.body && nullVersion.body.total, 270);
+
+    await d1("UPDATE pricing_items SET price = 260 WHERE id = 'plan:hvac'");
+    await d1("UPDATE pricing_meta SET version = 1, updated_at = datetime('now') WHERE id = 1");
 
     group("A5 — validation");
     const before = (await d1("SELECT COUNT(*) AS c FROM submissions"))[0].c;
@@ -369,7 +451,7 @@ async function main() {
       ),
       payload.addons
     );
-    checkEqual("Premier's complimentary add-ons are in the email payload", (payload.addons || []).filter((a) => a.includedFree).length, 2);
+    checkEqual("Premier canonical email payload has no phantom included lines", (payload.addons || []).filter((a) => a.includedFree).length, 0);
     checkEqual("submittedAt is server-side ISO", typeof payload.submittedAt, "string");
 
     group("A8 — n8n down or slow never fails the customer");

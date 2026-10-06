@@ -1,18 +1,18 @@
 # Care Plan Builder — LiveCanvas Find/Replace walkthrough
 
-Fourteen edits to bring the hand-maintained LiveCanvas copy of the Builder in line with
-the sandbox version. Nothing else in the block changes.
+Twenty edits bring the hand-maintained LiveCanvas copy of the Builder in line with the
+sandbox intake and live-pricing flow. A separate Premier policy-sync section below documents the targeted
+pricing/UI corrections added afterward; nothing unrelated in the block changes.
 
 **How to use this:** work top to bottom. Each step has an exact **Find this** block and
 an exact **Replace with** block. Before replacing, search the block for the *Find this*
 text and confirm the match count — every step says what it should be, and it is **1**
-for all fourteen. If a count comes back 0 or 2+, stop and check whether that step was
+for all twenty. If a count comes back 0 or 2+, stop and check whether that step was
 already applied, rather than guessing.
 
 Steps 1–3 are marked **[Optional]**: they are bug fixes, not part of the intake wiring.
 I'd still take them — 1 and 2 matter more now that the form is taller, and 3 is a
-visible bug on the success screen. Steps 4–14 are **[Required]**: the form will not
-submit without them.
+visible bug on the success screen. Steps 4–20 are **[Required]**: the form/intake and D1 pricing flow depend on them.
 
 Copy the replacement blocks verbatim, including comments and indentation. Indentation is
 two spaces per level, matching the file.
@@ -484,6 +484,209 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 
 ---
 
+## 15. [Required] Add the public pricing endpoint + version — JS
+
+Append the read-only pricing endpoint to the launch-config block. At launch it points at the
+same public intake project as the submit endpoint. Expected matches: **1**
+
+**Find this**
+
+```js
+  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
+     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
+     public intake project, so this becomes an absolute https:// URL and that origin
+     must be listed in the endpoint's ALLOWED_ORIGINS. */
+  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+
+  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
+     "always passes, visible widget" TEST key — fine for the sandbox, replace with
+     the real site key (and add the live hostnames to the widget) at launch. */
+  var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+```
+
+**Replace with**
+
+```js
+  /* ================= LAUNCH CONFIG — the only two lines to swap ================= */
+  /* Sandbox: same-origin path on the Pages project. At launch the builder runs on
+     youknowsuncity.com (WordPress, not on Cloudflare) and posts CROSS-ORIGIN to the
+     public intake project, so this becomes an absolute https:// URL and that origin
+     must be listed in the endpoint's ALLOWED_ORIGINS. */
+  var SUBMIT_ENDPOINT = '/api/care-plan-request';
+
+  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
+     "always passes, visible widget" TEST key — fine for the sandbox, replace with
+     the real site key (and add the live hostnames to the widget) at launch. */
+  var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
+
+  /* Same public intake project as SUBMIT_ENDPOINT. At launch swap this to its
+     absolute /api/pricing URL too. */
+  var PRICING_ENDPOINT = '/api/pricing';
+  var pricingVersion = null;
+```
+
+## 16. [Required] Load D1 pricing before the first render — JS
+
+Insert the pricing overlay immediately before the lead-modal initializer. It applies each
+recognized sane whole-dollar value independently; malformed or unknown entries are ignored,
+and a failed request still leaves the hardcoded defaults in place. Expected matches: **1**
+
+**Find this**
+
+```js
+  (function initLeadModal() {
+```
+
+**Replace with**
+
+```js
+  function renderCurrentPricing() {
+    buildPlans();
+    syncPlans();
+    renderDetail(false);
+    renderAddons();
+    renderTotal(false);
+  }
+
+  function applyPricingPayload(pricing) {
+    if (!pricing || !Number.isInteger(pricing.version) ||
+        !pricing.plans || typeof pricing.plans !== 'object' ||
+        !pricing.addons || typeof pricing.addons !== 'object') return false;
+
+    var applied = 0;
+    PLANS.forEach(function (p) {
+      var value = pricing.plans[p.id];
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 5000) return;
+      p.price = value;
+      applied++;
+    });
+    ADDON_GROUPS.forEach(function (g) {
+      g.items.forEach(function (a) {
+        var value = pricing.addons[a.id];
+        if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 2000) return;
+        a.price = value;
+        applied++;
+      });
+    });
+
+    if (!applied) return false;
+    pricingVersion = pricing.version;
+    return true;
+  }
+
+  function loadPricingThenRender() {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 1500);
+    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
+      .then(function (res) {
+        if (!res.ok) throw new Error('pricing unavailable');
+        return res.json();
+      })
+      .then(function (pricing) {
+        applyPricingPayload(pricing);
+      })
+      .catch(function () {
+        pricingVersion = null; // hardcoded catalog defaults stay in place
+      })
+      .then(function () {
+        clearTimeout(timer);
+        renderCurrentPricing();
+      });
+  }
+
+  (function initLeadModal() {
+```
+
+## 17. [Required] Carry the pricing version in the selection snapshot — JS
+
+The selection snapshot itself carries the version. Expected matches: **1**.
+
+**Find this**
+
+```js
+      total: total,
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100
+    };
+```
+
+**Replace with**
+
+```js
+      total: total,
+      monthlyEquivalent: Math.round((total / 12) * 100) / 100,
+      pricingVersion: pricingVersion
+    };
+```
+
+## 18. [Required] Copy the pricing version into the lead request — JS
+
+Expected matches: **1**
+
+**Find this**
+
+```js
+        monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: pricingVersion,
+        customerName: field(FIELD_IDS.name).value.trim(),
+```
+
+**Replace with**
+
+```js
+        monthlyEquivalent: selection.monthlyEquivalent,
+        pricingVersion: selection.pricingVersion,
+        customerName: field(FIELD_IDS.name).value.trim(),
+```
+
+## 19. [Required] Handle a just-changed price without submitting — JS
+
+Insert this before the field-error handling in the non-2xx response path. The returned D1
+prices are applied, the visible total and recap are re-rendered, and the customer reviews
+the new amount before sending again. Expected matches: **1**
+
+**Find this**
+
+```js
+        // Field-level messages, next to the inputs they belong to.
+```
+
+**Replace with**
+
+```js
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+          if (applyPricingPayload(data.pricing)) {
+            renderCurrentPricing();
+            renderRecap();
+          }
+          formErrorEl.hidden = false;
+          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          return;
+        }
+
+        // Field-level messages, next to the inputs they belong to.
+```
+
+## 20. [Required] Delay the first render until pricing resolves or times out — JS
+
+Expected matches: **1**
+
+**Find this**
+
+```js
+  buildPlans(); syncPlans(); renderDetail(false); renderAddons(); renderTotal(false);
+})();
+```
+
+**Replace with**
+
+```js
+  loadPricingThenRender();
+})();
+```
+
+---
+
 ## What changed overall
 
 - **Turnstile is live instead of a placeholder.** The widget is rendered explicitly when
@@ -499,11 +702,42 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 - **Three pre-existing bugs fixed** (steps 1–3): a modal that couldn't scroll, a card
   that could be clipped, and a form that never actually hid itself after a successful
   send.
-- **Not changed:** the pricing arrays, the plan/add-on rendering, the recap, the
-  selection payload, the focus trap, and the confirmation wording. The numbers the
-  customer sees are untouched — and every price is now recomputed server-side from a
-  catalog that a parity test keeps in step with this block's own `PLANS` and
-  `ADDON_GROUPS`.
+- **Steps 15–20 add live pricing.** The Builder fetches D1 prices with a 1.5-second timeout,
+  keeps its hardcoded catalog as a failure fallback, sends the pricing version, and stops a
+  stale changed-price submission so the customer can review the refreshed total.
+- **Steps 1–14 do not change pricing.** The later Premier policy correction below does make
+  targeted changes to `PLANS`, `ADDON_GROUPS`, add-on rendering, and selected-line pricing.
+  The server still recomputes every price from `lib/intake/catalog.js`, and catalog-parity
+  tests keep the browser/server tables synchronized.
+
+
+## Premier benefit corrections — keep the LiveCanvas copy synchronized
+
+These are targeted Builder changes on top of the fourteen intake edits above. When copying the
+sandbox Builder into LiveCanvas, preserve these rules and the matching code from
+`public/memberships/index.html`:
+
+- **Water Softener Service stays paid at $75 each.** Under Premier, selecting quantity `N`
+  creates a separate **Water Softener Salt ×N** line marked **Included / $0**.
+- The salt quantity is derived from Water Softener Service. It is not independently editable
+  under Premier. Increasing, decreasing, or removing the service must update/remove salt 1:1.
+- Plumbing and Bundled keep ordinary paid Water Softener Salt behavior.
+- **Reverse Osmosis Service stays paid at $50 each.** Premier's complimentary benefit is the
+  replacement filters used during that paid service. Do not create a free RO Service line and
+  do not create an independent RO-filter add-on.
+- The Premier plan card says the RO filters replaced during a paid Reverse Osmosis Service are
+  included at no additional charge.
+- The Premier add-on grid groups Water Softener Service and its salt refill with the subtle
+  **Premier Pairing** treatment. The salt card is informational/non-editable and only enters
+  the selected-items list after a paid softener service is selected.
+- The canonical Step 7 selection — Premier + Mini-Split Tune-Up + # of HVAC Systems = 3 —
+  remains **$930/yr** and shows **no** phantom Water Softener Salt or Reverse Osmosis Service.
+- Focused verification: **Premier + Water Softener Service ×2** must show the paid service at
+  **$150** and **Water Softener Salt ×2** as **Included / $0**.
+
+The machine checks now verify these Premier markers in the sandbox Builder in addition to the
+original fourteen intake replacements. Server-side repricing remains authoritative.
+
 
 ## Once it is live, double-check these
 
