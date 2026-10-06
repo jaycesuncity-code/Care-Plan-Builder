@@ -2,7 +2,7 @@
   "name": "sun-city-care-plan-dashboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Care Plan Submissions Dashboard + public Care Plan Builder intake \u2014 Cloudflare Pages + D1, Sun City Plumbing & Heating",
+  "description": "Care Plan Submissions Dashboard + public Care Plan Builder intake — Cloudflare Pages + D1, Sun City Plumbing & Heating",
   "scripts": {
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public",
@@ -11,12 +11,13 @@
     "db:query:local": "wrangler d1 execute care-plan-builder --local --command",
     "mock:n8n": "node tests/mock-services.mjs",
     "test": "npm run test:unit && npm run test:api",
-    "test:unit": "node --test tests/pricing.test.mjs tests/pricing-endpoint.test.mjs tests/pricing-admin.test.mjs tests/builder-pricing.test.mjs tests/catalog-parity.test.mjs tests/n8n-workflow.test.mjs tests/walkthrough.test.mjs tests/dashboard-pricing.test.mjs",
+    "test:unit": "node --test tests/builder-pricing-state.test.mjs tests/intake-pricing-unavailable.test.mjs tests/pricing.test.mjs tests/pricing-endpoint.test.mjs tests/pricing-admin.test.mjs tests/builder-pricing.test.mjs tests/catalog-parity.test.mjs tests/n8n-workflow.test.mjs tests/walkthrough.test.mjs tests/dashboard-pricing.test.mjs",
     "test:api": "node tests/run-integration.mjs",
     "test:e2e": "node tests/run-e2e.mjs",
     "test:all": "npm run test:unit && npm run test:api && npm run test:e2e"
   },
   "devDependencies": {
+    "happy-dom": "^20.14.5",
     "wrangler": "^4.0.0"
   }
 }

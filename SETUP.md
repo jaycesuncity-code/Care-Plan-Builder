@@ -364,9 +364,11 @@ middleware or reads `context.data.staffEmail`.
    `https://care-plan-intake.pages.dev/api/pricing` and confirm it returns only
    `version`, `updatedAt`, `plans` and `addons`.
 
-A new plan or add-on added later in `lib/intake/catalog.js` still has its hardcoded
-default as a safe runtime fallback, but it **will not appear in the Pricing editor until a
-new migration seeds its `plan:<id>` or `addon:<id>` row**.
+A new plan or add-on added later in `lib/intake/catalog.js` requires a new migration
+to seed its `plan:<id>` or `addon:<id>` pricing row. Until every required row contains a
+valid price, the Builder and intake return pricing unavailable; catalog seeds are not
+runtime fallbacks. Requests remain disabled and customers can retry explicitly or call
+575-526-9758.
 
 ### 8b. Point the Builder at it
 

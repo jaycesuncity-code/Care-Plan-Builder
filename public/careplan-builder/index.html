@@ -427,6 +427,14 @@
 #sc-cpb .cpb-h3 { flex: 0 0 auto; margin: 0 0 10px; font-size: 17px; font-weight: 900; color: var(--cpb-maroon); line-height: 1.2; }
 #sc-cpb .cpb-side .cpb-section-label { width: 100%; margin-bottom: 6px; }
 
+#sc-cpb .cpb-pricing-status { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+#sc-cpb .cpb-pricing-status a { color: inherit; text-decoration: underline; }
+#sc-cpb .cpb-cta[disabled] { opacity: .6; cursor: not-allowed; }
+#sc-cpb:not([data-pricing="ready"]) .cpb-plan-price,
+#sc-cpb:not([data-pricing="ready"]) .cpb-addon-price,
+#sc-cpb:not([data-pricing="ready"]) .cpb-addon-note,
+#sc-cpb:not([data-pricing="ready"]) .cpb-annual-amt small { display: none; }
+
 /* Highlighted monthly-cost box */
 #sc-cpb .cpb-monthly {
   position: relative;
@@ -979,12 +987,14 @@
       <aside class="cpb-side" aria-labelledby="cpb-totals-title">
         <h3 class="cpb-h3" id="cpb-totals-title">Your Plan &amp; Total</h3>
 
+        <div class="cpb-pricing-status" data-cpb="pricing-status" role="status">Loading current pricing…</div>
+        <button type="button" data-cpb="pricing-retry" hidden>Retry pricing</button>
         <div class="cpb-monthly">
           <div class="cpb-monthly-head">
             <span class="cpb-monthly-label">Average Cost Per Month</span>
           </div>
-          <span class="cpb-monthly-amt" aria-live="polite" data-cpb="monthly">$0.00</span>
-          <div class="cpb-annual-sub" data-cpb="annual-note">Billed annually at $0/yr — monthly payments aren't offered.</div>
+          <span class="cpb-monthly-amt" aria-live="polite" data-cpb="monthly">—</span>
+          <div class="cpb-annual-sub" data-cpb="annual-note">Loading current pricing…</div>
         </div>
 
         <div class="cpb-section-label">
@@ -1002,12 +1012,12 @@
 <div class="cpb-annual">
   <div class="cpb-annual-row">
     <span class="cpb-annual-label">Total Annual Price</span>
-    <strong class="cpb-annual-amt" aria-live="polite" data-cpb="annual"><span data-cpb="total">$0</span><small>/yr</small></strong>
+    <strong class="cpb-annual-amt" aria-live="polite" data-cpb="annual"><span data-cpb="total">—</span><small>/yr</small></strong>
   </div>
   <div class="cpb-annual-sub">*Applicable taxes are not included and will be added where required.</div>
 </div>
 
-        <button type="button" class="cpb-cta" data-cpb="cta">Finish and Review Choices</button>
+        <button type="button" class="cpb-cta" data-cpb="cta" disabled>Finish and Review Choices</button>
       </aside>
 
       <section class="cpb-addons-section" aria-labelledby="cpb-addons-title">
@@ -1118,7 +1128,7 @@
         <div class="cpb-lead-form-error" id="cpbLeadFormError" role="alert" hidden></div>
 
         <div class="cpb-lead-submit-row">
-          <button type="submit" class="cpb-cta" id="cpbLeadSubmitBtn">Send My Request</button>
+          <button type="submit" class="cpb-cta" id="cpbLeadSubmitBtn" disabled>Send My Request</button>
         </div>
       </form>
 
@@ -1257,8 +1267,8 @@
   function premierSaltQty() {
     return state.plan === 'premier' && state.addons.wsv ? addonQty('wsv') : 0;
   }
-  function money(n) { return '$' + n.toLocaleString('en-US'); }
-  function moneyCents(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function money(n) { if (pricingStatus !== 'ready') return '—'; return '$' + n.toLocaleString('en-US'); }
+  function moneyCents(n) { if (pricingStatus !== 'ready') return '—'; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function normalizedQty(value, min, fallback, max) {
     if (String(value).trim() === '') return fallback;
@@ -1474,7 +1484,7 @@
      freshest payload: renderTotal() recomputes state.selection on every
      plan/add-on change, and that happens synchronously before a user could
      reach the CTA button. */
-  function buildSelectionPayload() { return state.selection; }
+  function buildSelectionPayload() { return pricingStatus === 'ready' ? state.selection : null; }
 
   function renderTotal(pulse) {
     var p = plan(), total = p.price, ids = [];
@@ -1515,9 +1525,9 @@
     }
 
     var monthly = moneyCents(total / 12);
-    $('monthly').textContent = monthly + '*';
+    $('monthly').textContent = pricingStatus === 'ready' ? monthly + '*' : '—';
     $('annual-note').textContent = '*All plans will be billed annually, monthly payments are not available.';
-    $('total').textContent = money(total) + '*';
+    $('total').textContent = pricingStatus === 'ready' ? money(total) + '*' : '—';
     $('lines').innerHTML = lines.map(function (l) {
       return '<li class="cpb-line' + (l.plan ? ' is-plan' : '') + (l.locked ? ' is-locked' : '') + (l.included ? ' is-included' : '') + '"' + (l.id ? ' data-line="' + l.id + '"' : '') + '>' +
         '<span class="cpb-line-qty">' + (l.qty != null ? l.qty + ' &times;' : '') + '</span>' +
@@ -1538,7 +1548,7 @@
        the annual total and the monthly equivalent) with the complete
        payload, stashed on state for the lead-capture modal to read and
        mirrored onto the DOM for inspection/debugging. */
-    state.selection = assembleSelectionPayload(p, lines, total);
+    state.selection = pricingStatus === 'ready' ? assembleSelectionPayload(p, lines, total) : null;
     root.setAttribute('data-selection', JSON.stringify(state.selection));
     if (pulse) {
       pulseEl($('monthly'));
@@ -1843,6 +1853,27 @@
      absolute /api/pricing URL too. */
   var PRICING_ENDPOINT = '/api/pricing';
   var pricingVersion = null;
+  var pricingStatus = 'loading';
+  var pricingLoad = null;
+
+  function unavailablePricingHTML() {
+    return 'Current pricing is unavailable. Please call our office at ' +
+      '<a href="tel:5755269758">575-526-9758</a> for current pricing and help choosing your Care Plan.';
+  }
+
+  function setPricingState(status) {
+    pricingStatus = status;
+    if (status !== 'ready') pricingVersion = null;
+    root.setAttribute('data-pricing', status);
+    $('pricing-status').innerHTML = status === 'unavailable' ? unavailablePricingHTML() :
+      (status === 'loading' ? 'Loading current pricing…' : '');
+    $('pricing-retry').hidden = status === 'loading';
+    $('pricing-retry').textContent = status === 'ready' ? 'Refresh pricing' : 'Retry pricing';
+    $('cta').disabled = status !== 'ready';
+    renderCurrentPricing();
+    if (status !== 'ready') addonModalPrice.textContent = '—';
+    root.dispatchEvent(new CustomEvent('cpb-pricing-state'));
+  }
 
   function renderCurrentPricing() {
     buildPlans();
@@ -1854,7 +1885,7 @@
 
   function applyPricingPayload(pricing) {
     if (!pricing || typeof pricing !== 'object' || Array.isArray(pricing) ||
-        !Number.isInteger(pricing.version) ||
+        !Number.isSafeInteger(pricing.version) || pricing.version < 1 ||
         !pricing.plans || typeof pricing.plans !== 'object' || Array.isArray(pricing.plans) ||
         !pricing.addons || typeof pricing.addons !== 'object' || Array.isArray(pricing.addons)) return false;
 
@@ -1893,24 +1924,34 @@
   }
 
   function loadPricingThenRender() {
+    if (pricingLoad) return pricingLoad;
+    setPricingState('loading');
     var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, 1500);
-    fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal })
-      .then(function (res) {
-        if (!res.ok) throw new Error('pricing unavailable');
-        return res.json();
-      })
-      .then(function (pricing) {
-        applyPricingPayload(pricing);
-      })
-      .catch(function () {
-        pricingVersion = null; // hardcoded catalog defaults stay in place
-      })
-      .then(function () {
-        clearTimeout(timer);
-        renderCurrentPricing();
-      });
+    var timer;
+    var deadline = new Promise(function (_, reject) {
+      timer = setTimeout(function () { controller.abort(); reject(new Error('pricing timeout')); }, 1500);
+    });
+    // The deadline covers both the request and JSON body, even if either stalls.
+    pricingLoad = Promise.race([
+      fetch(PRICING_ENDPOINT, { method: 'GET', signal: controller.signal, cache: 'no-cache' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('pricing unavailable');
+          return res.json();
+        }),
+      deadline
+    ]).then(function (pricing) {
+      if (!applyPricingPayload(pricing)) throw new Error('invalid pricing');
+      setPricingState('ready');
+    }).catch(function () {
+      setPricingState('unavailable');
+    }).then(function () {
+      clearTimeout(timer);
+      pricingLoad = null;
+    });
+    return pricingLoad;
   }
+
+  $('pricing-retry').addEventListener('click', loadPricingThenRender);
 
   (function initLeadModal() {
     var ctaBtn = $('cta'); // data-cpb="cta" — the only lookup that can use $()
@@ -2119,6 +2160,7 @@
 
     function buildRecapHTML() {
       var selection = buildSelectionPayload();
+      if (!selection) return { html: pricingStatus === 'loading' ? 'Loading current pricing…' : unavailablePricingHTML(), selection: null };
       var rows = '';
 
       (selection.addons || []).forEach(function (a) {
@@ -2149,6 +2191,18 @@
       lastSelection = built.selection;
       recapEl.innerHTML = built.html;
     }
+
+    root.addEventListener('cpb-pricing-state', function () {
+      submitBtn.disabled = pricingStatus !== 'ready' || submitBtn.textContent === 'Sending…';
+      if (!modal.hidden) renderRecap();
+      if (pricingStatus !== 'ready') {
+        lastSelection = null;
+        formErrorEl.hidden = false;
+        formErrorEl.innerHTML = pricingStatus === 'loading' ? 'Loading current pricing…' : unavailablePricingHTML();
+      } else {
+        formErrorEl.hidden = true;
+      }
+    });
 
     // -- Turnstile ------------------------------------------------------------
     // A token is single-use and expires in ~5 minutes, so the widget is rendered
@@ -2220,12 +2274,13 @@
       form.hidden = false;
       confirmEl.hidden = true;
       formErrorEl.hidden = true;
-      submitBtn.disabled = false;
+      submitBtn.disabled = pricingStatus !== 'ready';
       submitBtn.textContent = 'Send My Request';
       clearAllErrors();
     }
 
     function openLeadModal() {
+      if (pricingStatus !== 'ready') return;
       lastFocusedEl = ctaBtn;
       resetModalUI();
       renderRecap();
@@ -2292,6 +2347,7 @@
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (pricingStatus !== 'ready' || !buildSelectionPayload() || submitBtn.disabled) return;
       clearAllErrors();
       if (!validateForm()) return;
 
@@ -2349,16 +2405,22 @@
         // The token was spent on this attempt, pass or fail — get a fresh one
         // before the customer can retry.
         resetTurnstile();
-        submitBtn.disabled = false;
+        submitBtn.disabled = pricingStatus !== 'ready';
         submitBtn.textContent = 'Send My Request';
 
-        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED' && data.pricing) {
+        if (data.code === 'PRICING_UNAVAILABLE' || (data.error && data.error.code === 'PRICING_UNAVAILABLE')) {
+          setPricingState('unavailable');
+          return;
+        }
+        if (res.status === 409 && data.error && data.error.code === 'PRICES_CHANGED') {
           if (applyPricingPayload(data.pricing)) {
-            renderCurrentPricing();
+            setPricingState('ready');
             renderRecap();
+            formErrorEl.hidden = false;
+            formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
+          } else {
+            setPricingState('unavailable');
           }
-          formErrorEl.hidden = false;
-          formErrorEl.textContent = 'Our prices were just updated — please review your updated total, then send again.';
           return;
         }
 
@@ -2397,7 +2459,7 @@
         resetTurnstile();
         formErrorEl.hidden = false;
         formErrorEl.textContent = 'Something went wrong sending your request. Please try again, or call us directly at 575-526-9758.';
-        submitBtn.disabled = false;
+        submitBtn.disabled = pricingStatus !== 'ready';
         submitBtn.textContent = 'Send My Request';
       });
     });

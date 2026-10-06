@@ -2,6 +2,8 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { onRequestGet, onRequestOptions } from "../functions/api/pricing.js";
 
+import { fixturePricing } from "./pricing-fixture.mjs";
+
 class FakeStatement {
   constructor(db, sql) { this.db = db; this.sql = sql; }
 }
@@ -9,10 +11,9 @@ class FakeDb {
   constructor({ fail = false } = {}) {
     this.fail = fail;
     this.version = 3;
-    this.items = [
-      { id: "plan:hvac", kind: "plan", price: 260 },
-      { id: "addon:qfc", kind: "addon", price: 120 },
-    ];
+    const prices = fixturePricing();
+    this.items = Object.entries(prices.plans).map(([id, price]) => ({ id: 'plan:' + id, kind: 'plan', price }))
+      .concat(Object.entries(prices.addons).map(([id, price]) => ({ id: 'addon:' + id, kind: 'addon', price })));
   }
   prepare(sql) { return new FakeStatement(this, sql); }
   async batch(statements) {
@@ -58,8 +59,8 @@ test("public pricing returns ids + integer prices only", async () => {
   assert.deepEqual(await res.json(), {
     version: 3,
     updatedAt: "2026-10-01 12:00:00",
-    plans: { hvac: 260 },
-    addons: { qfc: 120 },
+    plans: fixturePricing().plans,
+    addons: fixturePricing().addons,
   });
 });
 
@@ -99,3 +100,20 @@ test("D1 failure returns 503 no-store and is never cached", async () => {
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.equal(cache.size(), 0);
 });
+
+for (const issue of ['missing-plan', 'missing-addon', 'invalid-plan', 'invalid-addon', 'invalid-version']) {
+  test(`public pricing rejects ${issue} without caching`, async () => {
+    const db = new FakeDb();
+    if (issue === 'invalid-version') db.version = null;
+    else {
+      const kind = issue.endsWith('plan') ? 'plan' : 'addon';
+      const index = db.items.findIndex(row => row.kind === kind);
+      if (issue.startsWith('missing')) db.items.splice(index, 1);
+      else db.items[index].price = null;
+    }
+    const res = await onRequestGet({ request: new Request('https://intake.example/api/pricing'), env: { ...env, DB: db } });
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'PRICING_UNAVAILABLE');
+    assert.equal(cache.size(), 0);
+  });
+}

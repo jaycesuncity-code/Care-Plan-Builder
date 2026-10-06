@@ -202,9 +202,10 @@ test("Builder rejects structurally invalid plan/add-on collections", () => {
   }
 });
 
-test("Builder hardcodes a 1500ms timeout and fallback leaves pricingVersion null", () => {
-  assert.match(builder, /setTimeout\(function \(\) \{ controller\.abort\(\); \}, 1500\)/);
-  assert.match(builder, /\.catch\(function \(\) \{\s*pricingVersion = null;/);
+test("Builder bounds pricing requests and fails closed", () => {
+  assert.match(builder, /controller\.abort\(\); reject\(new Error\('pricing timeout'\)\)/);
+  assert.match(builder, /setPricingState\('unavailable'\)/);
+  assert.match(builder, /if \(!applyPricingPayload\(pricing\)\) throw/);
 });
 
 test("Builder carries pricingVersion and 409 refresh returns without submitting", () => {
@@ -215,7 +216,7 @@ test("Builder carries pricingVersion and 409 refresh returns without submitting"
   assert.ok(conflict >= 0 && fields > conflict);
   const branch = builder.slice(conflict, fields);
   assert.match(branch, /applyPricingPayload\(data\.pricing\)/);
-  assert.match(branch, /renderCurrentPricing\(\)/);
+  assert.match(branch, /setPricingState\('ready'\)/);
   assert.match(branch, /renderRecap\(\)/);
   assert.match(branch, /return;/);
 });

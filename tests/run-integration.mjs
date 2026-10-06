@@ -357,8 +357,8 @@ async function main() {
       { ...VALID_LEAD, planId: "hvac", addons: [], basePrice: 1, total: 1, pricingVersion: null },
       { ip: "203.0.113.33" }
     );
-    checkEqual("null pricingVersion keeps server-wins behavior", nullVersion.status, 201);
-    checkEqual("null-version request still charges D1", nullVersion.body && nullVersion.body.total, 270);
+    checkEqual("null pricingVersion cannot be accepted", nullVersion.status, 503);
+    checkEqual("null-version response is pricing unavailable", nullVersion.body && nullVersion.body.code, "PRICING_UNAVAILABLE");
 
     await d1("UPDATE pricing_items SET price = 260 WHERE id = 'plan:hvac'");
     await d1("UPDATE pricing_meta SET version = 1, updated_at = datetime('now') WHERE id = 1");

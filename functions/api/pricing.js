@@ -3,10 +3,11 @@
 // so an admin edit can take up to this TTL to become visible at every edge.
 
 import { classifyOrigin, errorResponse } from "../../lib/intake/http.js";
+import { assertPriceMap } from "../../lib/intake/catalog.js";
 import { loadPricing } from "../../lib/intake/pricing.js";
 
 export const PRICING_CACHE_SECONDS = 300;
-const PRICING_CACHE_KEY = "https://pricing-cache.invalid/care-plan-pricing-v1";
+const PRICING_CACHE_KEY = "https://pricing-cache.invalid/care-plan-pricing-v2";
 
 function publicCors(originInfo) {
   const headers = { Vary: "Origin" };
@@ -62,7 +63,7 @@ export async function onRequestGet({ request, env }) {
   }
   if (!env.DB) {
     return pricingResponse(
-      JSON.stringify({ error: { code: "PRICING_UNAVAILABLE", message: "Pricing is temporarily unavailable." } }),
+      JSON.stringify({ ok: false, code: "PRICING_UNAVAILABLE", error: "Current pricing is unavailable." }),
       originInfo,
       { status: 503, cacheControl: "no-store" }
     );
@@ -73,7 +74,11 @@ export async function onRequestGet({ request, env }) {
     const cacheKey = new Request(PRICING_CACHE_KEY);
     const cached = await cache.match(cacheKey);
     if (cached) {
-      return pricingResponse(await cached.text(), originInfo);
+      const body = await cached.text();
+      const pricing = JSON.parse(body);
+      assertPriceMap(pricing);
+      if (!Number.isSafeInteger(pricing.version) || pricing.version < 1) throw new Error("pricing unavailable");
+      return pricingResponse(body, originInfo);
     }
 
     const pricing = await loadPricing(env.DB);
@@ -83,7 +88,7 @@ export async function onRequestGet({ request, env }) {
     return pricingResponse(body, originInfo);
   } catch {
     return pricingResponse(
-      JSON.stringify({ error: { code: "PRICING_UNAVAILABLE", message: "Pricing is temporarily unavailable." } }),
+      JSON.stringify({ ok: false, code: "PRICING_UNAVAILABLE", error: "Current pricing is unavailable." }),
       originInfo,
       { status: 503, cacheControl: "no-store" }
     );

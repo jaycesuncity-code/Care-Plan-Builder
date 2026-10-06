@@ -48,7 +48,7 @@ Order of checks — cheapest and most private first:
 3. field validation (400 with per-field messages)
 4. rate limit, read-only (429 + `Retry-After`)
 5. Turnstile siteverify (403; fails closed)
-6. server-side repricing from D1 via `lib/intake/pricing.js`, with catalog defaults only as missing-id fallback — **client prices are ignored**
+6. server-side repricing from D1 via `lib/intake/pricing.js`, requiring complete, valid pricing with no catalog-price fallback — **client prices are ignored**
 7. insert submission + add-on rows
 8. record the rate-limit hit (only successful submissions count)
 9. 201, then the n8n office email via `context.waitUntil()` — an n8n outage can never
@@ -157,9 +157,10 @@ GitHub repo exists (Pages project → Settings → Builds & deployments → conn
   previous value and an alert is shown — the same recovery behavior Cancel already had
   on the notes prompt.
 - The API additionally returns `basePrice` per submission (not in the original mock
-  shape, but present in the DB and cheap to include — see `SCHEMA.md`). The dashboard
-  doesn't currently read it; it still computes the price breakdown from its own
-  `PLAN_BASE_PRICE`/`ADDON_CATALOG` lookups, same as before.
+  shape, but present in the DB and cheap to include — see `SCHEMA.md`).
+  Historical submission details use the accepted base price and add-on line totals saved
+  with that submission. Later catalog changes do not reprice historical submissions.
+  Missing historical amounts show **Not recorded**.
 - The header's "UX PROTOTYPE · MOCK DATA" tag and the footer's "resets on reload" note
   were updated since both were now inaccurate — replaced with a "LIVE DATA · NO AUTH
   YET" tag and a footer note about the auth gap. No other visual/layout changes.
@@ -172,6 +173,14 @@ rules remain in `lib/intake/catalog.js`. The public Builder reads
 `GET /api/pricing` (edge-cached for up to five minutes), while the intake endpoint reads
 D1 directly before every submission. If a customer submits a stale pricing version whose
 total changed, the endpoint returns `409 PRICES_CHANGED` before inserting anything.
+
+The Builder shows a loading state until the complete pricing payload is validated.
+A failed request, timeout, malformed payload, or missing required price clears displayed
+amounts and disables requests, including submission from an open modal. Selections remain
+in place; an explicit retry can restore pricing. It displays **Current pricing is unavailable.**
+and a clickable office number (575-526-9758). There are no background retries or default-price
+fallbacks. Intake requires a loaded pricing version and complete authoritative D1 prices;
+`503 PRICING_UNAVAILABLE` saves no submission and sends no office notification.
 
 The staff editor at `/pricing/` writes through `PUT /api/pricing-admin`. It requires
 a valid pricing-specific Cloudflare Access JWT and a verified email exactly on
