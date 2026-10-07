@@ -53,7 +53,7 @@ public/{hvac,plumbing,bundled,premier}-care-plan/index.html
 ```bash
 npm install
 cp .dev.vars.example .dev.vars     # already points at the local mocks
-npm run db:migrate:local           # applies 0001, 0002, 0004, 0005, 0006, 0007
+npm run db:migrate:local           # applies all currently unapplied local migrations through 0009
 ```
 
 Two terminals:
@@ -88,8 +88,9 @@ npm run test:e2e                   # optional, needs: npm i -D playwright && npx
 Cloudflare Access work. Nothing here depends on it, and the numbering gap is fine.
 
 ```bash
-npx wrangler d1 migrations list care-plan-builder --remote   # see what's pending
-npx wrangler d1 migrations apply care-plan-builder --remote  # applies pending migrations, including 0007
+npx wrangler d1 migrations list care-plan-builder --remote   # read-only: see what's pending
+# For the current 0008/0009 release, do not apply from this generic section.
+# Follow the guarded backup/preflight/application procedure in section 9.1.
 ```
 
 `0006_pricing.sql` is additive: it creates the three pricing tables and seeds them.
@@ -491,7 +492,7 @@ this implementation. Cloudflare UI wording may show **Environment variables** or
 The user approved including 0009 and pushing the completed implementation to main. Remote migration application remains a separate deployment step.
 The commands below are manual operational instructions; they were not run remotely here.
 
-1. In a local checkout, select `feature/static-catalog`, then run `npm ci`.
+1. In a clean local checkout, select `main`, verify it is the reviewed release commit `a565260384bbb8f7ef393132075085feab7a24ac`, then run `npm ci`.
 2. Run `npx wrangler login` with the account holding `care-plan-builder`.
 3. Run `npx wrangler d1 migrations list care-plan-builder --remote`.
 4. Inspect the remote schema and row counts:
@@ -507,7 +508,9 @@ The commands below are manual operational instructions; they were not run remote
    expected schema and rows; retain it securely outside the public repo:
 
    ```bash
-   npx wrangler d1 export care-plan-builder --remote --output backup-before-0008-0009.sql
+   BACKUP_DIR="$HOME/care-plan-d1-backups/$(date -u +%Y%m%dT%H%M%SZ)"
+   mkdir -p "$BACKUP_DIR" && chmod 700 "$BACKUP_DIR"
+   npx wrangler d1 export care-plan-builder --remote --output "$BACKUP_DIR/backup-before-0008-0009.sql"
    ```
 
 7. With 0008/0009 confirmed as the only pending approved migrations (or just 0009 if 0008 is already applied), and after the schema review below, run:
@@ -517,8 +520,9 @@ The commands below are manual operational instructions; they were not run remote
    ```
 
 8. Compare the same submission/add-on/note counts with step 4, confirm all 13 catalog
-   items have populated descriptions and the four plans have short labels, and confirm
-   the migration list records 0008 and 0009. Catalog prices and historical submissions should
+   items have populated descriptions and the four plans have short labels. Because
+   `wrangler d1 migrations list` reports **unapplied** migrations, it should be empty after
+   success; confirm 0008 and 0009 are recorded exactly once in `d1_migrations`. Catalog prices and historical submissions should
    be unchanged.
 
 **Approved full-name constraint correction:** 0008 is additive and does not change
@@ -601,8 +605,9 @@ not need a Cloudflare API token. Preserve the D1 `DB` binding and existing intak
 
 1. **Workers & Pages → gated Pages project → Settings → Builds → Deploy hooks**.
 2. Click **Add deploy hook**. Name it `Catalog refresh — staff` and choose the branch
-   that actually contains the reviewed catalog build. While testing, use
-   `feature/static-catalog`; choose the production branch only after approved release.
+   that actually contains the reviewed catalog build. For this released implementation,
+   use `main` for the production hook. Use a separate preview branch only when you are
+   intentionally configuring a preview-only hook.
 3. Save and copy the generated hook URL into your secure credential store. Possession
    of that URL authorizes a build; do not put it into docs, browser code or commit messages.
 4. After the split, repeat on the **public Pages project** with a name such as

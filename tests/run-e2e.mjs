@@ -425,7 +425,8 @@ async function main() {
   checkEqual("Test filter hides the live control row", await dash.locator(`tr[data-id="${liveForFilter.body.submissionId}"]`).count(), 0);
   check("Test view switches KPIs to test submissions", Number(await dash.locator("#statGrid .stat-cell .num").first().innerText()) > 0);
 
-  await dash.click(`tr[data-id="${row.id}"]`);
+  const testRow = dash.locator(`tr[data-id="${row.id}"]`);
+  await testRow.locator("td:not(:has(select)):not(:has(a))").first().click();
   await dash.waitForTimeout(400);
   checkEqual("the detail modal shows the customer", await dash.locator("#modalName").innerText(), VALID_LEAD.customerName);
   checkEqual("the detail modal says TEST SUBMISSION", await dash.locator("#modalTestBadge").innerText(), "TEST SUBMISSION");
