@@ -771,12 +771,11 @@ header.topbar .env-tag:hover{
 
     <div class="panel">
       <h2>Quick Links</h2>
-      <!-- PLACEHOLDER LINKS — TO BE FILLED IN LATER. Real destinations not finalized. -->
       <ul class="shortcut-list">
-        <li><a href="https://www.youknowsuncity.com/services/maintenance-plan" onclick="return false;"><span class="ico">🌐</span> Current Website</a></li>
-        <li><a href="https://list-frontend-membership-emails-2026.pages.dev/" onclick="return false;"><span class="ico">✉️</span> Emailed Customer List</a></li>
-        <li><a href="https://go.servicetitan.com/#/new/reports/14698925" onclick="return false;"><span class="ico">🧾</span> Service titan Report</a></li>
-        <li><a href="https://scph-member-cleanup.pages.dev/" onclick="return false;"><span class="ico">😒</span> Service Titan Cleanups</a></li>
+        <li><a href="https://www.youknowsuncity.com/services/maintenance-plan"><span class="ico">🌐</span> Current Website</a></li>
+        <li><a href="https://list-frontend-membership-emails-2026.pages.dev/"><span class="ico">✉️</span> Emailed Customer List</a></li>
+        <li><a href="https://go.servicetitan.com/#/new/reports/14698925"><span class="ico">🧾</span> Service titan Report</a></li>
+        <li><a href="https://scph-member-cleanup.pages.dev/"><span class="ico">😒</span> Service Titan Cleanups</a></li>
       </ul>
     </div>
   </aside>
@@ -793,7 +792,7 @@ header.topbar .env-tag:hover{
       </div>
       <select id="submissionTypeFilter" aria-label="Submission type">
         <option value="all">All</option>
-        <option value="live">Live</option>
+        <option value="live">Real</option>
         <option value="test">Test</option>
       </select>
       <select id="statusFilter"><!-- options filled by JS, depends on view --></select>
@@ -1127,7 +1126,7 @@ function renderStats(){
   scoped.forEach(r => counts[r.status]++);
   const archived = counts["Signed Up"] + counts.Other;
   statGrid.innerHTML = `
-    <div class="stat-cell"><div class="num">${total}</div><div class="label">${submissionTypeFilter === "test" ? "Test submissions" : "Live submissions"}</div></div>
+    <div class="stat-cell"><div class="num">${total}</div><div class="label">${submissionTypeFilter === "test" ? "Test submissions" : "Customer Responses"}</div></div>
     <div class="stat-cell"><div class="num">${counts.New}</div><div class="label">New</div></div>
     <div class="stat-cell"><div class="num">${counts.Contacted}</div><div class="label">Contacted</div></div>
     <div class="stat-cell"><div class="num">${archived}</div><div class="label">Archived</div></div>

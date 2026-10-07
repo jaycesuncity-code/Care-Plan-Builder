@@ -62,13 +62,13 @@ main{max-width:1100px;margin:0 auto;padding:22px}
 
 <div class="modal-wrap" id="passModal" role="dialog" aria-modal="true" aria-labelledby="passTitle">
   <div class="modal">
-    <h2 id="passTitle">Pricing editor check</h2>
-    <p>This extra passphrase is an internal “are you sure?” step. Your Cloudflare sign-in and server permissions are the actual security controls.</p>
-    <div id="passConfigMsg" class="notice error" hidden>Passphrase not configured — see SETUP.md.</div>
+    <h2 id="passTitle">Password Check</h2>
+    <p>Enter The Password Below...</p>
+    <div id="passConfigMsg" class="notice error" hidden>Potential error, no bueno</div>
     <form id="passForm">
-      <label for="passInput">Passphrase</label>
+      <label for="passInput">Password</label>
       <div class="pass-field"><input id="passInput" type="password" autocomplete="current-password"><button class="btn btn-primary" type="submit">Continue</button></div>
-      <div id="passError" class="notice error" hidden>That passphrase did not match.</div>
+      <div id="passError" class="notice error" hidden>Nope! That was not the right password</div>
     </form>
   </div>
 </div>
