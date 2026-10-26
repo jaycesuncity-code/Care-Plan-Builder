@@ -26,7 +26,7 @@ database_id = "2c79b253-9f8d-4441-b2ca-6666ac23196a"
 # nothing to restate.
 [vars]
 # Public static catalog URL for editor publication polling; set after the repo split.
-PUBLIC_CATALOG_URL = ""
+PUBLIC_CATALOG_URL = "https://care-plan-builder.pages.dev/catalog.json"
 # Where office staff read submissions. Used in the n8n notification email.
 DASHBOARD_URL = "https://care-plan-builder.pages.dev"
 # Exact-match CORS allowlist for the builder's origin(s). At launch the
