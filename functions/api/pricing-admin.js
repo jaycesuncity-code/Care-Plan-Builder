@@ -157,7 +157,7 @@ async function triggerPublish(env) {
     try {
       const timeout = new Promise(resolve => { timer = setTimeout(() => { controller.abort(); resolve(false); }, 5000); });
       return await Promise.race([
-        fetch(url, { method: "POST", signal: controller.signal, redirect: "error" }).then(response => response.ok, () => false), timeout,
+        fetch(url, { method: "POST", signal: controller.signal, redirect: "manual" }).then(response => response.ok, () => false), timeout,
       ]);
     } catch { return false; }
     finally { clearTimeout(timer); }
