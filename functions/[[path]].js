@@ -1,9 +1,7 @@
-// Sandbox fallback: a page-to-page link that isn't mirrored in this project yet
-// (e.g. /member-rewards-program/) is sent to the same path on the live site,
-// so no link in the sandbox dead-ends. Anything that IS a file in /public is
-// served as normal, and /api/* is never redirected.
-//
-// Delete this file (and public/404.html) at launch.
+// Same-project fallback for missing static pages: GET/HEAD requests whose paths
+// are not present in /public redirect to the equivalent public WordPress path.
+// API routes are never redirected. This is not an authentication control.
+// Retain the current behavior unless a separate routing change is approved.
 
 const PRODUCTION_ORIGIN = "https://youknowsuncity.com";
 

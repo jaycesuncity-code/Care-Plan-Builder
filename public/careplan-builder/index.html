@@ -1838,18 +1838,18 @@
   });
 
   /* ================= INTAKE CONFIG ============================================== */
-  /* This Cloudflare-hosted copy is the permanent STAFF PRACTICE Builder. Its
-     endpoint forces is_test=1 server-side. The future WordPress/public copy must
-     point to the public project's /api/care-plan-request route instead. */
+  /* Permanent STAFF PRACTICE Builder on the shared Pages project. Its endpoint
+     forces is_test=1 server-side. The public WordPress Builder instead posts to
+     https://care-plan-builder.pages.dev/api/care-plan-request. */
   var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 
-  /* Cloudflare Turnstile site key. 1x00000000000000000000AA is Cloudflare's
-     "always passes, visible widget" TEST key — fine for the sandbox, replace with
-     the real site key (and add the live hostnames to the widget) at launch. */
+  /* Practice Builder Turnstile TEST site key (Cloudflare's always-passes key).
+     Keep test/live configurations distinct: the public WordPress Builder needs
+     a real site key configured for its WordPress hostnames. */
   var TURNSTILE_SITEKEY = '1x00000000000000000000AA';
 
-  /* Staff: live D1 via /api/pricing. WordPress: use the public project's
-     absolute https://<public-host>/catalog.json static URL. */
+  /* Staff practice: live D1 via /api/pricing. Public WordPress Builder:
+     https://care-plan-builder.pages.dev/catalog.json on this same Pages project. */
   var CATALOG_ENDPOINT = '/api/pricing';
   var pricingVersion = null;
   var pricingStatus = 'loading';

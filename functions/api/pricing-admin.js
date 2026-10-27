@@ -1,5 +1,5 @@
-// Authenticated pricing editor API. This file belongs only in the gated dashboard
-// project; the public intake project must never contain pricing write code.
+// Staff Pricing Editor API on the shared Pages project. The route requires an
+// appropriate Cloudflare Access policy and independently verifies JWTs in code.
 
 import { validateCatalogString, PLANS } from "../../lib/intake/catalog.js";
 import { authenticatePricingEditor } from "../../lib/admin/access.js";

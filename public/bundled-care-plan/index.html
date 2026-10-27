@@ -744,7 +744,8 @@
 <script>
 (function () {
   'use strict';
-  // WordPress: replace with https://<public-host>/catalog.json.
+  // WordPress: use https://care-plan-builder.pages.dev/catalog.json.
+  // This relative URL is intentional for the same-origin Pages copy.
   var CATALOG_URL = '/catalog.json';
   var root = document.querySelector('.scp-care[data-scp-plan="bundled"]');
   if (!root) return;
