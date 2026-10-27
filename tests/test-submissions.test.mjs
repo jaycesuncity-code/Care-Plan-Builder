@@ -83,3 +83,15 @@ test("dashboard includes All Real Test filters and non-color TEST labels",()=>{
   assert.match(html,/>TEST<\/span>/); assert.match(html,/TEST SUBMISSION/);
   assert.match(html,/SUBMISSIONS\.filter\(r => !r\.isTest\)/);
 });
+
+test("Turnstile secret selection stays server-controlled and fails closed", async () => {
+  const handler = readFileSync(new URL("../lib/intake/handle-request.js", import.meta.url), "utf8");
+  const turnstile = readFileSync(new URL("../lib/intake/turnstile.js", import.meta.url), "utf8");
+  assert.match(handler, /secret: isTest \? env\.TURNSTILE_TEST_SECRET : env\.TURNSTILE_SECRET/);
+  assert.doesNotMatch(handler, /secret: env\.TURNSTILE_SECRET/);
+  assert.match(turnstile, /if \(!secret\) return \{ success: false, reason: "missing_secret"/);
+  const live = readFileSync(new URL("../functions/api/care-plan-request.js", import.meta.url), "utf8");
+  const practice = readFileSync(new URL("../functions/api/test/care-plan-request.js", import.meta.url), "utf8");
+  assert.match(live, /isTest: false/);
+  assert.match(practice, /isTest: true/);
+});
