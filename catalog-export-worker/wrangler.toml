@@ -1,0 +1,13 @@
+name = "catalog-export"
+main = "index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = false
+
+# The only D1 binding; access limited by fixed SELECTs in index.js.
+[[d1_databases]]
+binding = "DB"
+database_name = "care-plan-builder"
+database_id = "2c79b253-9f8d-4441-b2ca-6666ac23196a"
+
+# Set CATALOG_EXPORT_TOKEN via Wrangler secret, never in this public file.
