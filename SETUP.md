@@ -1,666 +1,205 @@
-# SETUP — Care Plan intake, sandbox to launch
+# Care Plan Builder — setup, operations, and WordPress handoff
 
-Click-by-click for the sandbox, then the launch move. Written against the
-`care-plan-builder` Pages project and the `care-plan-builder` D1 database
-(`2c79b253-9f8d-4441-b2ca-6666ac23196a`).
+**Current architecture, October 27, 2026:** one GitHub repository (`jaycesuncity-code/Care-Plan-Builder`), one existing Cloudflare Pages project (`care-plan-builder`; `https://care-plan-builder.pages.dev`), one production D1 (`care-plan-builder`; `DB` binding), and one shared codebase. **Do not create `care-plan-intake`, a second Pages project, or a separate public repository.** Staff functionality and public endpoints share the same host and require carefully verified, path-specific Cloudflare Access coverage.
 
-Part 1–7 get the sandbox working end to end. Part 8 is the launch move.
+Use [`LAUNCH-CHECKLIST.md`](LAUNCH-CHECKLIST.md) to track readiness. This guide explains *how* to configure the architecture. It does not authorize a deployment, migration, pricing edit, secret change, or WordPress publication. Owner-reported completed work is not automatically independently verified here.
 
----
+## 0. Operation safety: read-only versus mutating
 
-## Read this first: where configuration lives
+**Safe inspections** (assuming the intended repo/account is selected): `git status`, `git branch -avv`, `git rev-parse HEAD`, `git diff --check`, `npm run test:unit` (local one-shot), `npx wrangler d1 migrations list care-plan-builder --remote` (lists pending; check account first), and **SELECT-only** `wrangler d1 execute --remote --command "SELECT ..."`. Inspecting Cloudflare dashboard settings without saving is read-only.
 
-This repo has a `wrangler.toml` **and** the Pages project is Git-connected. Per the
-current Cloudflare docs that makes the file the source of truth, and it has a
-consequence that will waste an afternoon if you don't know it:
+**Mutating actions requiring separate explicit approval:** `git push` or merge; `npm run deploy`; Pages Deploy Hook invocation; `npm run db:migrate:remote`; any remote `wrangler d1 migrations apply`, `INSERT`, `UPDATE`, `DELETE`, or D1 restore; changing Cloudflare Access, secrets, builds, n8n, or WordPress; and editing prices. Local migrations (`npm run db:migrate:local`) alter only local D1 and must still be intentional. `npm run build:catalog` is **not a harmless docs check** without `--fixture`: it queries D1 and writes generated output.
 
-> **Plaintext environment variables added in the Cloudflare dashboard are ignored.**
-> The dashboard says so itself: *"Environment variables for this project's production
-> environment are being managed through wrangler.toml. Only Secrets (encrypted
-> variables) can be added or removed through the Dashboard."*
+Before acting on production, verify the actual Cloudflare account, Pages project, D1 database, branch, and current repository SHA. The checked-in `wrangler.toml` has `name = "sun-city-care-plan-dashboard"` whereas the actual Pages project is reported as `care-plan-builder`; confirm Cloudflare's project/build association rather than assuming a direct CLI deploy targets the right project. Avoid speculative deployments.
 
-So:
+## 1. Local development
 
-| Kind | Where it goes | Why |
-|---|---|---|
-| `DASHBOARD_URL`, `ALLOWED_ORIGINS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | **`wrangler.toml` → `[vars]`** (already committed) | plaintext; dashboard values wouldn't load |
-| `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, `IP_HASH_SALT` | **Dashboard → Secrets (encrypted)** | intake secrets; copy these four to the public intake project at launch |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | **Gated dashboard → Secrets (encrypted)** | required pricing-admin JWT verification; never copy these to the public intake project |
-| `PRICING_EDITORS` *(optional)* | **Gated dashboard → Secret (encrypted)** | named editor exceptions outside `@suncitylc.com`; never copy this to the public intake project |
-| everything, for local dev | **`.dev.vars`** (gitignored) | `wrangler pages dev` reads it |
+Use Node.js 22.13+ for the current test suites (`node:sqlite`). From a clean checkout:
 
-`N8N_WEBHOOK_URL` is technically not a secret, but it is an unauthenticated-looking
-endpoint on a public repo, so it is treated as one.
+```bash
+npm ci
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local   # MUTATES LOCAL D1 ONLY; applies pending local migrations
+```
 
-One more trap: `vars` is a **non-inheritable** key. If you ever add an
-`[env.preview.vars]` or `[env.production.vars]` block, you must restate *every*
-variable inside it — an environment block replaces the top-level one rather than
-merging. The committed `[vars]` values are deliberately correct for both
-environments, so there is nothing to restate today.
+The example `.dev.vars` uses local mock URLs and non-production example values. Inspect it before running the app. Do **not** copy real secrets into git or into logs.
 
----
+For interactive local development, in separate terminals:
 
-## 1. Local sandbox
+```bash
+npm run mock:n8n     # local mock webhook/siteverify, usually port 8799
+npm run dev          # local Pages runtime, usually http://localhost:8788
+```
 
-### Repo layout
+Staff UI: `http://localhost:8788/`; practice Builder: `http://localhost:8788/careplan-builder/`; editor: `http://localhost:8788/pricing/`. Local-only `DEV_ADMIN_EMAIL` in `.dev.vars` bypasses Access verification **only** for `localhost`/`127.0.0.1`, per `lib/admin/access.js`. It cannot activate for a deployed hostname. Keep test fixtures and production data separate.
+
+Tests/scripts verified in `package.json`:
+
+| Command | What it does | Caution |
+| --- | --- | --- |
+| `npm run test:unit` | Node unit tests, including catalog, editor, and Builder tests | No production service required; may create local test artifacts |
+| `npm run test:api` | Local D1/Wrangler/mock integration suite | Launches local processes; use bounded runs, no CI watcher |
+| `npm run test:e2e` | Browser suite | Requires Playwright/Chromium setup and launches local processes |
+| `npm test` | Unit and API suites | Not a static Markdown check |
+| `npm run test:all` | Unit, API, e2e | Most expensive local verification |
+| `npm run build:catalog` | Reads remote D1 REST and writes generated `public/catalog.json` | Requires configured build credentials; do not run during docs-only work |
+| `npm run db:migrate:remote` | Applies remote migrations | **MUTATES PRODUCTION** if bound there; approval and backup required |
+
+Do not add or modify GitHub Actions workflows as part of setup documentation. If CI is considered later: every job hard-timeout, `push` only on main plus PR verification, concurrency cancellation, bounded child processes, no rapid speculative reruns. A historically unbounded `wrangler pages dev` workflow exhausted runner minutes on another project. This repo's current `main` tree contains no `.github/workflows` files.
+
+## 2. Cloudflare project, D1, and environment ownership
+
+Cloudflare Pages: **`care-plan-builder`**. Production hostname: **`https://care-plan-builder.pages.dev`**. Production D1 name: **`care-plan-builder`**; code binding: **`DB`**. Confirm the ID directly in Cloudflare, then reconcile it with `wrangler.toml`; do not substitute an ID from an old screenshot. The current `wrangler.toml` binds Preview to the **same** D1 as production, so Preview activity is **not isolated** from production data. Do not conduct destructive or lead-submission experiments in Preview without a deliberate safety plan.
+
+The repo is Git-connected. `wrangler.toml` controls plaintext runtime `[vars]` and D1 bindings; encrypted Pages secrets are configured in Cloudflare's environment settings. **Build-time** variables used by `scripts/build-catalog.mjs` must actually be available to the Pages **build process**; Functions/runtime `.dev.vars` is not the build environment. Confirm where each variable is configured and which environment/branch receives it. `[env.preview.vars]` and similar blocks are non-inheritable: restate the variables if overrides are used. Never add encrypted credentials to `wrangler.toml` or checked-in `.dev.vars.example`.
+
+**Runtime plaintext configuration (in `wrangler.toml`):**
+
+- `PUBLIC_CATALOG_URL`: URL the editor polls for published catalog version; production currently points at `https://care-plan-builder.pages.dev/catalog.json`. Preview is separately configured to a branch alias; verify it actually exists.
+- `DASHBOARD_URL`: office dashboard URL used in notification payload.
+- `ALLOWED_ORIGINS`: exact origin allowlist for browser CORS on intake and internal pricing API. Production must contain the actual `https://youknowsuncity.com` and/or `https://www.youknowsuncity.com` origins used. Preview entries should be reviewed, not treated as a security perimeter.
+- `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW_SECONDS`: default configured limit is five successful submissions in 600 seconds per hashed IP.
+
+**Encrypted runtime secrets (Cloudflare Pages settings, never in source):**
+
+| Secret | Purpose |
+| --- | --- |
+| `TURNSTILE_SECRET` | Verifies public intake Turnstile tokens server-side |
+| `N8N_WEBHOOK_URL` | Private notification webhook destination |
+| `N8N_WEBHOOK_SECRET` | Shared authentication credential for webhook |
+| `IP_HASH_SALT` | Salt for the rate-limiter's stored IP hashes |
+| `ACCESS_TEAM_DOMAIN` | Cloudflare Access team domain for pricing API token verification |
+| `ACCESS_AUD` | **Pricing-specific** Access application audience tag |
+| `PRICING_EDITORS` (optional) | Named exceptions beyond the exact `@suncitylc.com` editor domain |
+| `CATALOG_DEPLOY_HOOK_URLS` | Private comma-separated Pages Deploy Hook URL(s); never paste the values into docs or logs |
+
+`DEV_ADMIN_EMAIL` and `ACCESS_JWKS_URL` are local/test-only switches and must not be deployed as production bypasses. The Pricing Editor's page-side passphrase is a UI speed bump **not a replacement** for JWT verification or Access gating.
+
+**Pages build-only configuration:**
+
+- `CLOUDFLARE_API_TOKEN`: limited to the D1 read permission necessary for the catalog REST query (account scoping is not per-database authorization unless Cloudflare explicitly supports that restriction).
+- `CLOUDFLARE_ACCOUNT_ID`: the verified Cloudflare account ID.
+- `D1_DATABASE_ID`: the verified production D1 ID.
+
+Use encrypted build-secret storage where supported and verify build logs do not echo values. Missing credentials or invalid D1 results cause a failed build; the script does not use hardcoded pricing as a fallback.
+
+## 3. Cloudflare Access — same host, explicit public/private paths
+
+Cloudflare Access/Microsoft Entra must authenticate staff paths **before** requests reach the Pages Functions. The owner reports that Access coverage was reviewed/addressed, but policies live outside this repository; repeat an **independent configuration and negative-access inspection** before launch. Do not change any policies while following this document without separate authorization.
+
+**Public (no Entra sign-in):**
+
+- `GET /catalog.json` (and relevant static-resource request handling).
+- `OPTIONS` and `POST /api/care-plan-request` (live customer intake). Other unsupported methods may respond 405, not redirect to sign-in.
+
+**Staff-only (Entra sign-in, correct path/subpath coverage):**
+
+- `/` dashboard and any dashboard static assets/data endpoints.
+- `/api/submissions` and `/api/submissions/*` (read/update, notes/status).
+- `/pricing/` and `/api/pricing-admin` (Pricing Editor application, API).
+- `/careplan-builder/` and its assets (permanent staff practice).
+- `/api/test/care-plan-request` (practice-only intake).
+- `/api/pricing` (live D1 pricing for staff practice; its CORS allowlist is **not** auth).
+- Any other private API/routes revealed by a full tree/router audit. Keep unknown/unintended routes inaccessible to anonymous visitors.
+
+Use Cloudflare Access application/path matching consistent with Cloudflare's actual behavior. Do **not** assume a broad application automatically exempts two public paths; test actual effective priority and wildcard behavior. Test unauthenticated requests in a clean browser/session and with a command-line client: the two public resources must remain usable, and **every** private UI/API must return an Access challenge/denial rather than staff data or an administrative action. Repeat checks for trailing slashes, path variants, previews and custom domains. Access token validation is implemented directly in `lib/admin/access.js` for **pricing administration only**; dashboard/submissions/practice/pricing read routes presently rely on the edge policy.
+
+## 4. D1 migration review — do not infer production state
+
+Repository migrations: `0001`, `0002` (development seed), `0004`, `0005`, `0006`, `0007`, `0008`, and `0009`. `0003` is absent; do not invent or execute it. The latest migration is `0009_submission_plan_names.sql`, a submissions-table rebuild allowing approved editor-managed full plan names while retaining existing children, history, IDs, classification and AUTOINCREMENT state. `0008_catalog_text.sql` adds display text and per-field pricing audits; `0007` adds `is_test`; `0006` adds catalog pricing/meta/audit.
+
+**Production application status of 0006–0009 is unknown to this GitHub-only audit.** An SQL file existing on `main` does **not** mean it has been applied remotely. Before any planned migration, with explicit authorization:
+
+1. Inspect Cloudflare account, Pages DB binding, `npx wrangler d1 migrations list care-plan-builder --remote` (**read-only**), `d1_migrations`, and the *actual* remote schema (`PRAGMA table_info`, `sqlite_master`, indexes/triggers, relevant row counts) using read-only commands.
+2. Stop if schema differs from the migration assumptions; never silently rewrite already-applied migrations.
+3. Export/verify a restricted backup (`wrangler d1 export ... --remote` reads production but writes a sensitive local backup). Never commit backup data.
+4. Schedule any required write pause for a table-rebuild migration. Separately approve and apply **only** reviewed pending migrations; no migration is authorized by this guide.
+5. Compare post-migration counts, child rows, flags, IDs, foreign keys, `sqlite_sequence`, catalog rows, and `d1_migrations`; then verify the Pricing Editor schema gate.
+
+**Never** run `0002_seed_data.sql` against production as a launch step or delete any submissions by assuming an ID range is test data. See `SCHEMA.md` for the historical schema sequence.
+
+## 5. Pricing Editor and automatic static-catalog publication
+
+The Pricing Editor is at `/pricing/`; its API is `GET/PUT /api/pricing-admin`. Access protects the page, while the API independently verifies the signed Access JWT and checks editor email, issuer/audience, and request-origin/header conditions. D1 changes and audit records are transactionally coordinated via `DB.batch()` and version checks. A real changed save increments `pricing_meta.version`; a no-op save can intentionally retry publication without a new version/audit entry.
+
+Configured `CATALOG_DEPLOY_HOOK_URLS` cause an HTTPS POST from the server after an accepted save. A fix to `redirect: "manual"` is present in current `main` at `1f313b5`, addressing failed Deploy Hook triggers. The Pages build must run:
 
 ```text
-public/memberships/index.html        Memberships landing page — built by a separate branch (feature/memberships-landing-page)
-public/careplan-builder/index.html   residential Care Plan Builder
-public/{hvac,plumbing,bundled,premier}-care-plan/index.html
+Build command: node scripts/build-catalog.mjs
+Output directory: public
 ```
 
-```bash
-npm install
-cp .dev.vars.example .dev.vars     # already points at the local mocks
-npm run db:migrate:local           # applies all currently unapplied local migrations through 0009
-```
+`scripts/build-catalog.mjs` reads D1 through the Cloudflare REST API using the three **build-time** values, checks the two query results and catalog fields, then atomically writes `public/catalog.json`. `public/_routes.json` excludes that URL from the catch-all Pages Function; `public/_headers` sets JSON/CORS/cache headers. The public WordPress site loads this generated file; no manual catalog editing or manual WordPress price synchronization should be required for ordinary supported catalog updates.
 
-Two terminals:
+Owner-confirmed checkpoint on **October 27, 2026**: an updated catalog was published successfully, version 17 was visible, original prices had been restored, and the formerly exposed Deploy Hook was rotated with the new value configured. **Do not rotate the hook again or trigger another deployment just because older docs say to.** This audit could inspect repository code, but not the Cloudflare production build history, hook configuration or actual public version; those remain owner-reported unless inspected in Cloudflare.
 
-```bash
-npm run mock:n8n                   # webhook + Turnstile siteverify mock, port 8799
-npm run dev                        # dashboard + both APIs, port 8788
-```
+If publication fails in the future: inspect the saved D1 version versus the accessible static version, Pages build logs, build-time variable presence (not values), hook status and exact effective catalog URL. Do not repeatedly retry hooks or make speculative pricing changes. If saved D1 changes already occurred, separate catalog publication failure from pricing persistence failure before attempting recovery. Draft PR #8's alternative export Worker remains unmerged and is **not** a launch requirement.
 
-Then:
+## 6. WordPress/LiveCanvas setup — final customer journey
 
-- dashboard → <http://localhost:8788/>
-- the Builder → <http://localhost:8788/careplan-builder/>
+Use existing WordPress pages on `youknowsuncity.com` where appropriate; do **not** create a separate Member Sign-Up step. The Builder ends in a customer **request form** with no online payment/enrollment. The public-facing pages are:
 
-Images: the Builder references `/img/*`, which lives in the WordPress media library,
-not this repo. The pages work without them (broken image icons only). The e2e suite
-generates throwaway 1×1 stand-ins and deletes them afterwards.
+1. **Memberships:** hub/overview, embedded Builder, links to four plan details and any separately maintained commercial service/rewards content.
+2. **HVAC Care Plan:** source `public/hvac-care-plan/index.html`.
+3. **Plumbing Care Plan:** source `public/plumbing-care-plan/index.html`.
+4. **Bundled Care Plan:** source `public/bundled-care-plan/index.html`.
+5. **Premier Care Plan:** source `public/premier-care-plan/index.html`.
 
-Run the tests:
+For the hub, use the `BEGIN PASTE` / `END PASTE` section from `public/memberships/index.html`. For the Builder, paste the bounded block beginning at `BEGIN SUN CITY CARE PLAN BUILDER` into a LiveCanvas custom HTML block (keep scoped CSS/IIFE) without demo document wrappers. For the four details, retain the intended block but remove the demo HTML wrapper, preserving their scoped styles/JS and live navigation. Verify WordPress slugs and any media-library image replacements. Do not assume older `builder-walkthrough.md` Find/Replace steps can be replayed unmodified: they are a historical transformation reference and the current source template is authoritative.
 
-```bash
-npm run test:unit                  # pricing, validation, parity, n8n Code node, walkthrough
-npm run test:api                   # starts wrangler pages dev itself, 4 config groups
-npm run test:e2e                   # optional, needs: npm i -D playwright && npx playwright install chromium
-```
-
-`test:api` needs ports 8788 and 8799 free.
-
-## 2. Apply the migrations to the real D1
-
-`0003` is skipped on purpose — `0003_add_auth_audit_columns.sql` belongs to the
-Cloudflare Access work. Nothing here depends on it, and the numbering gap is fine.
-
-```bash
-npx wrangler d1 migrations list care-plan-builder --remote   # read-only: see what's pending
-# For the current 0008/0009 release, do not apply from this generic section.
-# Follow the guarded backup/preflight/application procedure in section 9.1.
-```
-
-`0006_pricing.sql` is additive: it creates the three pricing tables and seeds them.
-`0007_submission_is_test.sql` is also additive: it adds `submissions.is_test` with
-`NOT NULL DEFAULT 0 CHECK (is_test IN (0,1))`; it does not rebuild `submissions`.
-Unknown existing rows remain live. Only the four exact documented `0002` fixtures are
-backfilled to test by matching id + name + phone. It also updates the already-seeded
-`addon:qbb` label to the preview branch's current "Quarterly Sediment Filter Change".
-Back up and inspect the real D1 before applying pending migrations.
-
-**`0004` rebuilds the `submissions` table** (SQLite can't ALTER a CHECK constraint), so
-read this before running it on real data:
-
-- It copies `submission_addons` and `submission_notes` aside, rebuilds `submissions`,
-  then restores them. This is necessary because `DROP TABLE` on a parent runs an
-  implicit `DELETE FROM`, and that **does** fire `ON DELETE CASCADE` on the children —
-  `PRAGMA defer_foreign_keys` defers constraint *checking*, it does not stop a cascade.
-- Verified locally against the seed data: 4 submissions kept all 5 add-on rows and all
-  4 notes, and the existing `Anytime` value still validates.
-- If the remote database holds anything you care about, take a backup first:
-  `npx wrangler d1 export care-plan-builder --remote --output backup-before-0004.sql`
-
-Sanity check afterwards:
-
-```bash
-npx wrangler d1 execute care-plan-builder --remote --command \
-  "SELECT COUNT(*) AS submissions, (SELECT COUNT(*) FROM submission_addons) AS addons, (SELECT COUNT(*) FROM submission_notes) AS notes, (SELECT COUNT(*) FROM intake_rate_limit) AS rate_rows FROM submissions"
-```
-
-## 3. Turnstile
-
-**Now (sandbox).** Nothing to create. The Builder ships with Cloudflare's always-passes
-test sitekey `1x00000000000000000000AA`, and the matching secret is
-`1x0000000000000000000000000000000AA`. Set that secret in step 4.
-
-The other documented test pairs, useful for deliberately breaking things:
-
-| Sitekey | Secret | Behaviour |
-|---|---|---|
-| `1x00000000000000000000AA` | `1x0000000000000000000000000000000AA` | always passes (visible) |
-| `2x00000000000000000000AB` | `2x0000000000000000000000000000000AA` | always fails |
-| — | `3x0000000000000000000000000000000AA` | token already spent |
-
-**At launch (real widget).**
-
-1. Cloudflare dashboard → **Turnstile** → **Add widget**.
-2. Name it `Care Plan Builder`.
-3. Hostnames: add **`youknowsuncity.com`** *and* **`www.youknowsuncity.com`**. A widget
-   only renders on hostnames listed here — this is the single most common cause of "the
-   box shows an error on the live site". Add `care-plan-builder.pages.dev` too if you
-   want the sandbox on the real key.
-4. Widget mode: **Managed**.
-5. Copy the **sitekey** into the Builder's `TURNSTILE_SITEKEY` constant (step 5 of
-   `builder-walkthrough.md`, and the same one line in the LiveCanvas copy).
-6. Copy the **secret key** into the `TURNSTILE_SECRET` secret on the Pages project.
-
-## 4. Pages secrets and vars
-
-Cloudflare dashboard → **Workers & Pages** → **care-plan-builder** → **Settings** →
-**Variables and Secrets**.
-
-For **each** of Production and Preview on the **gated dashboard project**, add the six required values below as **Secret** (encrypted). Add `PRICING_EDITORS` only if you intentionally need a named exception outside `@suncitylc.com`:
-
-| Name | Sandbox value | Notes |
-|---|---|---|
-| `TURNSTILE_SECRET` | `1x0000000000000000000000000000000AA` | real secret key at launch |
-| `N8N_WEBHOOK_URL` | `https://suncityautomation.app.n8n.cloud/webhook/care-plan-request` | see step 6 about test vs production URLs |
-| `N8N_WEBHOOK_SECRET` | any long random string | must match the n8n Header Auth credential exactly |
-| `IP_HASH_SALT` | any long random string | salts the stored IP hashes; rotating it just resets the rate-limit counters |
-| `PRICING_EDITORS` | *(optional)* comma-separated emails | named editor exceptions outside `@suncitylc.com`; company-domain staff do not need to be listed |
-| `ACCESS_TEAM_DOMAIN` | your Access team domain | used to verify the Access JWT issuer + fetch JWKS |
-| `ACCESS_AUD` | pricing Access application AUD tag | **must be the pricing-specific app's AUD, not the dashboard app's tag** |
-
-Generate the two random ones however you like, e.g.:
-
-```bash
-openssl rand -hex 32
-```
-
-Use **different** values for Preview and Production for `IP_HASH_SALT` and
-`N8N_WEBHOOK_SECRET` if you want preview traffic fully separated. `TURNSTILE_SECRET` can
-stay the test secret on Preview forever — that's convenient, since preview URLs aren't
-on the widget's hostname list.
-
-Do **not** add `DASHBOARD_URL` or `ALLOWED_ORIGINS` here; they are in `wrangler.toml`
-and dashboard copies would be ignored (see the note at the top). Change them by editing
-`wrangler.toml` and pushing.
-
-Secrets take effect on the **next deployment** — redeploy after adding them.
-
-### Configure the pricing-page passphrase speed bump
-
-The passphrase is not the security boundary; Cloudflare Access and the server-side editor
-authorization rule are. The page ships fail-closed with a hash placeholder. Choose an internal
-passphrase, generate its SHA-256 hash locally, and paste **only the hash** into
-`PASSPHRASE_SHA256` in `public/pricing/index.html`:
-
-```bash
-node scripts/hash-passphrase.mjs "your passphrase"
-```
-
-Never commit the passphrase itself. The salt and hash are visible in page source by design.
-
-### Restrict the Pricing page to editors
-
-Create a **second Cloudflare Access application** for the dashboard project. Keep the
-existing dashboard Access application as-is, then add a pricing-specific application whose
-paths cover both `/pricing*` and `/api/pricing-admin*`. Its Allow policy should include
-company staff whose emails end in `@suncitylc.com`, plus any named outside-domain
-exceptions you intentionally support. Copy that application's AUD tag into the
-`ACCESS_AUD` secret above. A dashboard-app AUD in `ACCESS_AUD` will make every otherwise
-valid pricing editor receive 401. After JWT verification, the server independently
-requires an exact, case-insensitive `@suncitylc.com` email match or membership in the
-optional `PRICING_EDITORS` exception list. Subdomains and lookalike domains do not match.
-
-For local development only, `.dev.vars` may set `DEV_ADMIN_EMAIL`; that bypass is
-accepted only on `localhost` or `127.0.0.1`. `ACCESS_JWKS_URL` is test-only and must
-stay unset in production.
-
-## 5. Deploy and verify the binding
-
-Push the branch and let the Pages build run, or deploy by hand:
-
-```bash
-npm run deploy
-```
-
-Then confirm both intake wrappers are live and config arrived. Each empty POST should
-return **400 with field errors** (not 404, not 500). The routes differ only in the
-server-forced classification:
-
-```bash
-curl -i -X POST https://care-plan-builder.pages.dev/api/care-plan-request \
-  -H 'Content-Type: application/json' -d '{}'
-
-curl -i -X POST https://care-plan-builder.pages.dev/api/test/care-plan-request \
-  -H 'Content-Type: application/json' -d '{}'
-```
-
-- `404` → the Function didn't deploy; check the build log's Functions section.
-- `500 SERVER_ERROR` → the `DB` binding is missing.
-- `400 VALIDATION_FAILED` → correct.
-
-## 6. n8n: import, credentials, activate
-
-1. n8n Cloud → <https://suncityautomation.app.n8n.cloud> → **Workflows** → **Import
-   from File** → `n8n/care-plan-request-notification.json`.
-2. It imports **inactive**, with three nodes and a sticky note holding the payload
-   contract. It cannot send anything until you activate it.
-3. **Header Auth credential** (on the Webhook node):
-   - **Credentials** → **Add credential** → **Header Auth**
-   - Name: `X-Webhook-Secret`
-   - Value: the exact `N8N_WEBHOOK_SECRET` you set in step 4
-   - Back on the Webhook node, select this credential. The imported placeholder id
-     (`REPLACE_WITH_HEADER_AUTH_CREDENTIAL_ID`) will not resolve — you must pick it
-     from the dropdown.
-4. **Microsoft Outlook credential** (on the Send node):
-   - **Add credential** → **Microsoft Outlook OAuth2 API**
-   - Complete the Microsoft 365 consent flow with the account that should *send* the
-     mail. Whatever mailbox you authenticate becomes the From address.
-   - Select it on the `Send Office Email (Outlook)` node.
-   - Check the node's parameter fields after import — the Microsoft Outlook node's
-     field names have moved between n8n versions, so if `To`/`Subject`/`Body` look
-     empty, re-select `Message → Send` and re-point them at
-     `{{ $json.to }}`, `{{ $json.subject }}`, `{{ $json.html }}` with
-     **Body Content Type = HTML**.
-5. **Test vs production URL.** The Webhook node shows two URLs:
-   - `…/webhook-test/care-plan-request` — only live while you have the editor open with
-     **Listen for test event** armed. Good for the first end-to-end check.
-   - `…/webhook/care-plan-request` — the real one, live only while the workflow is
-     **Active**.
-
-   To test first: temporarily set the `N8N_WEBHOOK_URL` secret to the `webhook-test`
-   URL, redeploy, click **Listen for test event**, submit a lead, watch the execution.
-   Then set the secret back to the `/webhook/` URL, **Activate** the workflow, and
-   redeploy.
-6. Toggle **Active** on.
-
-If the office email never arrives, the Cloudflare Function log is the place to look —
-it records `office notification failed for id=NNN` with a reason
-(`webhook_timeout`, `webhook_http_error`, `webhook_unreachable`) and never fails the
-customer's submission.
-
-## 7. Smoke test (sandbox, end to end)
-
-1. Open <https://care-plan-builder.pages.dev/careplan-builder/>.
-2. Pick **Premier**, tick **Mini-Split Tune-Up**, raise **# of HVAC Systems** to 3.
-   Sidebar total should read **$930/yr** (600 + 80 + 2 × 125).
-3. Confirm that this canonical selection shows **no** Water Softener Salt line and
-   **no** Reverse Osmosis Service line. Neither corresponding paid service was selected.
-4. Click the CTA. The recap should show Premier, Mini-Split Tune-Up, and
-   **# of HVAC Systems × 3** with total **$930**. It should not contain phantom
-   water-treatment lines. The Turnstile box should appear and self-solve (test key).
-5. Fill in a clearly fake name, a real-format phone, an address, pick **Midday**, tick
-   the acknowledgement, send.
-6. Expect the confirmation panel, and the form to disappear.
-7. Check the dashboard at <https://care-plan-builder.pages.dev/> — the lead should be
-   at the top of the queue. Open it: **Best time to call** = `Midday`, base $600,
-   `Mini-Split Tune-Up` = $80, `# of HVAC Systems × 3` = $250, total **$930**,
-   and no phantom salt/RO line.
-8. This Cloudflare-hosted Builder is the permanent staff-practice Builder, so **no
-   normal office email should be sent**. Confirm the row is visibly marked TEST in the
-   dashboard. Use the live endpoint separately when validating normal notification
-   delivery.
-9. Verify the numbers in the database are the server's, not the browser's:
-
-   ```bash
-   npx wrangler d1 execute care-plan-builder --remote --command \
-     "SELECT id, plan, best_time, base_price, addon_total, total_price FROM submissions ORDER BY id DESC LIMIT 3"
-   ```
-
-10. Run a focused Premier softener-pairing check:
-    - select **Water Softener Service × 2**
-    - the service line should be **$150**
-    - **Water Softener Salt × 2** should appear automatically as **Included / $0**
-    - increasing/decreasing the service quantity should change salt 1:1
-    - removing Water Softener Service should remove the included salt line
-    - **Reverse Osmosis Service** should remain a normal paid **$50 each** add-on; its
-      replacement filters are the Premier perk, so no separate free RO line should appear.
-11. Submit six leads in a row. The sixth should be refused with the wait-time message
-    (default limit: 5 per 10 minutes per IP).
-12. Keep practice rows as normal test records unless you intentionally want cleanup.
-    They are identified by `is_test = 1`, not by submission id.
-
----
-
-## 8. Launch move
-
-The dashboard/practice side can remain behind Cloudflare Access + Entra ID; the future
-public intake project cannot, because customers have no Entra accounts. **Do not split
-the repo yet.** The current repo deliberately contains both paths until shared development
-is complete.
-
-At the later split, move/copy the live wrapper, public pricing endpoint, and required
-shared `lib/intake/*` modules into a **public** Pages project bound to the **same** D1.
-Keep the test wrapper and staff dashboard here. The shared intake modules do not import
-Access middleware or read `context.data.staffEmail`.
-
-> Note on the Access middleware: the `add-cloudflare-access-auth` branch **does not
-> exist** on `jaycesuncity-code/Care-Plan-Builder` — `main` is the only branch, at
-> `8ce0142`. So there is nothing to merge yet, and nothing in this work depends on it.
-
-### 8a. Create the public intake project
-
-1. A new repo (or a subdirectory build) containing only:
-   ```
-   functions/api/care-plan-request.js
-   functions/api/pricing.js
-   lib/intake/          (catalog.js, pricing.js, validate.js, http.js, ratelimit.js,
-                         turnstile.js, persist.js, notify.js)
-   public/              (can be a single index.html saying "nothing to see here")
-   wrangler.toml
-   package.json
-   migrations/          (optional — the schema is already applied by the dashboard project)
-   ```
-2. Cloudflare → **Workers & Pages** → **Create** → **Pages** → connect that repo.
-3. Project name: `care-plan-intake` → `care-plan-intake.pages.dev`.
-4. **Do not** put this project behind Access. Leave it public. That is the point.
-5. `wrangler.toml` for it:
-
-   ```toml
-   name = "care-plan-intake"
-   pages_build_output_dir = "public"
-   compatibility_date = "2026-09-01"
-
-   [[d1_databases]]
-   binding = "DB"
-   database_name = "care-plan-builder"
-   database_id = "2c79b253-9f8d-4441-b2ca-6666ac23196a"
-
-   [vars]
-   DASHBOARD_URL = "https://care-plan-builder.pages.dev"
-   ALLOWED_ORIGINS = "https://youknowsuncity.com,https://www.youknowsuncity.com"
-   RATE_LIMIT_MAX = "5"
-   RATE_LIMIT_WINDOW_SECONDS = "600"
-   ```
-
-   Same D1 id — both projects share one database. The public project contains pricing
-   SELECT code only; **do not copy `functions/api/pricing-admin.js` or `lib/admin/` into
-   it**. A D1 binding itself cannot be read-only, so the project boundary is what enforces
-   public pricing read-only behavior. `ALLOWED_ORIGINS` drops the `pages.dev` entry once
-   the sandbox is gone.
-6. Add **only the four intake secrets** to this public project, Production and Preview:
-   `TURNSTILE_SECRET`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET`, and
-   `IP_HASH_SALT`. Do **not** copy `PRICING_EDITORS`, `ACCESS_TEAM_DOMAIN`, or
-   `ACCESS_AUD` to the public intake project.
-7. Deploy, then re-run the step 5 curl against
-   `https://care-plan-intake.pages.dev/api/care-plan-request`. Also GET
-   `https://care-plan-intake.pages.dev/api/pricing` and confirm it returns only
-   `version`, `updatedAt`, `plans` and `addons`.
-
-A new plan or add-on added later in `lib/intake/catalog.js` requires a new migration
-to seed its `plan:<id>` or `addon:<id>` pricing row. Until every required row contains a
-valid price, the Builder and intake return pricing unavailable; catalog seeds are not
-runtime fallbacks. Requests remain disabled and customers can retry explicitly or call
-575-526-9758.
-
-### 8b. Point the Builder at it
-
-In the LiveCanvas copy of the Builder (`builder-walkthrough.md` steps 5 and 15 keep the launch constants together for this moment):
+**WordPress Builder launch constants:**
 
 ```js
-var SUBMIT_ENDPOINT = 'https://care-plan-intake.pages.dev/api/care-plan-request';
-var PRICING_ENDPOINT = 'https://care-plan-intake.pages.dev/api/pricing';
-var TURNSTILE_SITEKEY = '<real sitekey from step 3>';
+var CATALOG_ENDPOINT = 'https://care-plan-builder.pages.dev/catalog.json';
+var SUBMIT_ENDPOINT = 'https://care-plan-builder.pages.dev/api/care-plan-request';
+var TURNSTILE_SITEKEY = '<real public widget sitekey, not the Cloudflare test key>';
 ```
 
-Because WordPress isn't on Cloudflare, this is now a **cross-origin** POST. It works
-only if the page's origin is in that project's `ALLOWED_ORIGINS`. Both
-`https://youknowsuncity.com` and `https://www.youknowsuncity.com` are listed above —
-keep whichever the site actually serves, and remember the scheme and any `www.` must
-match exactly. No trailing slash.
+**All four detail pages:**
 
-Apply all 20 walkthrough steps to the LiveCanvas block if you haven't already.
-
-### 8c. Constants and values to swap, in one list
-
-| Where | From | To |
-|---|---|---|
-| Builder, `SUBMIT_ENDPOINT` | `/api/care-plan-request` | `https://care-plan-intake.pages.dev/api/care-plan-request` |
-| Builder, `PRICING_ENDPOINT` | `/api/pricing` | `https://care-plan-intake.pages.dev/api/pricing` |
-| Builder, `TURNSTILE_SITEKEY` | `1x00000000000000000000AA` | the real sitekey |
-| Builder, each add-on's `photo` | `/img/…` | the WordPress media-library URLs |
-| Builder, `LINKS` | sandbox slugs | the real WP slugs, if any differ |
-| Intake project, `TURNSTILE_SECRET` | `1x00000…AA` | the real secret key |
-| Intake project, `N8N_WEBHOOK_URL` | `…/webhook-test/…` | `…/webhook/…` (workflow Active) |
-| Intake project, `ALLOWED_ORIGINS` | includes `pages.dev` | live origins only |
-
-### 8d. Later split map — do not delete the practice Builder
-
-The previous plan to delete the Cloudflare Builder is superseded. After the future split:
-
-```text
-KEEP IN STAFF/DASHBOARD REPO:
-public/index.html
-public/careplan-builder/index.html
-functions/api/test/care-plan-request.js
-functions/api/submissions/*
-functions/api/pricing-admin.js
-lib/admin/*
-dashboard/practice tests
-migrations/ and D1 schema management
-
-MOVE/COPY TO PUBLIC REPO:
-functions/api/care-plan-request.js
-functions/api/pricing.js
-shared lib/intake/* required by those public endpoints
-public-facing intake/pricing tests
-
-SHARED D1:
-the same care-plan-builder database, including submissions.is_test
-
-CONFIG THAT DIFFERS:
-public CORS origins, public Turnstile sitekey/secret, public Pages project URL,
-production n8n secrets, WordPress SUBMIT_ENDPOINT and PRICING_ENDPOINT
+```js
+var CATALOG_URL = 'https://care-plan-builder.pages.dev/catalog.json';
 ```
 
-The staff practice Builder remains intentionally available and points to
-`/api/test/care-plan-request`.
+**Protected staff practice Builder, do not change:**
 
-### 8e. Test-data inspection / optional cleanup
-
-Do **not** infer test data from submission ids. Inspect by the durable server-controlled
-classification:
-
-```bash
-npx wrangler d1 execute care-plan-builder --remote --command \
-  "SELECT id, name, plan, submitted_at FROM submissions WHERE is_test = 1 ORDER BY id"
+```js
+var CATALOG_ENDPOINT = '/api/pricing';
+var SUBMIT_ENDPOINT = '/api/test/care-plan-request';
 ```
 
-If you intentionally choose to remove practice data later, delete only rows you have
-reviewed and confirmed as disposable, using `WHERE is_test = 1`. Child add-ons/notes
-cascade automatically. Do not automatically delete test data as part of deployment.
+Use the **same** static catalog URL for every WordPress component. Its data controls catalog prices, plan names, short labels and descriptions, while plan eligibility, feature bullets and other business rules remain in source. Make no business-price or benefit changes based on an old screenshot/spreadsheet; review the live D1 catalog against the approved pricebook first. WordPress pages need graceful catalog-load failure behavior and must not silently submit with stale prices.
 
-## 9. Live/Test verification after 0007
+Configure a real **Cloudflare Turnstile** widget for the actual WordPress hostname(s) (`youknowsuncity.com` and `www.youknowsuncity.com` when both resolve); configure its secret on the Pages app. Ensure the script survives LiveCanvas code-editor saves. Ensure both actual `Origin` values are in `ALLOWED_ORIGINS`. Cross-origin POST requests must use the live endpoint; never submit production leads to `/api/test/care-plan-request` or price the public Builder against protected `/api/pricing`.
 
-After applying 0007 locally, submit one request to each route and query:
+Customer submits name, phone, service address, preferred callback time and selected plan/add-ons (plus verification). The server validates the request, verifies Turnstile, enforces rate limiting, compares catalog version for changed totals, reprices authoritatively, saves live `is_test=0`, returns a request confirmation, and sends the office notification asynchronously. No online card capture, charge, membership activation, or appointment booking occurs. Staff follows up to verify selection, final price, terms and payment, then activates/schedules through the approved office process. Keep required acknowledgment separate from marketing or recurring-charge consent.
 
-```sql
-SELECT id, name, is_test, plan, total_price
-FROM submissions
-ORDER BY id DESC;
-```
+## 7. Production notifications (n8n / Outlook)
 
-Expected: `/api/care-plan-request` writes `is_test=0`; `/api/test/care-plan-request`
-writes `is_test=1`. Supplying `is_test`, `isTest`, `test`, or query-string variants
-must not alter that result. The test route should save normally and appear in the
-dashboard without calling the routine n8n office webhook.
+`n8n/care-plan-request-notification.json` defines the webhook → formatting Code node → Outlook office email pipeline. Importing JSON does not configure real credentials; confirm the production workflow is active and that the webhook credential matches `N8N_WEBHOOK_SECRET`, the secret URL is the production `/webhook/` URL (not editor `/webhook-test/`), and Outlook is authorized to deliver to `service@suncitylc.com`. Check that the office email includes the correct submission/plan/add-on snapshot and dashboard link.
 
-## 9. Static catalog publishing — dashboard and future public project
+`lib/intake/notify.js` suppresses normal notifications for `is_test=1`. The public live route creates `is_test=0` independently of browser-supplied flags. A failed n8n delivery does not undo a saved submission; monitor failures and manually follow up when needed. Never include real webhook secrets or customer PII in screenshots/public audit output.
 
-Complete these settings before enabling the new Pages build command. No real token,
-deploy hook, remote migration, production request or WordPress edit was made as part of
-this implementation. Cloudflare UI wording may show **Environment variables** or
-**Variables and Secrets** for the same settings panel.
+## 8. Launch and troubleshooting verification order
 
-### 9.1 Back up and apply approved 0008 and 0009 safely
+Use the **remaining** section of `LAUNCH-CHECKLIST.md`, in dependency order. At minimum independently verify: current release commit and code/DB identity; actual applied migrations/schema; effective Access public/private path coverage; production secrets and build settings; public catalog structure/version; approved plan prices/terms; WordPress constants and media; Turnstile; n8n/Outlook delivery; and a controlled live request leading to the protected office dashboard. Perform browser/mobile/keyboard/accessibility checks.
 
-The user approved including 0009 and pushing the completed implementation to main. Remote migration application remains a separate deployment step.
-The commands below are manual operational instructions; they were not run remotely here.
+Avoid the old test instruction to send six live requests merely to test a 429: that creates unnecessary real leads, sends notifications, and consumes production rate limits. Exercise 429 behavior locally/integration tests or in a controlled test environment. If a real production smoke request is approved, use a clearly identified test lead and record its exact ID for authorized cleanup; **never** bulk-delete rows by assuming IDs above a threshold are synthetic.
 
-1. In a clean local checkout, select `main`, verify it is the reviewed release commit `a565260384bbb8f7ef393132075085feab7a24ac`, then run `npm ci`.
-2. Run `npx wrangler login` with the account holding `care-plan-builder`.
-3. Run `npx wrangler d1 migrations list care-plan-builder --remote`.
-4. Inspect the remote schema and row counts:
+Common diagnostics:
 
-   ```bash
-   npx wrangler d1 execute care-plan-builder --remote --command "PRAGMA table_info(pricing_items); PRAGMA table_info(pricing_audit); SELECT version FROM pricing_meta WHERE id=1; SELECT count(*) AS submissions FROM submissions; SELECT count(*) AS addons FROM submission_addons; SELECT count(*) AS notes FROM submission_notes;"
-   ```
+| Symptom | Check |
+| --- | --- |
+| WordPress price stays stale | Catalog URL, public cache, D1 version vs generated `catalog.json`, publication/build logs |
+| Catalog build fails | Presence of 3 build-time credentials, D1 query shape/permissions, required item/text rows; don't print tokens |
+| Price editor fails 401/403/503 | Pricing Access app and audience, exact company editor identity, JWT configuration/JWKS, DB binding |
+| Public resource redirects to Entra | Effective Access path priority; public catalog/intake exemptions |
+| Anonymous staff data exposed | **Stop launch**; close Access coverage before further live tests |
+| WordPress request CORS error | Exact WordPress origin(s) in `ALLOWED_ORIGINS`, correct live intake URL and preflight |
+| Turnstile fails | Production sitekey hostname binding, `TURNSTILE_SECRET`, script persistence, one-use token reset |
+| `409 PRICES_CHANGED` | Re-fetch static catalog and require customer review of changed total |
+| `503 PRICING_UNAVAILABLE` | Live D1/catalog validation or binding; never submit fallback seed prices |
+| Office email missing | n8n active production workflow, webhook credentials, Outlook credential, Function notification error logs |
+| Practice lead emails office | Check server-controlled `is_test` routing/notification suppression; stop live testing if misrouted |
 
-5. Stop if earlier migrations are pending unexpectedly, the binding points to another
-   database, or 0008's new columns already exist without its migration record. Do not
-   blindly apply all pending migrations in that situation.
-6. Take a full export and verify that the resulting file is nonempty and contains the
-   expected schema and rows; retain it securely outside the public repo:
-
-   ```bash
-   BACKUP_DIR="$HOME/care-plan-d1-backups/$(date -u +%Y%m%dT%H%M%SZ)"
-   mkdir -p "$BACKUP_DIR" && chmod 700 "$BACKUP_DIR"
-   npx wrangler d1 export care-plan-builder --remote --output "$BACKUP_DIR/backup-before-0008-0009.sql"
-   ```
-
-7. With 0008/0009 confirmed as the only pending approved migrations (or just 0009 if 0008 is already applied), and after the schema review below, run:
-
-   ```bash
-   npx wrangler d1 migrations apply care-plan-builder --remote
-   ```
-
-8. Compare the same submission/add-on/note counts with step 4, confirm all 13 catalog
-   items have populated descriptions and the four plans have short labels. Because
-   `wrangler d1 migrations list` reports **unapplied** migrations, it should be empty after
-   success; confirm 0008 and 0009 are recorded exactly once in `d1_migrations`. Catalog prices and historical submissions should
-   be unchanged.
-
-**Approved full-name constraint correction:** 0008 is additive and does not change
-submissions. Approved `migrations/0009_submission_plan_names.sql` replaces the original
-`plan IN (...)` CHECK, which otherwise rejects manager-defined full names. The user explicitly
-authorized including 0009 and pushing the completed work to main on October 6, 2026.
-No remote migration was authorized or run as part of that push.
-
-0009 rebuilds `submissions` while preserving children, historical values, classification,
-indexes, IDs and the AUTOINCREMENT high-water mark. Before running the migration command:
-
-1. Compare `PRAGMA table_info(submissions)`, `PRAGMA table_info(submission_addons)`,
-   `PRAGMA table_info(submission_notes)` and the relevant `sqlite_master` indexes/triggers
-   with the repository. Stop and adapt 0009 if the remote has additional columns or
-   auth-related schema that this repository does not contain.
-2. Export the full database as in step 6; verify the backup and retain it securely.
-3. Pause live/practice intake writes for the operation so the preservation/count checks
-   have a stable baseline. Record complete historical/child data and row counts.
-4. Apply the approved pending migrations with Wrangler's migration command, as in step 7.
-   Never rewrite prior migrations or run the rebuild manually in fragmented commands.
-5. Compare every original row/child value, flags, indexes and IDs, check
-   `PRAGMA foreign_key_check`, confirm the migration list and resume intake.
-6. Confirm full-name inputs are editable only after 0009 is applied, and test a renamed
-   plan through the intended non-production intake/notification environment.
-
-The editor rejects unsupported full-name changes before any catalog write until 0009's
-schema is detected; this prevents a code deployment from enabling renames prematurely.
-
-### 9.2 Create the minimum-permission D1 read token
-
-1. Open the Cloudflare dashboard, choose your profile menu, then **My Profile → API Tokens**.
-2. Click **Create Token**, then **Create Custom Token / Get started**.
-3. Name it `Care Plan catalog build — D1 read`.
-4. Under **Permissions**, select **Account → D1 → Read** only. Do not grant D1 Write,
-   Pages Edit or account-wide Edit permissions.
-5. Under **Account Resources**, select **Include → Specific account**, then choose the
-   account holding the database. This token is scoped to that account's D1 read access;
-   the token UI does not make it a single-database token.
-6. Click **Continue to summary**, verify the single permission and account, then
-   **Create Token**. Copy the token to your secure credential store; never paste it into git.
-7. Record the **Account ID** from the account dashboard and the **Database ID** from
-   **Workers & Pages / Storage & databases → D1 → care-plan-builder → Details/Settings**.
-   The repository currently binds to `2c79b253-9f8d-4441-b2ca-6666ac23196a`; confirm it
-   matches rather than assuming a newly split project uses the correct binding.
-
-### 9.3 Set build variables on each catalog-serving Pages project
-
-Repeat for the gated project and, after the split, the public project that serves catalog.json.
-Use each project's **Production** and **Preview** settings intentionally; preview hooks
-must build preview branches, and preview tests must not trigger production hooks.
-
-1. **Workers & Pages → select the Pages project → Settings → Environment variables**
-   (or **Variables and Secrets**).
-2. Select the relevant **Production** or **Preview** environment and add these names
-   to the environment available to the **Pages build process**:
-
-   | Name | Value | Treatment |
-   |---|---|---|
-   | CLOUDFLARE_API_TOKEN | token from 9.2 | Encrypt/Secret |
-   | CLOUDFLARE_ACCOUNT_ID | confirmed account ID | build value; encrypted is also acceptable |
-   | D1_DATABASE_ID | confirmed D1 UUID | build value; encrypted is also acceptable |
-   | NODE_VERSION | 22.13.1 or a supported newer Node 22/24 release | build runtime |
-
-3. Save each setting. If Wrangler-managed runtime vars restrict dashboard plaintext
-   entries, use encrypted values for the three D1 build variables. They must reach
-   `process.env` during the Node build; `[vars]` and `.dev.vars` alone do not configure it.
-4. **Settings → Builds → Build configurations → Edit**: choose no framework preset,
-   set **Build command** to `node scripts/build-catalog.mjs`, **Build output directory**
-   to `public`, and repository **Root directory** to the repository root. Save.
-5. Repeat for the other intended environment/project. The generator itself supports
-   Node 18+; dependencies and the local SQLite test suite need Node 22.13+.
-6. Before using a hook, confirm that a reviewed deployment successfully generates
-   `catalog.json`. A missing variable, D1 HTTP error or invalid catalog must fail the
-   build and keep the previous successful deployment. Do not substitute seed data.
-
-Build credentials belong only in the build environment; the public intake Function does
-not need a Cloudflare API token. Preserve the D1 `DB` binding and existing intake secrets.
-
-### 9.4 Create deploy hook(s) and the dashboard-only publishing secret
-
-1. **Workers & Pages → gated Pages project → Settings → Builds → Deploy hooks**.
-2. Click **Add deploy hook**. Name it `Catalog refresh — staff` and choose the branch
-   that actually contains the reviewed catalog build. For this released implementation,
-   use `main` for the production hook. Use a separate preview branch only when you are
-   intentionally configuring a preview-only hook.
-3. Save and copy the generated hook URL into your secure credential store. Possession
-   of that URL authorizes a build; do not put it into docs, browser code or commit messages.
-4. After the split, repeat on the **public Pages project** with a name such as
-   `Catalog refresh — public`, selecting that project's correct branch.
-5. Return to the **gated project → Settings → Variables and Secrets**, select the correct
-   environment, and add an encrypted **Secret** named `CATALOG_DEPLOY_HOOK_URLS`.
-6. Its value is the gated hook URL and public hook URL separated by a comma. Before the
-   split, use only the gated hook if that is the only configured catalog build.
-7. Never add this secret to the public project. Maintain distinct Preview/Production
-   values if those environments build different branches. Save.
-8. Set gated `wrangler.toml [vars] PUBLIC_CATALOG_URL` to
-   `https://<public-host>/catalog.json` after the public project exists. It may stay empty
-   before the split. If creating environment-specific `[vars]` blocks, restate all vars.
-9. A hook failure still saves D1 and is shown to the manager. A successful hook means
-   the build started, not that it finished. The editor polls the configured static
-   URL until its version reaches the saved version; it reports a timeout after five minutes.
-
-### 9.5 Public project and WordPress endpoints
-
-1. The future public repo includes `scripts/build-catalog.mjs`, `lib/intake/*`,
-   `package.json` with `type: module`, public `_headers` and `_routes.json`, the public
-   assets and live intake wrapper. It must exclude `functions/api/pricing-admin.js`,
-   `lib/admin/`, `public/pricing/`, staff dashboard APIs/pages, practice intake routes,
-   and the deploy-hook/Access secrets. The staff project retains `/api/pricing`.
-2. Preserve `_routes.json`'s `/catalog.json` exclusion; the current catch-all Function
-   would otherwise intercept catalog requests. The static CORS header is `*` and uses
-   no credentials. The public host must serve this file without a Cloudflare Access
-   sign-in wall. The gated project may remain fully protected by Access.
-3. Paste the fresh Builder block into WordPress and replace:
-
-   ```js
-   var CATALOG_ENDPOINT = 'https://<public-host>/catalog.json';
-   var SUBMIT_ENDPOINT = 'https://<public-host>/api/care-plan-request';
-   ```
-
-4. In each of the four fresh plan-page blocks, set:
-
-   ```js
-   var CATALOG_URL = 'https://<public-host>/catalog.json';
-   ```
-
-5. Keep page navigation root-relative and retain paste-region wrappers. Install the
-   actual Turnstile sitekey and preserve the exact origin allowlist, including both
-   WordPress hostnames. The staff copy keeps `/api/pricing` and the test intake route.
-6. After configuration/release, verify one small catalog save in the intended environment:
-   D1 audit fields and version, deploy-hook build source, static version advance, Builder
-   labels/prices, all four pages, and the office's stored/emailed names. Full plan renames
-   remain blocked until approved 0009 is applied.
-
-Official references checked for this guide:
-
-- [D1 query API: accepts D1 Read and multiple SQL statements](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/)
-- [Create API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
-- [Pages deploy hooks](https://developers.cloudflare.com/pages/configuration/deploy-hooks/)
-- [Pages build configuration and environment variables](https://developers.cloudflare.com/pages/configuration/build-configuration/)
-- [Pages Functions invocation route exclusions](https://developers.cloudflare.com/pages/functions/routing/)
+See `SCHEMA.md` for the DB contract, `builder-walkthrough.md` for legacy exact-match details, and `STATIC-CATALOG-REPORT.md` for historical implementation evidence.

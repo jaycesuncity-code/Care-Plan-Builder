@@ -1,229 +1,94 @@
-# Care Plan Submissions Dashboard
+# Sun City Care Plan Builder
 
-Internal office tool for Sun City Plumbing & Heating. Lists leads that came in through
-the public-facing Care Plan Builder widget, lets office staff update each lead's status,
-and attach notes as they work it. Cloudflare Pages + Pages Functions + D1.
+Customer-facing Care Plan selection and intake, staff practice, office submission management, and editable catalog publishing for Sun City Plumbing & Heating.
 
-See [`SCHEMA.md`](./SCHEMA.md) for the database schema and how it maps to the
-dashboard's JSON shape.
+**Architecture (decision current October 27, 2026):** one GitHub repository (`jaycesuncity-code/Care-Plan-Builder`), one Cloudflare Pages project (`care-plan-builder`, production hostname `https://care-plan-builder.pages.dev`), one production Cloudflare D1 database (`care-plan-builder`, bound as `DB`), and one shared application codebase. The final customer pages are embedded into `youknowsuncity.com` via WordPress/LiveCanvas. **There is no planned public-repository or second-Pages-project split.** Historical mentions of a `care-plan-intake` project are superseded.
 
-## Structure
+This is **request intake, not checkout**. Customers select a plan and eligible add-ons, review an estimated annual total, and send a request. The office confirms the selection, terms, and final price before payment and enrollment. Neither a submission nor a staff-practice request activates a membership.
 
-```
-/functions/api/submissions/index.js   GET  /api/submissions      — list all submissions
-/functions/api/submissions/[id].js    PATCH /api/submissions/:id — update status (+ optional note)
-/functions/api/care-plan-request.js   POST /api/care-plan-request — future PUBLIC/live intake
-/functions/api/test/care-plan-request.js POST /api/test/care-plan-request — permanent staff-practice intake
-/functions/api/pricing.js             GET  /api/pricing — live staff catalog feed
-/functions/api/pricing-admin.js       GET/PUT pricing editor API — gated dashboard only
-/functions/[[path]].js                sandbox-only 404 fallback to the live site
-/lib/submissions.js                   shared helpers (row → JSON shaping, used by both)
-/lib/intake/                          public/intake modules, including D1 pricing reads
-/lib/admin/                           Access JWT verification; gated dashboard only
-/public/pricing/index.html             staff price editor (Access + passphrase speed bump)
-/public/index.html                    the dashboard itself (Pages build output dir)
-/public/memberships/index.html        NEW Memberships landing page — built by a separate branch (feature/memberships-landing-page)
-/public/careplan-builder/index.html    SANDBOX mirror of the residential WordPress Care Plan Builder
-/public/{hvac,plumbing,bundled,premier}-care-plan/  sandbox mirrors of the plan pages
-/migrations/0001_init_schema.sql      D1 schema
-/migrations/0002_seed_data.sql        4 sample submissions, for local dev/testing
-/migrations/0004_…, 0005_…            intake schema changes (0003 is intentionally skipped)
-/migrations/0006_pricing.sql           editable pricing + audit + optimistic version
-/migrations/0007_submission_is_test.sql server-controlled Live/Test classification
-/n8n/care-plan-request-notification.json  importable workflow: webhook → Outlook email
-/tests/                               unit, API and browser suites
-/wrangler.toml                        D1 binding (DB), vars, pages_build_output_dir = "public"
+## Components and trust boundaries
+
+| Component | Path/source | Intended audience and behavior |
+| --- | --- | --- |
+| Public pricing catalog | `GET /catalog.json` | Unauthenticated, static, generated from approved D1 catalog during Pages builds; CORS `*` and short cache policy. |
+| Live customer intake | `POST /api/care-plan-request` (`OPTIONS` preflight) | Unauthenticated, intended for the WordPress Builder; validates Turnstile, applies rate limits, reprices from D1, writes a **live** submission (`is_test=0`), and dispatches an office notification. |
+| Office dashboard | `/`, `/api/submissions`, `/api/submissions/:id` | **Cloudflare Access required at the edge**. Staff read submissions, change statuses, and add notes. These routes do not independently verify Access JWTs in application code. |
+| Pricing Editor | `/pricing/`, `/api/pricing-admin` | **Cloudflare Access required at the edge**. Pricing administration API independently verifies the Cloudflare Access JWT (issuer, audience, signature, editor permissions), plus origin/request checks. The page also has a non-security passphrase speed bump. |
+| Staff practice Builder | `/careplan-builder/` | **Cloudflare Access required**. Uses `GET /api/pricing` for D1-backed catalog and `POST /api/test/care-plan-request` to save `is_test=1` requests. Normal office notifications are suppressed for practice requests. Keep this permanently. |
+| Internal catalog API | `GET /api/pricing` | **Cloudflare Access required**. Reads the live D1 catalog; CORS checks are not authentication and do not replace Access. |
+| WordPress membership pages | `youknowsuncity.com` | Public Memberships hub, interactive Builder, and HVAC, Plumbing, Bundled, Premier detail pages; embed curated markup from `public/`. |
+
+The public Access exemptions must be tightly scoped to `/catalog.json` and `/api/care-plan-request` (including preflight). Protect every private route and any unclassified path that could expose staff data. A URL being on one Pages project does **not** automatically make its APIs private. Review route coverage and verify denied unauthenticated requests before launch. The owner reports that Access configuration was reviewed/addressed; its actual live rules are not stored or verifiable from this repository.
+
+The public WordPress Builder uses:
+
+```js
+var CATALOG_ENDPOINT = 'https://care-plan-builder.pages.dev/catalog.json';
+var SUBMIT_ENDPOINT = 'https://care-plan-builder.pages.dev/api/care-plan-request';
 ```
 
-## Live vs Test intake
+Each of the four WordPress plan-detail blocks uses:
 
-The repository intentionally contains both intake routes until the later repo split:
+```js
+var CATALOG_URL = 'https://care-plan-builder.pages.dev/catalog.json';
+```
 
-- `POST /api/care-plan-request` is the finished future **live/public** route and always
-  persists `is_test = 0`.
-- `POST /api/test/care-plan-request` is the permanent **staff practice** route and always
-  persists `is_test = 1`.
+The practice Builder instead deliberately keeps `CATALOG_ENDPOINT = '/api/pricing'` and `SUBMIT_ENDPOINT = '/api/test/care-plan-request'`; never repoint it at the live intake route. Configure the real Turnstile sitekey in the public WordPress Builder and the corresponding server-side `TURNSTILE_SECRET` on Pages. Confirm both WordPress origins are allowed for cross-origin POSTs.
 
-Both are thin wrappers around `lib/intake/handle-request.js`. The browser never supplies
-the authoritative classification; client fields such as `is_test`, `isTest`, `test`,
-or query-string values cannot change it. The Cloudflare-hosted Builder at
-`/careplan-builder/` uses the test route. Test rows remain normal dashboard records but
-normal n8n/office notification is suppressed.
+## Pricing and publication
 
-The live route is written to be **self-contained for the future split**: the public project
-will receive the live wrapper, `/api/pricing`, and the shared `lib/intake/*` modules,
-with no Cloudflare Access dependency. Public reads use static `/catalog.json`; `/api/pricing` is retained on the staff side. The dashboard/practice side keeps the test wrapper,
-dashboard APIs/UI, migrations, and staff auth. Both projects will bind to the same D1.
+The **authoritative** catalog is in D1 (`pricing_items`, `pricing_meta`, `pricing_audit`). The editor can change approved plan/add-on prices and supported display text; eligibility rules, quantities, IDs, and non-price benefits remain in application code. All intake totals are recalculated server-side. An accepted change increments the version once and records field-level audit data. The editor detects conflicting versions and rejects unsupported full-plan-name changes if the `0009` schema correction is not present.
 
-Order of checks — cheapest and most private first:
+After a changed save, `functions/api/pricing-admin.js` triggers the configured Cloudflare Pages Deploy Hook(s). A successful Pages build runs `node scripts/build-catalog.mjs`, which queries D1 through Cloudflare's REST API using **build-time** credentials, validates the catalog, and atomically generates `public/catalog.json`. The editor polls the published version. A failed hook/build does not undo the accepted D1 change, and a reviewed no-op save can retry publication. The generated catalog is ignored by Git; **never hand-edit or commit it**.
 
-1. method + CORS origin allowlist (denied origin → 403, no CORS headers)
-2. body size + JSON parse (413 / 400)
-3. field validation (400 with per-field messages)
-4. rate limit, read-only (429 + `Retry-After`)
-5. Turnstile siteverify (403; fails closed)
-6. server-side repricing from D1 via `lib/intake/pricing.js`, requiring complete, valid pricing with no catalog-price fallback — **client prices are ignored**
-7. insert submission + add-on rows
-8. record the rate-limit hit (only successful submissions count)
-9. 201, then the n8n office email via `context.waitUntil()` — an n8n outage can never
-   fail the customer's submission
+The owner confirmed automatic publication worked and the public catalog reached **version 17 on October 27, 2026**, with original prices restored and the exposed hook rotated. This is a historical operational checkpoint, **not** the expected current version or independently verified production state. The current trigger fix is in `main` commit `1f313b5086684afa5f634349d49d86e1f7fdc4f7`. Read `STATIC-CATALOG-REPORT.md` as an implementation-time historical report, not live operational proof. Draft PR #8's alternative export Worker is **not** required for the working D1 REST build mechanism.
 
-See `SETUP.md` for the click-by-click config, and `builder-walkthrough.md` for the
-Find/Replace steps to bring the LiveCanvas copy of the Builder in line.
+## Repository map
 
-## Tests
+- `functions/api/care-plan-request.js`, `functions/api/test/care-plan-request.js`, and `lib/intake/*`: separate server-trusted live/test classification and shared intake, validation, authoritative pricing, persistence, rate limiting, Turnstile, and notifications.
+- `functions/api/submissions/*`, `lib/submissions.js`, and `public/index.html`: dashboard API and interface.
+- `functions/api/pricing.js`, `functions/api/pricing-admin.js`, `lib/admin/access.js`, `public/pricing/`: live staff pricing and protected editor.
+- `scripts/build-catalog.mjs`: versioned public static catalog build; `public/_routes.json` excludes `/catalog.json` from the catch-all Function; `public/_headers` sets its content/cache/CORS headers.
+- `public/careplan-builder/`, `public/memberships/`, `public/{hvac,plumbing,bundled,premier}-care-plan/`: practice Builder and WordPress/LiveCanvas source templates. Preserve the permanent practice Builder.
+- `migrations/`: schema evolution through `0009_submission_plan_names.sql`; migration file presence does **not** prove production application.
+- `n8n/care-plan-request-notification.json`: webhook-to-office-email workflow template, not proof that live n8n/Outlook credentials are configured.
+- `tests/`: unit, local API/integration, and Chromium browser suites.
+- `wrangler.toml`, `.dev.vars.example`: D1, environment variables, and secret-name reference. No real credentials belong in the repository.
+
+The deployed Pages project's real name and its `wrangler.toml` top-level `name` are not currently identical. Verify project identity and Pages build configuration in Cloudflare before using any direct CLI deployment command. Git-connected deployments and deploy hooks are the established publication workflow; no deploy is part of documentation maintenance.
+
+## Local development and tests
+
+Requires a supported Node runtime; Node 22.13+ is the documented local test baseline (the tests use `node:sqlite`). Do not run tests pointing at production D1.
 
 ```bash
-npm run test:unit   # pricing, validation, builder↔catalog parity, the n8n Code node
-npm run test:api    # wrangler pages dev + local D1 + mocked n8n/Turnstile
-npm run test:e2e    # optional: real Chromium against the real Builder page
-                    #   npm i -D playwright && npx playwright install chromium
-npm test            # unit + api
+npm ci
+cp .dev.vars.example .dev.vars  # local-only mock credentials; never commit this file
+npm run db:migrate:local         # WRITES to the LOCAL D1 only
+npm run mock:n8n                # optional local test service, port 8799
+npm run dev                     # local Pages dev server, port 8788
 ```
 
-`npm run test:api` starts `wrangler pages dev` itself (four times, one per config
-group) and needs ports 8788 and 8799 free. `npm run mock:n8n` runs just the webhook +
-siteverify mock if you want to poke at the endpoint by hand.
-
-## Prerequisites
-
-- Node.js 22.13+ for the local test suites (`node:sqlite`); the catalog build supports Node 18+
-- A Cloudflare account with the `care-plan-builder` D1 database already created
-  (done — see `SCHEMA.md` for its id)
-- `wrangler login` (run once, opens a browser to authenticate)
+Available scripts in `package.json`:
 
 ```bash
-npm install
-wrangler login
+npm run test:unit  # one-shot Node tests
+npm run test:api   # local Wrangler + mock-service integration; bounded-process caution
+npm run test:e2e   # Chromium browser tests; requires Playwright setup
+npm run test:all   # unit + API + browser
+npm test           # unit + API
+npm run build:catalog # production D1 REST query unless --fixture; NOT a routine local docs check
 ```
 
-## Run it locally
+`test:api`, `test:e2e`, and `npm run dev` launch servers; they are **not** appropriate for unbounded CI. Never add duplicate feature-branch push/PR workflows or unbounded `wrangler pages dev` jobs. During documentation-only edits, use static checks instead of starting these services.
 
-`wrangler pages dev` runs a local D1 (a SQLite file under `.wrangler/`), separate from
-your real Cloudflare D1 database until you explicitly apply migrations `--remote`.
+## Documentation hierarchy
 
-```bash
-# Apply schema + seed data to the local D1
-npm run db:migrate:local   # includes additive 0007 is_test migration
+1. **`README.md`** — system orientation, current architecture, and developer entrypoint.
+2. **`SETUP.md`** — concrete local/Cloudflare/Access/catalog/WordPress configuration and safety boundaries.
+3. **`LAUNCH-CHECKLIST.md`** — the one canonical, ordered launch checklist; distinguishes independently verified code, owner confirmation, and outstanding production verification.
+4. **`SCHEMA.md`** — migration-by-migration schema and dashboard JSON contract.
+5. **`builder-walkthrough.md`** — original exact-match LiveCanvas transformation reference, plus current routing corrections; prefer a fresh vetted copy of the current repository template rather than blindly replaying old replacements.
+6. **`STATIC-CATALOG-REPORT.md`** — historical implementation/test evidence.
 
-# Start the dashboard + API locally
-npm run dev
-```
-
-This serves the dashboard at `http://localhost:8788` with `/api/submissions` backed by
-the local D1. Reloading the page re-fetches from that local database, so any status/note
-changes you make persist across reloads (unlike the old mock-data prototype, which reset
-on every reload).
-
-To inspect the local database directly:
-
-```bash
-npm run db:query:local "SELECT id, name, status FROM submissions"
-```
-
-## Deploy
-
-```bash
-# One-time: apply schema + seed to the REAL Cloudflare D1 database
-npm run db:migrate:remote
-
-# Deploy
-npm run deploy
-```
-
-`wrangler pages deploy public` uploads `/public` as static assets and `/functions` as
-Pages Functions, using the `DB` binding from `wrangler.toml`.
-
-### Connecting to GitHub (manual step, on you)
-
-This repo is set up ready for `git init` + push, but isn't connected to GitHub or
-Cloudflare's auto-deploy yet — that's a manual step in the Cloudflare dashboard once the
-GitHub repo exists (Pages project → Settings → Builds & deployments → connect repo).
-
-## Known gaps — flagging before this goes live
-
-- **No authentication.** The dashboard and both API endpoints are wired up but
-  completely unauthenticated in this repo — anyone with the URL can view and edit
-  submissions. The plan (per project notes) is to gate this with Cloudflare Access +
-  Microsoft Entra ID at the edge, same pattern as the Membership Email List project.
-  **Don't share the deployed URL outside the office until that's configured.** The
-  dashboard's footer says this in-product as a reminder.
-- **No rate limiting or captcha on the dashboard's own endpoints.** `GET
-  /api/submissions` and `PATCH /api/submissions/:id` still rely on Access to gate
-  them. The rate limiting and Turnstile in this repo protect
-  `POST /api/care-plan-request` only.
-- **No `POST /api/submissions`.** Still true, and still intentional: creating a
-  submission is `POST /api/care-plan-request`'s job.
-- **The sandbox pages are in this project.** `public/careplan-builder/` is the residential Builder mirror; `public/memberships/` is the new landing page built by a separate branch (`feature/memberships-landing-page`); and the four `*-care-plan/` directories mirror the WordPress plan pages. `functions/[[path]].js` + `public/404.html` exist only to keep sandbox links alive.
-  All of it is listed for deletion in `SETUP.md`'s launch section.
-- `migrations/0002_seed_data.sql` is 4 rows of realistic test data — useful for local
-  dev, not meant to ship into the real database more than once. Re-running it will
-  error on the primary-key conflicts if the rows already exist.
-
-## What changed from the mock-data prototype
-
-- `MOCK_SUBMISSIONS` (the hardcoded array) is gone. The dashboard now `fetch`es
-  `/api/submissions` on load, with a loading state while that's in flight and a retry
-  button if it fails.
-- `applyStatusChange()` now `PATCH`es `/api/submissions/:id` instead of mutating a
-  local array. On success, the row returned by the API (which reflects what's actually
-  in D1) replaces the local copy. On failure, the status dropdown reverts to its
-  previous value and an alert is shown — the same recovery behavior Cancel already had
-  on the notes prompt.
-- The API additionally returns `basePrice` per submission (not in the original mock
-  shape, but present in the DB and cheap to include — see `SCHEMA.md`).
-  Historical submission details use the accepted base price and add-on line totals saved
-  with that submission. Later catalog changes do not reprice historical submissions.
-  Missing historical amounts show **Not recorded**.
-- The header's "UX PROTOTYPE · MOCK DATA" tag and the footer's "resets on reload" note
-  were updated since both were now inaccurate — replaced with a "LIVE DATA · NO AUTH
-  YET" tag and a footer note about the auth gap. No other visual/layout changes.
-
-
-## Editable catalog and static public feed
-
-Managers use `/pricing/` to edit prices, full plan names, short plan labels, descriptions
-and add-on names. Approved migration `0009_submission_plan_names.sql` replaces the original
-four-name submission CHECK while preserving historical rows, children, flags and IDs.
-Apply it after a verified backup and remote-schema review (see `SETUP.md` section 9).
-Until 0009 is applied, full plan names remain read-only and the API safely rejects unsupported
-renames; the other catalog fields remain editable.
-
-D1 remains authoritative. `loadCatalog` shapes and validates prices and plain text for the
-live staff feed (`GET /api/pricing`, no-store) and static build (`public/catalog.json`).
-`loadPricing` uses that same live D1 loader at intake; missing/invalid data fail closed.
-The original `409 PRICES_CHANGED` behavior is retained. Historical submissions retain their
-accepted names and amounts. A text-only edit with an identical total does not trigger 409;
-the office still receives current D1 names, as required by the existing repricing behavior.
-
-After an authorized catalog save commits, the API awaits each configured Pages deploy hook
-in parallel (five-second bounds). Hook failures never roll back D1. The editor shows the
-publication status and polls the public static file's version for up to five minutes.
-A reviewed no-op API save can retry publication without changing audit/version values.
-
-Any Pages project serving the public catalog builds with `node scripts/build-catalog.mjs`,
-output `public`. The build reads D1 through its REST API using a D1-read token, shares the
-live loader's shaping/validation and fails rather than publishing incomplete data.
-`catalog.json` is ignored by git. `public/_routes.json` explicitly excludes it from the
-catch-all Function so public catalog reads are static requests. `_headers` supplies CORS `*`
-and a 60-second cache policy. Build failures retain the previous successful deployment.
-
-The staff Builder keeps `CATALOG_ENDPOINT = '/api/pricing'`. The WordPress copy and four
-plan-page blocks use the public project's absolute `/catalog.json` URL after the split.
-The Builder requires complete valid prices and text; marketing pages retain their original
-HTML on catalog failures. Plan features, photos, links, IDs and coverage remain in code.
-
-The editor still requires Cloudflare Access JWT verification, exact company-domain/editor
-permission and CSRF checks; each changed field is audited with SQL-guarded concurrency.
-Never ship `/pricing/`, `pricing-admin.js`, `lib/admin/` or hook secrets to the public project.
-See `SETUP.md` for click-by-click setup and safe migration steps.
-
-
-## Live/Test migration safety
-
-Migration `0007_submission_is_test.sql` uses SQLite/D1 `ALTER TABLE ... ADD COLUMN`;
-it does **not** rebuild `submissions` or touch child foreign keys. Unknown existing rows
-keep the safe default `is_test = 0`. Only the four exact documented seed fixtures from
-`0002_seed_data.sql` are backfilled to `1` by matching their id, name, and phone.
-Never infer test data from an id range. Inspect and back up remote D1 before applying any
-pending remote migration.
+No repository changes, migrations, secret rotations, production requests, or WordPress edits should be inferred as complete merely because these documents describe how to do them.

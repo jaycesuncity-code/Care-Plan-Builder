@@ -1,5 +1,18 @@
 # Static catalog implementation report
 
+> **HISTORICAL REPORT — CURRENT STATUS NOTE (October 27, 2026):** This
+> report preserves the implementation history and test counts as recorded
+> at the time. Since then, `main` reached `1f313b5` (Deploy Hook redirect
+> handling fix), and the owner confirmed that automatic publication worked,
+> original prices were restored, a rotated Deploy Hook was configured, and
+> public `catalog.json` reached **version 17**. These are owner-confirmed
+> operational observations, not tests or Cloudflare checks newly performed
+> for this report. Version 17 is a dated checkpoint, not a permanent target.
+> The earlier plan to split public resources into another repo/Pages project
+> has been **abandoned**: see current `README.md`, `SETUP.md` and
+> `LAUNCH-CHECKLIST.md` for the one-project architecture and actual remaining
+> launch tasks. Draft PR #8 is not mandatory for the functioning REST build.
+
 All catalog changes are implemented, including approved
 [`migrations/0009_submission_plan_names.sql`](migrations/0009_submission_plan_names.sql).
 On October 6, 2026 the user explicitly authorized including this migration and pushing

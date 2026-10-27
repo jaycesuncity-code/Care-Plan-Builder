@@ -1,217 +1,159 @@
-# Care Plan Submissions — D1 Schema
+# Care Plan Builder — D1 schema and migration contract
 
-Database: `care-plan-builder` (D1, binding `DB`, id `2c79b253-9f8d-4441-b2ca-6666ac23196a`)
+**Source of truth:** `migrations/*.sql`, the current `lib/intake/*` and `lib/submissions.js` queries, inspected from `jaycesuncity-code/Care-Plan-Builder` `main` at `1f313b5086684afa5f634349d49d86e1f7fdc4f7` (October 27, 2026).
 
-Backs the **Care Plan Submissions Dashboard** — internal office tool for tracking leads
-from the public "Care Plan Builder" widget through to enrollment. Migrations live in
-`/migrations`, managed with `wrangler d1 migrations`.
+Production D1 database **name:** `care-plan-builder`; Pages binding: `DB`. Current repository `wrangler.toml` includes a database ID; compare it against the actual Cloudflare account before any remote action. **This document describes the schema expected after migration `0009`; the actual remote production migration status was not inspected and must not be inferred from repository files.** Read-only verification is the next launch task in `LAUNCH-CHECKLIST.md`. Both `main` production and configured Preview bindings presently reference the same D1.
 
-## Tables
+## Migration sequence — implemented versus deployed
+
+| File | Repository behavior | Remote status |
+| --- | --- | --- |
+| `0001_init_schema.sql` | Initial submissions, add-ons, notes, and indexes | Not independently checked in this audit |
+| `0002_seed_data.sql` | Four sample submission fixtures for development | Do not reapply to production; remote state unverified |
+| `0003` | **No such migration in repository**; historical reserved number | Not applicable |
+| `0004_best_time_and_addon_flags.sql` | Rebuild `submissions` to expand callback-time CHECK; preserve child rows; add `included_free`/`locked` | Not independently checked |
+| `0005_intake_rate_limit.sql` | Salted-IP hash window table and indexes | Not independently checked |
+| `0006_pricing.sql` | `pricing_items`, `pricing_audit`, `pricing_meta`, seeded catalog prices | Not independently checked |
+| `0007_submission_is_test.sql` | Add server-controlled `is_test` with default 0; mark four **exact-matching** seed fixtures as practice and rename `addon:qbb` label | Not independently checked |
+| `0008_catalog_text.sql` | Add `pricing_items.short_label`, `.description` and field-specific audit columns; backfill catalog descriptions/names | Not independently checked |
+| `0009_submission_plan_names.sql` | Rebuild `submissions` so manager-approved full plan names no longer fail the legacy four-name CHECK; preserve children, indexes, classification, historical records and AUTOINCREMENT high-water mark | Not independently checked |
+
+`0009` was approved for inclusion in the repository and is present in `main`. That is **not** evidence of remote application. Before applying any pending migration, compare the live schema, indexes and triggers with the migration's expectations; take and verify a restricted backup; pause writes for a rebuild; obtain separate approval; and verify post-application integrity. Never rewrite an already-applied migration or execute rebuild fragments piecemeal.
+
+## Tables — expected post-0009 schema
 
 ### `submissions`
-One row per lead.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | autoincrement |
-| `name` | TEXT | required |
-| `phone` | TEXT | required |
-| `address` | TEXT | required |
-| `best_time` | TEXT | CHECK in `Morning`, `Midday`, `Afternoon`, `Evening`, `Anytime`, `No preference` — widened by migration 0004. The Builder's form offers *No preference / Morning / Midday / Afternoon*; the original CHECK had no `Midday` and no way to record "customer didn't say", so those two were added rather than mapping the customer's answer onto something they never picked. The dashboard prints this column verbatim. |
-| `plan` | TEXT | CHECK in `HVAC Care Plan`, `Plumbing Care Plan`, `Bundled Care Plan`, `Premier Care Plan` |
-| `base_price` | INTEGER | plan price at time of submission |
-| `addon_total` | INTEGER | sum of selected add-on line totals at time of submission |
-| `total_price` | INTEGER | `base_price + addon_total` |
-| `is_test` | INTEGER | server-controlled `0` live / `1` staff practice; NOT NULL DEFAULT 0, CHECK 0/1. Added by 0007. |
-| `status` | TEXT | CHECK in `New`, `Contacted`, `Signed Up`, `Other`; default `New`. `New`/`Contacted` = active, `Signed Up`/`Other` = archived |
-| `submitted_at` | TEXT | ISO timestamp, set on insert |
-| `updated_at` | TEXT | ISO timestamp, bump on any status/note change |
+One row per submitted Care Plan request (live or practice). Prices and names are **saved snapshots**, not re-read from the current catalog when office staff view old requests.
+
+| Column | SQLite type / constraint | Use |
+| --- | --- | --- |
+| `id` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Request ID |
+| `name` | `TEXT NOT NULL` | Customer name |
+| `phone` | `TEXT NOT NULL` | Contact phone |
+| `address` | `TEXT NOT NULL` | Service address |
+| `best_time` | `TEXT NOT NULL` with CHECK | `Morning`, `Midday`, `Afternoon`, `Evening`, `Anytime`, `No preference` |
+| `plan` | `TEXT NOT NULL` | After `0009`, 1–60 characters, nonempty after trim, forbids `<` and `>`; previously only four literal plan names |
+| `base_price` | `INTEGER NOT NULL` | Accepted annual plan price at submission time, in whole dollars |
+| `addon_total` | `INTEGER NOT NULL DEFAULT 0` | Saved sum of billable add-on line totals, whole dollars |
+| `total_price` | `INTEGER NOT NULL` | Saved accepted annual total |
+| `status` | `TEXT NOT NULL DEFAULT 'New'` | CHECK: `New`, `Contacted`, `Signed Up`, `Other` |
+| `submitted_at` | `TEXT NOT NULL DEFAULT datetime('now')` | Submission time; handler supplies server-side ISO timestamp |
+| `updated_at` | `TEXT NOT NULL DEFAULT datetime('now')` | Status/note changes |
+| `is_test` | `INTEGER NOT NULL DEFAULT 0` | CHECK `0` or `1`; **server-controlled**, added by `0007` |
+
+`0009` rebuild explicitly preserves all these columns and their historical contents. After migration `0009`, arbitrary names are still **not** accepted merely because the SQL CHECK is more flexible: the intake runtime derives validated names from the authoritative D1 catalog, and the admin API checks catalog constraints before saving. Check actual remote schema before claiming plan-name editing is enabled.
 
 ### `submission_addons`
-One row per add-on selected on a submission. Many-to-one with `submissions`.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | autoincrement |
-| `submission_id` | INTEGER | FK → `submissions.id`, `ON DELETE CASCADE` |
-| `addon_name` | TEXT | e.g. `Quarterly Filter Change` |
-| `addon_price` | INTEGER | **the line total for this row at time of submission**, not a live pricebook lookup and not the unit price — so `SUM(addon_price) = submissions.addon_total` always holds, for a normal add-on (unit x qty) and for the equipment counts alike (only the units above the included count are charged). `0` for included/locked rows. Historical submissions never reprice when the pricebook changes. |
-| `quantity` | INTEGER | default `1`. For a normal add-on this is how many the customer chose. For the two quantity-only equipment counts (`# of HVAC Systems`, `# of Water Heaters`) it is the **total** count at the property, of which `included` (1) comes with the plan. |
-| `included_free` | INTEGER | added by 0004. `1` = complimentary with the selected plan (currently Premier's paired Water Softener Salt). Always `$0`, never counted in `addon_total`. |
-| `locked` | INTEGER | added by 0004. `1` = the customer had selected this under a previous plan and the plan they submitted doesn't cover it. Recorded at `$0` so the office can see what they were interested in; never charged. |
+One-to-many with `submissions`, `ON DELETE CASCADE` foreign key on `submission_id`.
 
-Non-billable rows also carry a suffix in `addon_name` — `" (included with plan)"` or
-`" (not covered by selected plan)"` — so a names-only read of the table (the
-dashboard's `addons` array) can't mistake them for charges.
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Line ID |
+| `submission_id` | `INTEGER NOT NULL` | Parent FK |
+| `addon_name` | `TEXT NOT NULL` | Accepted name; may carry a literal included/locked suffix for historical office readability |
+| `addon_price` | `INTEGER NOT NULL` | **Saved LINE total**, not current unit price; $0 when nonbillable |
+| `quantity` | `INTEGER NOT NULL DEFAULT 1` | Quantity; for equipment counts, total installed count, including one base-included unit |
+| `included_free` | `INTEGER NOT NULL DEFAULT 0` | Complimentary benefit marker from `0004` |
+| `locked` | `INTEGER NOT NULL DEFAULT 0` | Plan-ineligible carryover selection marker from `0004`; not billed |
+
+The server's intended invariant for accepted submissions is `total_price = base_price + addon_total` and `addon_total = SUM(submission_addons.addon_price)` (with zero for no lines). Equipment-count lines charge only units above the included one; normal add-ons multiply price by quantity. A `locked` row can record an abandoned selection at zero; office staff must distinguish these from customer-reviewed billable items. The Premier implementation currently grants salt top-off with paid Water Softener Service, whereas RO **Service** remains paid; complimentary RO filters are a plan benefit, not a free RO Service catalog line. Verify these policies with the approved business catalog before public launch.
 
 ### `submission_notes`
-One row per status note. Many-to-one with `submissions`. A submission can accumulate
-many notes over its lifetime.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | autoincrement |
-| `submission_id` | INTEGER | FK → `submissions.id`, `ON DELETE CASCADE` |
-| `status` | TEXT | the status this note was attached to when written; same CHECK set as `submissions.status` |
-| `note_text` | TEXT | free text |
-| `created_at` | TEXT | ISO timestamp |
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Note ID |
+| `submission_id` | `INTEGER NOT NULL` | Parent FK with cascade deletion |
+| `status` | `TEXT NOT NULL` | Same status CHECK as submissions |
+| `note_text` | `TEXT NOT NULL` | Staff-entered note |
+| `created_at` | `TEXT NOT NULL DEFAULT datetime('now')` | Saved time |
 
 ### `intake_rate_limit`
-Added by migration 0005. Backs the in-code rate limiter on
-`POST /api/care-plan-request` — Pages Functions don't get the Workers rate-limit
-binding, and WAF rate-limiting rules need a zone, which `youknowsuncity.com` doesn't
-have.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | autoincrement |
-| `ip_hash` | TEXT | **salted SHA-256 of `CF-Connecting-IP`, hex** — no IP address is ever stored. Salt is the `IP_HASH_SALT` secret; rotating it just resets the counters. |
-| `created_at_epoch` | INTEGER | Unix seconds. One row per *successful* submission, so a customer's own typos or a failed captcha can't push them toward a lockout. |
-
-Rows older than 24h are purged lazily by the endpoint on the way past — no cron.
+Added in `0005`. `id INTEGER PRIMARY KEY AUTOINCREMENT`, `ip_hash TEXT NOT NULL`, `created_at_epoch INTEGER NOT NULL`. `ip_hash` is a salted SHA-256 hash of connecting IP, not a stored raw address. The implementation counts **successful** requests within the configured window, performs lazy cleanup of rows older than 24 hours, and uses indexes on `(ip_hash, created_at_epoch)` and `(created_at_epoch)`. Public and practice routes share the intake handler and same database; check configured behavior before conducting load tests. CORS and rate limits are not staff authentication.
 
 ### `pricing_items`
-Added by migration 0006. This is the editable pricebook used by both the public Builder and server-side repricing. Only prices are data; coverage and quantity rules stay in code.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT PK | D1-only prefixed id: `plan:<catalogId>` or `addon:<catalogId>` |
-| `kind` | TEXT | CHECK in `plan`, `addon` |
-| `label` | TEXT | display label copied from the code catalog when seeded |
-| `price` | INTEGER | whole-dollar price, CHECK >= 0 |
-| `updated_at` | TEXT | nullable; set when an editor changes the price |
-| `updated_by` | TEXT | nullable; Access JWT email of the last editor |
+Added in `0006`, expanded in `0008`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | `TEXT PRIMARY KEY` | Stable `plan:<catalogId>` / `addon:<catalogId>` |
+| `kind` | `TEXT NOT NULL` | CHECK `plan`, `addon` |
+| `label` | `TEXT NOT NULL` | Manager-editable full plan name or add-on name |
+| `price` | `INTEGER NOT NULL` | Whole-dollar price, CHECK `>= 0` |
+| `updated_at` | `TEXT` | Last change time, nullable |
+| `updated_by` | `TEXT` | Authenticated editor email, nullable |
+| `short_label` | `TEXT` | Added in `0008`; used for plan tab/short name, NULL for add-ons |
+| `description` | `TEXT` | Added in `0008`; plan tagline or add-on description |
+
+`pricing_items` is the D1 source used by the staff pricing endpoint, live intake and build-time public static catalog. Current seed amounts in `0006` are historical initial values, **not** evidence of current production prices. Current display labels/descriptions are seeded/backfilled by migrations and can subsequently be edited by authorized staff; do not hardcode them as permanent expectations.
 
 ### `pricing_audit`
-Append-only price-change history. Admin writes record the live old price and requested new price in the same D1 batch as the item update.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | autoincrement |
-| `item_id` | TEXT | pricing item id |
-| `old_price` | INTEGER | price immediately before the change |
-| `new_price` | INTEGER | new whole-dollar price |
-| `changed_by` | TEXT | authenticated editor email |
-| `changed_at` | TEXT | defaults to `datetime('now')` |
+Append-only per-field history written by Pricing Editor updates.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Audit ID |
+| `item_id` | `TEXT` | Catalog row ID |
+| `old_price`, `new_price` | `INTEGER` nullable | Populated for price changes; NULL for text changes |
+| `changed_by` | `TEXT NOT NULL` | Authorized editor identity |
+| `changed_at` | `TEXT NOT NULL DEFAULT datetime('now')` | Audit timestamp |
+| `field` | `TEXT NOT NULL DEFAULT 'price'` | Added in `0008`: `price`, `label`, `short_label`, `description` |
+| `old_value`, `new_value` | `TEXT` nullable | Added in `0008`; field-level before/after value |
+
+The editor uses D1 batches and SQL version guards to avoid silent overwrites and increments the catalog version once per accepted changed save. A no-op save can retrigger catalog publishing without incrementing version/audit.
 
 ### `pricing_meta`
-Single-row version marker used for optimistic concurrency and stale-price detection.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | INTEGER PK | constrained to the single value `1` |
-| `version` | INTEGER | starts at 1; increments once per successful admin save |
-| `updated_at` | TEXT | last successful pricing update |
+Single row, `id INTEGER PRIMARY KEY CHECK(id = 1)`, `version INTEGER NOT NULL`, `updated_at TEXT`. Seeded at version 1 in `0006`; current version increments when accepted real edits occur. Owner-confirmed published **version 17 on October 27, 2026** is a historical checkpoint, not the required current value. Public `catalog.json` and D1 `pricing_meta.version` may briefly differ during publication; compare when investigating a stuck deploy.
 
-### Indexes
-- `submissions.status`, `submissions.submitted_at`
-- `submission_addons.submission_id`, `submission_notes.submission_id`
+## Relevant indexes
 
-## Mapping to the dashboard's JSON shape
+- `idx_submissions_status`, `idx_submissions_submitted_at` (recreated by `0004` and `0009` rebuilds).
+- `idx_submission_addons_submission_id`, `idx_submission_notes_submission_id` (initial schema).
+- `idx_intake_rate_limit_hash_time`, `idx_intake_rate_limit_created_at` (`0005`).
 
-The front-end (`public/index.html`) expects one object per submission:
+No additional indexes, columns, or database triggers should be assumed without inspecting the current remote schema.
+
+## Dashboard JSON contract
+
+`GET /api/submissions` and `PATCH /api/submissions/:id` use `shapeSubmission()` in `lib/submissions.js`, supplying data derived from a submission row plus its child add-on and note rows. Representative **shape only** (example values are illustrative, not real customer data):
 
 ```json
 {
-  "id": 1,
-  "name": "Robert Martinez",
-  "phone": "(575) 312-4487",
-  "address": "142 Sierra Vista Dr, Las Cruces, NM 88011",
-  "bestTime": "Morning",
-  "plan": "HVAC Care Plan",
-  "addons": ["Quarterly Filter Change"],
-  "basePrice": 260,
+  "id": 42,
+  "name": "Example Customer",
+  "phone": "(575) 555-0101",
+  "address": "Example Service Address",
+  "bestTime": "Midday",
+  "plan": "Premier Care Plan",
+  "addons": ["Water Softener Service", "Water Softener Salt (included with plan)"],
   "addonDetail": [
-    { "name": "Quarterly Filter Change", "price": 120, "quantity": 1, "includedFree": false, "locked": false }
+    {"name": "Water Softener Service", "price": 75, "quantity": 1, "includedFree": false, "locked": false},
+    {"name": "Water Softener Salt (included with plan)", "price": 0, "quantity": 1, "includedFree": true, "locked": false}
   ],
-  "total": 380,
-  "isTest": false,
-  "submittedAt": "2026-09-08T09:14:00",
-  "status": "Signed Up",
-  "notes": [
-    { "status": "Signed Up", "text": "...", "timestamp": "2026-09-08T09:22:00" }
-  ]
+  "basePrice": 600,
+  "total": 675,
+  "isTest": true,
+  "submittedAt": "2026-10-27T12:00:00.000Z",
+  "status": "New",
+  "notes": []
 }
 ```
 
-| JSON field | Source |
-|---|---|
-| `id`, `name`, `phone`, `address`, `basePrice`, `submittedAt`, `status`, `isTest` | `submissions` row, direct column mapping (`bestTime` ← `best_time`, `basePrice` ← `base_price`, `submittedAt` ← `submitted_at`) |
-| `plan` | `submissions.plan` |
-| `total` | `submissions.total_price` |
-| `addons` | join on `submission_addons` where `submission_id` matches; addon names only, unchanged |
-| `addonDetail` | same join, one object per row: `name`, `price` (line total), `quantity`, `includedFree`, `locked`. Added alongside `addons` (same spirit as `basePrice`) rather than changing it — a names-only list can't distinguish a `$0` complimentary or locked line from a charge, and the dashboard's price table used to throw on any name missing from its `ADDON_CATALOG`. The dashboard prefers `addonDetail` and falls back to `addons` for pre-0004 rows. |
-| `notes` | join on `submission_notes` where `submission_id` matches, ordered by `created_at`; `timestamp` ← `created_at`, `text` ← `note_text` |
+`addons` remains a names-only string array for compatibility; `addonDetail` adds recorded line price (total), quantity and included/locked flags. The shape also exposes `id`, `name`, `phone`, `address`, `bestTime`, `plan`, `basePrice`, `total`, `isTest`, `submittedAt`, `status`, and `notes` (`status`, `text`, `timestamp`). `addon_total` and `updated_at` are queried internally but are not fields in this JSON contract. The dashboard should use saved snapshot totals, not reprice historical rows.
 
-Implemented in `lib/submissions.js` (`shapeSubmission`), used by both
-`GET /api/submissions` and `PATCH /api/submissions/:id`.
+## Routes and classification
 
-`addon_total` and `updated_at` exist in the DB but aren't currently surfaced in the
-JSON contract — useful for internal queries/audit, not read by the UI today.
+- `POST /api/care-plan-request` forces `is_test=0` and normally notifies the office.
+- `POST /api/test/care-plan-request` forces `is_test=1` and suppresses routine notifications; keep behind Cloudflare Access.
+- `GET /api/pricing` provides live D1 catalog for the protected practice Builder; never expose as the required public WordPress pricing feed.
+- `GET /catalog.json` is a **static build artifact** produced from the same catalog shape via `scripts/build-catalog.mjs`; WordPress Builder and all four plan pages fetch this static URL without staff authentication.
+- `GET/PUT /api/pricing-admin` is protected by its own JWT validation in application code **as well as** required edge Access.
+- `GET /api/submissions`, `PATCH /api/submissions/:id` rely on required Cloudflare Access policy at the edge; these handlers do not independently validate JWTs.
 
-## Migrations
-
-`0003` is deliberately skipped: `0003_add_auth_audit_columns.sql` belongs to the
-Cloudflare Access work. The intake work starts at `0004`.
-
-| Migration | What |
-|---|---|
-| `0001_init_schema.sql` | core schema |
-| `0002_seed_data.sql` | 4 sample submissions (local dev only) |
-| `0003_…` | **reserved** for the Access branch, not in this repo |
-| `0004_best_time_and_addon_flags.sql` | widens the `best_time` CHECK (table rebuild), adds `included_free`/`locked` |
-| `0005_intake_rate_limit.sql` | the rate-limit table |
-| `0006_pricing.sql` | editable pricing tables, audit history, version marker, and generated catalog seed |
-| `0007_submission_is_test.sql` | additive `is_test` column, exact seed-fixture backfill, and qbb label correction |
-
-`0004` rebuilds `submissions`, because SQLite cannot ALTER a CHECK constraint. Note
-that `DROP TABLE` on a parent runs an implicit `DELETE FROM`, and that **does** fire
-`ON DELETE CASCADE` on `submission_addons`/`submission_notes` — `PRAGMA
-defer_foreign_keys` defers constraint *checking*, it does not stop a cascade action.
-So the migration copies both child tables aside and restores them after the rebuild.
-Verified locally: the 4 seed submissions kept all 5 add-on rows and all 4 notes.
-
-
-### Live/Test classification
-
-`is_test` is not accepted as authority from the browser. The live and practice route
-wrappers pass a trusted boolean to the single shared intake handler, which passes it to
-persistence. Unknown pre-0007 rows remain live by default. The four rows created by the
-documented `0002` seed migration are marked test only when their exact fixture identity
-matches. Test rows are retained and surfaced by the dashboard; they are not identified by
-id ranges.
-
-## 0008 — editor-managed catalog text
-
-`0008_catalog_text.sql` is additive and never touches submissions or child tables.
-It backfills the current Builder strings character for character; it does not change prices.
-
-| Table | New column | Meaning |
-|---|---|---|
-| pricing_items | short_label TEXT | Plan tab label; NULL for add-ons |
-| pricing_items | description TEXT | Plan tagline or add-on description |
-| pricing_audit | field TEXT NOT NULL DEFAULT 'price' | price, label, short_label or description |
-| pricing_audit | old_value TEXT / new_value TEXT | Per-field history, including price changes |
-
-`label` remains the plan full name or add-on name. Price audits retain old_price/new_price;
-text audits set those two columns to NULL. One accepted save changes the catalog version once.
-`loadCatalog` returns the existing price maps plus `text.plans[id].{full,name,tagline}` and
-`text.addons[id].{name,desc}`. Missing or invalid required fields make the catalog unavailable.
-
-## 0009 — approved full plan-name correction
-
-The original `submissions.plan` CHECK accepts only four literal names. Approved migration
-`migrations/0009_submission_plan_names.sql` replaces that restriction with a bounded
-plain-text CHECK (1–60 characters, nonempty after trim, no angle brackets). Intake still
-validates names through the complete live D1 catalog; pricing rules remain based on IDs.
-
-SQLite cannot ALTER a CHECK, so 0009 rebuilds `submissions`. It preserves historical values,
-all child rows and their flags, submission classification, indexes, IDs and the AUTOINCREMENT
-high-water mark. Existing names are not rewritten. The remaining best_time/status/is_test
-checks remain intact. Isolated tests and the local D1 integration suite verify the migration.
-
-Compare remote columns, indexes and triggers with the repository before applying it; any
-extra columns or auth-related schema require an adapted migration. Back up first and pause
-intake writes during the operation. The editor keeps full names read-only and rejects
-unsupported renames before writing until the updated CHECK is detected. Do not rewrite
-already-applied migrations.
+**Cloudflare Access path coverage, actual production schema/application of migrations, and deployed notification/Turnstile state must be checked operationally.** None is provable merely from migration or source files.

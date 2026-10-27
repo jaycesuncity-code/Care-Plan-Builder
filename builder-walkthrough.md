@@ -1,5 +1,17 @@
 # Care Plan Builder — LiveCanvas Find/Replace walkthrough
 
+> **CURRENT ROUTING OVERRIDE — October 27, 2026.** The twenty numbered
+> Find/Replace blocks below document a **historical transformation** from an
+> earlier LiveCanvas Builder snapshot. Keep their literal Find/Replace examples
+> for reference and test parity; **do not replay them blindly** against current
+> WordPress or the current practice Builder. The single Pages project is
+> `care-plan-builder.pages.dev`: public WordPress pricing reads
+> `https://care-plan-builder.pages.dev/catalog.json` and live requests POST to
+> `https://care-plan-builder.pages.dev/api/care-plan-request`. The protected
+> practice Builder permanently uses `/api/pricing` and
+> `/api/test/care-plan-request`. There is **no future repo/Pages split**.
+> For the actual launch procedure, follow `SETUP.md` and `LAUNCH-CHECKLIST.md`.
+
 Twenty edits bring the hand-maintained LiveCanvas copy of the Builder in line with the
 sandbox intake and live-pricing flow. A separate Premier policy-sync section below documents the targeted
 pricing/UI corrections added afterward; nothing unrelated in the block changes.
@@ -486,8 +498,10 @@ Turnstile token, and gives the rate limit its own message with a wait time from 
 
 ## 15. [Required] Add the public pricing endpoint + version — JS
 
-Append the read-only pricing endpoint to the launch-config block. At launch it points at the
-same public intake project as the submit endpoint. Expected matches: **1**
+Historical one-time pricing-loader addition for the older source snapshot. The
+staff Builder still uses live D1 `/api/pricing`; the public WordPress Builder
+now uses the **static catalog on this same Pages project**, not a separate intake
+project. Expected matches in the original snapshot: **1**
 
 **Find this**
 
@@ -832,10 +846,11 @@ confirmation screen. Specifically:
    while submitting. A CORS error means the live origin isn't in the endpoint's
    `ALLOWED_ORIGINS` — that list lives in `wrangler.toml`, not the Cloudflare dashboard
    (see `SETUP.md`).
-5. **The 429 wording reads sensibly.** Submit six times in a row from one connection.
-   The sixth should be refused with the wait-time message, not a generic failure.
-6. **Delete the test rows** from the dashboard once you're happy, and remember the first
-   real submission number will follow your test ones.
+5. **The 429 wording reads sensibly.** Verify rate limiting in bounded local/API
+   tests, not by spamming six real production leads and notifications.
+6. **Review and clean up the one controlled smoke-test request**, only after
+   approval and by its exact recorded ID. Never delete a production ID range
+   on the assumption that all later rows are synthetic.
 
 
 ## Pricing unavailable repair — LiveCanvas synchronization
@@ -857,7 +872,13 @@ The repository copy at `public/careplan-builder/index.html` is now the permanent
 practice Builder. Its `SUBMIT_ENDPOINT` is `/api/test/care-plan-request`, which forces
 `is_test=1` on the server. Do not add a browser test-mode field or toggle.
 
-At the later split, the WordPress/public copy changes its submit URL to the public
-project's `/api/care-plan-request` and its pricing URL to that project's `/api/pricing`,
-with the production Turnstile sitekey. Pricing, validation, and interaction behavior
-otherwise stay aligned with this practice copy.
+For the current **single-project** launch, copy the reviewed Builder block into
+WordPress/LiveCanvas, use
+`SUBMIT_ENDPOINT = "https://care-plan-builder.pages.dev/api/care-plan-request"`
+and `CATALOG_ENDPOINT = "https://care-plan-builder.pages.dev/catalog.json"`,
+and configure a real production Turnstile sitekey. All four WordPress plan pages
+also use `CATALOG_URL = "https://care-plan-builder.pages.dev/catalog.json"`.
+Do **not** change the repository practice Builder or copy the historical
+live-`/api/pricing` launch guidance from the numbered examples into WordPress.
+Pricing, validation and interaction rules should stay aligned with the current
+source templates and server-side catalog, not old saved page copies.

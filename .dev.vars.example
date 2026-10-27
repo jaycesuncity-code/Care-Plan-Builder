@@ -46,8 +46,9 @@ ALLOWED_ORIGINS="http://localhost:8788,http://127.0.0.1:8788"
 
 
 # --- Pricing editor / Cloudflare Access ------------------------------------
-# Production/Preview: add ACCESS_TEAM_DOMAIN and ACCESS_AUD to the GATED
-# DASHBOARD project as encrypted Secrets. ACCESS_AUD must be the AUD tag for
+# Production/Preview: add ACCESS_TEAM_DOMAIN and ACCESS_AUD to the existing
+# Pages project as encrypted Secrets. Protect private paths with Access.
+# ACCESS_AUD must be the AUD tag for
 # the pricing-specific Access application protecting /pricing* +
 # /api/pricing-admin*, NOT the dashboard application's AUD.
 #
@@ -65,7 +66,7 @@ DEV_ADMIN_EMAIL="local-editor@example.com"
 # Leave unset in production so https://<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs is used.
 # ACCESS_JWKS_URL="http://127.0.0.1:8799/access/jwks"
 
-# --- Catalog publishing (gated dashboard only; leave blank locally) ---------
+# --- Catalog publishing (server-side secret on shared Pages project) --------
 CATALOG_DEPLOY_HOOK_URLS=""
 PUBLIC_CATALOG_URL=""
 # BUILD environment only, on each Pages project generating catalog.json.
