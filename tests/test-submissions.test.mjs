@@ -76,10 +76,10 @@ test("route wrappers hard-code classification and practice Builder cannot send i
   assert.doesNotMatch(builder,/\bis_test\s*:/); assert.doesNotMatch(builder,/\bisTest\s*:/);
 });
 
-test("dashboard includes All Live Test filters and non-color TEST labels",()=>{
+test("dashboard includes All Real Test filters and non-color TEST labels",()=>{
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(html,/id="submissionTypeFilter"/);
-  assert.match(html,/value="all">All/); assert.match(html,/value="live">Live/); assert.match(html,/value="test">Test/);
+  assert.match(html,/value="all">All/); assert.match(html,/value="live">Real/); assert.match(html,/value="test">Test/);
   assert.match(html,/>TEST<\/span>/); assert.match(html,/TEST SUBMISSION/);
   assert.match(html,/SUBMISSIONS\.filter\(r => !r\.isTest\)/);
 });
