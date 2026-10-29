@@ -2,13 +2,14 @@
 // Replaces the dashboard's old MOCK_SUBMISSIONS array with a live query
 // against D1, joining in each submission's addons and notes.
 //
-// NOTE: unauthenticated, same as the rest of this repo — see README's
-// "Known gaps" section. Cloudflare Access is expected to gate this at
-// the edge once that's configured.
+// Cloudflare Access at the edge plus independent server-side dashboard JWT verification.
 
 import { jsonResponse, groupBy, shapeSubmission, SUBMISSION_COLUMNS } from "../../../lib/submissions.js";
+import { authenticateDashboardStaff } from "../../../lib/admin/access.js";
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
+  const auth = await authenticateDashboardStaff(request, env);
+  if (!auth.ok) return jsonResponse({ error: auth.message, code: auth.code }, auth.status);
   try {
     const { results: submissions } = await env.DB.prepare(
       `SELECT ${SUBMISSION_COLUMNS} FROM submissions ORDER BY submitted_at DESC`

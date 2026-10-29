@@ -133,6 +133,8 @@ export function startMocks() {
 export async function startPagesDev(vars, { quiet = true } = {}) {
   const merged = {
     TURNSTILE_SECRET: TURNSTILE_PASS,
+    TURNSTILE_TEST_SECRET: TURNSTILE_PASS,
+    DEV_ADMIN_EMAIL: "local-staff@suncitylc.com",
     TURNSTILE_VERIFY_URL: `${MOCK_BASE}/turnstile/siteverify`,
     N8N_WEBHOOK_URL: `${MOCK_BASE}/webhook/care-plan-request`,
     N8N_WEBHOOK_SECRET: "test-webhook-secret",
