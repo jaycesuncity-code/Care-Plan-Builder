@@ -5,6 +5,10 @@ import { readFileSync } from "node:fs";
 import { notifyN8n } from "../lib/intake/notify.js";
 import { insertSubmission } from "../lib/intake/persist.js";
 import { shapeSubmission } from "../lib/submissions.js";
+import { getPlan, getAddon } from "../lib/intake/catalog.js";
+import { authenticateDashboardStaff } from "../lib/admin/access.js";
+import { onRequestGet } from "../functions/api/submissions/index.js";
+import { onRequestPatch } from "../functions/api/submissions/[id].js";
 
 function fakeDb() {
   const calls = [];
@@ -82,4 +86,31 @@ test("dashboard includes All Real Test filters and non-color TEST labels",()=>{
   assert.match(html,/value="all">All/); assert.match(html,/value="live">Real/); assert.match(html,/value="test">Test/);
   assert.match(html,/>TEST<\/span>/); assert.match(html,/TEST SUBMISSION/);
   assert.match(html,/SUBMISSIONS\.filter\(r => !r\.isTest\)/);
+});
+
+// Independent audit regressions (October 2026).
+test("prototype keys are invalid plan/addon ids", () => {
+  for (const key of ["constructor", "__proto__", "toString"]) {
+    assert.equal(getPlan(key), null);
+    assert.equal(getAddon(key), null);
+  }
+});
+
+test("submission APIs fail closed without dashboard Access configuration", async () => {
+  const request = new Request("https://care-plan-builder.pages.dev/api/submissions");
+  const result = await authenticateDashboardStaff(request, {});
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 503);
+  // Same Access application: no duplicate DASHBOARD_ACCESS_AUD binding required.
+  const sharedAud = await authenticateDashboardStaff(request, { ACCESS_TEAM_DOMAIN: "suncitylc.cloudflareaccess.com", ACCESS_AUD: "shared-aud" });
+  assert.equal(sharedAud.ok, false);
+  assert.equal(sharedAud.status, 401);
+  assert.equal(sharedAud.code, "AUTH_REQUIRED");
+  assert.equal((await onRequestGet({ request, env: {} })).status, 503);
+  assert.equal((await onRequestPatch({request:new Request(request.url,{method:"PATCH"}),env:{},params:{id:"1"}})).status,503);
+});
+
+test("separate live and practice Turnstile secrets are enforced", () => {
+  const source = readFileSync(new URL("../lib/intake/handle-request.js", import.meta.url), "utf8");
+  assert.match(source, /isTest \? env\.TURNSTILE_TEST_SECRET : env\.TURNSTILE_SECRET/);
 });

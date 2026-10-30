@@ -4,12 +4,14 @@
 // note is present — inserts a submission_notes row tagged with the new
 // status. Replaces the old client-side applyStatusChange() array mutation.
 //
-// NOTE: unauthenticated, same as the rest of this repo — see README's
-// "Known gaps" section.
+// Cloudflare Access at the edge plus independent server-side dashboard JWT verification.
 
 import { STATUSES, jsonResponse, shapeSubmission, SUBMISSION_COLUMNS } from "../../../lib/submissions.js";
+import { authenticateDashboardStaff } from "../../../lib/admin/access.js";
 
 export async function onRequestPatch({ request, env, params }) {
+  const auth = await authenticateDashboardStaff(request, env);
+  if (!auth.ok) return jsonResponse({ error: auth.message, code: auth.code }, auth.status);
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return jsonResponse({ error: "Invalid submission id" }, 400);

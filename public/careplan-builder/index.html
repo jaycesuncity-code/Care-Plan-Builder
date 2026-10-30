@@ -463,7 +463,7 @@
 #sc-cpb .cpb-line.is-plan .cpb-line-name { font-weight: 900; color: var(--cpb-ink); }
 #sc-cpb .cpb-line-price { font-weight: 900; color: var(--cpb-ink); white-space: nowrap; }
 #sc-cpb .cpb-line-remove {
-  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--cpb-off); color: var(--cpb-muted); font-size: 10px; line-height: 1;
   transition: background-color .15s ease, color .15s ease;
@@ -942,6 +942,12 @@
      theme-color transitions are disabled too, not just child elements'. */
   #sc-cpb, #sc-cpb *, #sc-cpb *::before, #sc-cpb *::after { animation: none !important; transition: none !important; }
 }
+/* High-contrast focus indicators for accessible keyboard navigation. */
+#sc-cpb .cpb-cta:focus-visible, #sc-cpb .cpb-addon:focus-visible,
+#sc-cpb .cpb-addon-info:focus-visible, #sc-cpb .cpb-qty-plus:focus-visible,
+#sc-cpb .cpb-qty-minus:focus-visible, #sc-cpb .cpb-line-remove:focus-visible,
+#sc-cpb .cpb-modal-close:focus-visible { outline-color: #6B1A2C; }
+#sc-cpb .cpb-qty-input:focus-visible { outline: 2px solid #6B1A2C; outline-offset: 1px; }
 </style>
 
   <header class="cpb-masthead">
@@ -982,13 +988,14 @@
     <div class="cpb-layout">
       <div class="cpb-main">
         <div class="cpb-plans" role="radiogroup" aria-label="Base plan" data-cpb="plans"></div>
-        <section class="cpb-detail" aria-live="polite" data-cpb="detail"></section>
+        <section class="cpb-detail" data-cpb="detail"></section>
       </div>
 
       <aside class="cpb-side" aria-labelledby="cpb-totals-title">
         <h3 class="cpb-h3" id="cpb-totals-title">Your Plan &amp; Total</h3>
 
         <div class="cpb-pricing-status" data-cpb="pricing-status" role="status">Loading current pricing…</div>
+        <noscript><p>This builder requires JavaScript to show current pricing. Call 575-526-9758 instead.</p></noscript>
         <div class="cpb-monthly">
           <div class="cpb-monthly-head">
             <span class="cpb-monthly-label">Average Cost Per Month</span>
@@ -1952,7 +1959,7 @@
     var controller = new AbortController();
     var timer;
     var deadline = new Promise(function (_, reject) {
-      timer = setTimeout(function () { controller.abort(); reject(new Error('pricing timeout')); }, 1500);
+      timer = setTimeout(function () { controller.abort(); reject(new Error('pricing timeout')); }, 6000);
     });
     // The deadline covers both the request and JSON body, even if either stalls.
     pricingLoad = Promise.race([
