@@ -101,6 +101,11 @@ test("submission APIs fail closed without dashboard Access configuration", async
   const result = await authenticateDashboardStaff(request, {});
   assert.equal(result.ok, false);
   assert.equal(result.status, 503);
+  // Same Access application: no duplicate DASHBOARD_ACCESS_AUD binding required.
+  const sharedAud = await authenticateDashboardStaff(request, { ACCESS_TEAM_DOMAIN: "suncitylc.cloudflareaccess.com", ACCESS_AUD: "shared-aud" });
+  assert.equal(sharedAud.ok, false);
+  assert.equal(sharedAud.status, 401);
+  assert.equal(sharedAud.code, "AUTH_REQUIRED");
   assert.equal((await onRequestGet({ request, env: {} })).status, 503);
   assert.equal((await onRequestPatch({request:new Request(request.url,{method:"PATCH"}),env:{},params:{id:"1"}})).status,503);
 });
